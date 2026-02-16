@@ -28,6 +28,7 @@ jest.mock('firebase/database', () => ({
 }))
 
 jest.mock('tldraw', () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- mock factory needs sync require
   const React = require('react')
   return {
     Tldraw: () => React.createElement('div', { 'data-testid': 'tldraw-mock' }),
