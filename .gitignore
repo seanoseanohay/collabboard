@@ -1,0 +1,74 @@
+# ────────────────────────────────────────────────────────────────
+# Node.js / npm / Yarn / pnpm
+# ────────────────────────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+# package-lock.json  # uncomment to ignore; we commit for reproducibility
+yarn.lock            # ← same as above; pick one lockfile
+.pnpm-lock.yaml
+
+# ────────────────────────────────────────────────────────────────
+# Vite / React / Build output
+# ────────────────────────────────────────────────────────────────
+dist/
+build/
+*.log
+coverage/
+vite.config.*.local.*
+
+# ────────────────────────────────────────────────────────────────
+# Environment variables & secrets (critical!)
+# ────────────────────────────────────────────────────────────────
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*.local
+
+# Firebase secrets (NEVER commit!)
+# .firebaserc contains project aliases and can indirectly leak info
+.firebaserc
+.firebaserc.*
+firebase-debug.log*
+firebase-debug.*.log
+
+# Firebase emulator data (if you use local emulators later)
+.firebase/
+emulator-data/
+
+# ────────────────────────────────────────────────────────────────
+# tldraw / canvas temp files (rare, but possible)
+# ────────────────────────────────────────────────────────────────
+*.tldr-backup
+*.tldr-temp
+
+# ────────────────────────────────────────────────────────────────
+# Editor / OS / IDE files
+# ────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ────────────────────────────────────────────────────────────────
+# Testing / coverage
+# ────────────────────────────────────────────────────────────────
+coverage/
+.nyc_output/
+jest-stare/
+
+# ────────────────────────────────────────────────────────────────
+# Temporary / build artifacts
+# ────────────────────────────────────────────────────────────────
+*.bak
+*.tmp
+*.temp

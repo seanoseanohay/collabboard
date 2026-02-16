@@ -1,0 +1,25 @@
+---
+description: CollabBoard project rules and PRD patterns
+alwaysApply: true
+---
+
+# CollabBoard Project Rules
+
+## Stack (from PRD v4.7)
+- **Frontend:** React + tldraw SDK v4.3.2
+- **Sync:** Firebase Realtime Database (RTDB) — delta-only, object-level patches
+- **Auth:** Firebase Auth (Google + Email)
+- **AI:** Anthropic Claude via Firebase Cloud Functions
+- **Deploy:** Vercel + Firebase
+
+## Critical Constraints
+- **Sync:** Never write full board state. Use object-level deltas only. RTDB `.update()` multi-path for atomic writes. Server timestamps via `.sv: "timestamp"`.
+- **Locking:** Dual-layer (client disable + server RTDB transactions). AI never overrides locks.
+- **IDs:** Client-side UUID v4 (`crypto.randomUUID()`).
+
+## Code Standards
+- Single Responsibility Principle
+- File size: target <400 LOC, hard max 1000 LOC
+- Feature-sliced folder structure
+- No cross-feature imports except via interfaces
+- Jest + React Testing Library; ESLint + Prettier + Husky

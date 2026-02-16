@@ -1,0 +1,16 @@
+{
+  "rules": {
+    "boards": {
+      "$boardId": {
+        ".read": "auth != null && root.child('boards').child($boardId).child('members').child(auth.uid).exists()",
+        ".write": "auth != null && (!data.exists() && newData.child('members').child(auth.uid).exists() || data.child('members').child(auth.uid).exists())"
+      }
+    },
+    "user_boards": {
+      "$userId": {
+        ".read": "auth != null && auth.uid === $userId",
+        ".write": "auth != null && auth.uid === $userId"
+      }
+    }
+  }
+}
