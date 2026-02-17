@@ -20,6 +20,7 @@ export async function acquireLock(
 ): Promise<boolean> {
   const supabase = getSupabaseClient()
 
+  // Check if lock already exists (optimization to avoid unnecessary insert)
   const { data: existing } = await supabase
     .from('locks')
     .select('user_id')
@@ -29,19 +30,36 @@ export async function acquireLock(
 
   if (existing && existing.user_id !== userId) return false
 
-  const { error } = await supabase.from('locks').upsert(
-    {
-      board_id: boardId,
-      object_id: objectId,
-      user_id: userId,
-      user_name: userName,
-      last_active: Date.now(),
-    },
-    { onConflict: 'board_id,object_id' }
-  )
+  // Use INSERT instead of UPSERT - database enforces mutual exclusion via unique constraint
+  // If another user already holds the lock, INSERT will fail with unique constraint violation
+  const { error } = await supabase.from('locks').insert({
+    board_id: boardId,
+    object_id: objectId,
+    user_id: userId,
+    user_name: userName,
+    last_active: Date.now(),
+  })
+
+  // Error code 23505 = unique constraint violation (lock already held by another user)
+  if (error) {
+    // If it's our own lock, update it (reacquiring after connection drop)
+    if (existing && existing.user_id === userId) {
+      const { error: updateError } = await supabase
+        .from('locks')
+        .update({ last_active: Date.now() })
+        .eq('board_id', boardId)
+        .eq('object_id', objectId)
+        .eq('user_id', userId)
+      
+      if (updateError) return false
+    } else {
+      // Lock held by someone else - acquisition failed
+      return false
+    }
+  }
 
   // Broadcast lock acquisition for instant propagation (<100ms)
-  if (!error && broadcastChannel) {
+  if (broadcastChannel) {
     broadcastChannel.send({
       type: 'broadcast',
       event: 'lock_acquired',
@@ -49,7 +67,7 @@ export async function acquireLock(
     })
   }
 
-  return !error
+  return true
 }
 
 export async function releaseLock(
