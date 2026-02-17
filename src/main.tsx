@@ -5,9 +5,9 @@ import App from './App'
 import './index.css'
 
 createRoot(document.getElementById('root')!).render(
-  <StrictMode>
+  // <StrictMode> - temporarily disabled for Realtime debugging
     <BrowserRouter>
       <App />
     </BrowserRouter>
-  </StrictMode>
+  // </StrictMode>
 )
