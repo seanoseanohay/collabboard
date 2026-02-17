@@ -75,6 +75,7 @@ export function FabricCanvas({
     let drawStart: { x: number; y: number } | null = null
     let drawEnd: { x: number; y: number } | null = null
     let previewObj: FabricObject | null = null
+    let objectWasTransformed = false  // Track if object was rotated/scaled/moved
     const MIN_ZOOM = 0.02  // 2% - zoom out for broad view (infinite canvas)
     const MAX_ZOOM = 20   // 2000% - zoom in for detail work
 
@@ -119,6 +120,7 @@ export function FabricCanvas({
       if (!('clientX' in ev)) return
       const target = opt.target
       const tool = toolRef.current
+      objectWasTransformed = false  // Reset at start of each mouse interaction
 
       if (isShapeTool(tool) && 'button' in ev && ev.button === 0 && !target) {
         const sp = getScenePoint(opt)
@@ -253,6 +255,9 @@ export function FabricCanvas({
       if (!target) return
       const active = fabricCanvas.getActiveObject()
       
+      // Don't enter edit mode if the object was just transformed (rotated, scaled, moved)
+      if (objectWasTransformed) return
+      
       // Check if we clicked on an already-selected object
       const clickedOnActive =
         active === target ||
@@ -362,6 +367,10 @@ export function FabricCanvas({
       }
     }
 
+    const handleObjectTransforming = () => {
+      objectWasTransformed = true
+    }
+
     fabricCanvas.on('object:added', handleObjectAdded)
     fabricCanvas.on('selection:created', handleSelectionCreated)
     fabricCanvas.getObjects().forEach((obj) => {
@@ -369,6 +378,10 @@ export function FabricCanvas({
         attachTextEditOnDblClick(obj)
       }
     })
+    // Track when objects are transformed (moved, scaled, rotated)
+    fabricCanvas.on('object:moving', handleObjectTransforming)
+    fabricCanvas.on('object:scaling', handleObjectTransforming)
+    fabricCanvas.on('object:rotating', handleObjectTransforming)
     fabricCanvas.on('mouse:wheel', handleWheel)
     fabricCanvas.on('mouse:down', handleMouseDown)
     fabricCanvas.on('mouse:move', handleMouseMove)
@@ -389,6 +402,9 @@ export function FabricCanvas({
       cleanupSync()
       fabricCanvas.off('object:added', handleObjectAdded)
       fabricCanvas.off('selection:created', handleSelectionCreated)
+      fabricCanvas.off('object:moving', handleObjectTransforming)
+      fabricCanvas.off('object:scaling', handleObjectTransforming)
+      fabricCanvas.off('object:rotating', handleObjectTransforming)
       document.removeEventListener('keydown', handleKeyDown)
       document.removeEventListener('keyup', handleKeyUp)
       fabricCanvas.off('mouse:wheel', handleWheel)
