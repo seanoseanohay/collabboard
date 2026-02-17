@@ -32,9 +32,11 @@ export function createShape(
   x1: number,
   y1: number,
   x2: number,
-  y2: number
+  y2: number,
+  options?: { assignId?: boolean }
 ): FabricObject | null {
-  const id = crypto.randomUUID()
+  const assignId = options?.assignId !== false
+  const id = assignId ? crypto.randomUUID() : ''
   const left = Math.min(x1, x2)
   const top = Math.min(y1, y2)
   const width = Math.max(1, Math.abs(x2 - x1))
@@ -48,7 +50,7 @@ export function createShape(
   }
 
   const withId = (obj: FabricObject) => {
-    obj.set('data', { ...(obj.get('data') as object), [OBJ_ID_KEY]: id })
+    if (assignId && id) obj.set('data', { ...(obj.get('data') as object), [OBJ_ID_KEY]: id })
     return obj
   }
 

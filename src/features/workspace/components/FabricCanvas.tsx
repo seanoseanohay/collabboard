@@ -114,7 +114,7 @@ export function FabricCanvas({
         if (sp) {
           isDrawing = true
           drawStart = sp
-          const shape = createShape(tool, sp.x, sp.y, sp.x, sp.y)
+          const shape = createShape(tool, sp.x, sp.y, sp.x, sp.y, { assignId: false })
           if (shape) {
             previewObj = shape
             shape.selectable = false
@@ -150,7 +150,7 @@ export function FabricCanvas({
         const sp = getScenePoint(opt)
         if (sp) {
           drawEnd = sp
-          const shape = createShape(tool, drawStart.x, drawStart.y, sp.x, sp.y)
+          const shape = createShape(tool, drawStart.x, drawStart.y, sp.x, sp.y, { assignId: false })
           if (shape) {
             fabricCanvas.remove(previewObj)
             previewObj = shape
