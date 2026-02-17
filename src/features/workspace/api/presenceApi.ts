@@ -1,16 +1,8 @@
 /**
- * RTDB presence for multiplayer cursors.
- * Path: presence/{boardId}/{userId}
+ * Supabase presence for multiplayer cursors.
  */
 
-import {
-  ref,
-  set,
-  onValue,
-  onDisconnect as rtdbOnDisconnect,
-  type Unsubscribe,
-} from 'firebase/database'
-import { getDatabaseInstance } from '@/shared/lib/firebase/config'
+import { getSupabaseClient } from '@/shared/lib/supabase/config'
 
 export interface PresencePayload {
   x: number
@@ -24,57 +16,79 @@ export interface PresenceEntry extends PresencePayload {
   userId: string
 }
 
-function getPresencePath(boardId: string, userId: string): string {
-  return `presence/${boardId}/${userId}`
-}
-
 export function writePresence(
   boardId: string,
   userId: string,
   payload: PresencePayload
 ): void {
-  const db = getDatabaseInstance()
-  const presenceRef = ref(db, getPresencePath(boardId, userId))
-  set(presenceRef, payload)
+  const supabase = getSupabaseClient()
+  supabase
+    .from('presence')
+    .upsert(
+      {
+        board_id: boardId,
+        user_id: userId,
+        x: payload.x,
+        y: payload.y,
+        name: payload.name,
+        color: payload.color,
+        last_active: payload.lastActive,
+      },
+      { onConflict: 'board_id,user_id' }
+    )
+    .then(() => {})
 }
 
 export function subscribeToPresence(
   boardId: string,
   onPresence: (entries: PresenceEntry[]) => void
-): Unsubscribe {
-  const db = getDatabaseInstance()
-  const presenceRef = ref(db, `presence/${boardId}`)
+): () => void {
+  const supabase = getSupabaseClient()
 
-  const unsub = onValue(presenceRef, (snapshot) => {
-    const val = snapshot.val()
-    if (!val || typeof val !== 'object') {
-      onPresence([])
-      return
-    }
-    const entries: PresenceEntry[] = []
-    for (const [uid, data] of Object.entries(val)) {
-      if (uid && data && typeof data === 'object') {
-        const d = data as Record<string, unknown>
-        const x = typeof d.x === 'number' ? d.x : 0
-        const y = typeof d.y === 'number' ? d.y : 0
-        const name = typeof d.name === 'string' ? d.name : 'Anonymous'
-        const color = typeof d.color === 'string' ? d.color : '#6366f1'
-        const lastActive = typeof d.lastActive === 'number' ? d.lastActive : 0
-        entries.push({ userId: uid, x, y, name, color, lastActive })
-      }
-    }
+  const fetch = async () => {
+    const { data } = await supabase
+      .from('presence')
+      .select('user_id, x, y, name, color, last_active')
+      .eq('board_id', boardId)
+
+    const entries: PresenceEntry[] = (data ?? []).map((r) => ({
+      userId: r.user_id,
+      x: r.x ?? 0,
+      y: r.y ?? 0,
+      name: r.name ?? 'Anonymous',
+      color: r.color ?? '#6366f1',
+      lastActive: r.last_active ?? 0,
+    }))
     onPresence(entries)
-  })
+  }
 
-  return unsub
+  fetch()
+
+  let channel: ReturnType<typeof supabase.channel> | null = null
+  const id = setTimeout(() => {
+    channel = supabase
+      .channel(`presence:${boardId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'presence', filter: `board_id=eq.${boardId}` },
+        () => fetch()
+      )
+      .subscribe()
+  }, 0)
+
+  return () => {
+    clearTimeout(id)
+    if (channel) supabase.removeChannel(channel)
+  }
 }
 
+/** Returns cleanup that removes our presence row (call on unmount). */
 export function setupPresenceDisconnect(
   boardId: string,
   userId: string
-): void {
-  const db = getDatabaseInstance()
-  const presenceRef = ref(db, getPresencePath(boardId, userId))
-  const onDisc = rtdbOnDisconnect(presenceRef)
-  onDisc.remove()
+): () => void {
+  return () => {
+    const supabase = getSupabaseClient()
+    supabase.from('presence').delete().eq('board_id', boardId).eq('user_id', userId).then(() => {})
+  }
 }

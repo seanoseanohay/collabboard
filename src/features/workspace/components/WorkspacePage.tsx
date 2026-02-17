@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import type { BoardMeta } from '@/features/boards/api/boardsApi'
 import { useAuth } from '@/features/auth/hooks/useAuth'
 import { FabricCanvas } from './FabricCanvas'
+import { ShareModal } from './ShareModal'
 import { WorkspaceToolbar } from './WorkspaceToolbar'
 import { CursorOverlay } from './CursorOverlay'
 import { usePresence } from '../hooks/usePresence'
@@ -16,6 +17,7 @@ export function WorkspacePage({ board, onBack }: WorkspacePageProps) {
   const [selectedTool, setSelectedTool] = useState<ToolType>('select')
   const [viewportTransform, setViewportTransform] = useState<number[] | null>(null)
   const [canvasSize, setCanvasSize] = useState({ width: 1200, height: 800 })
+  const [shareOpen, setShareOpen] = useState(false)
   const canvasContainerRef = useRef<HTMLDivElement>(null)
 
   const { user } = useAuth()
@@ -57,6 +59,20 @@ export function WorkspacePage({ board, onBack }: WorkspacePageProps) {
           ← Boards
         </button>
         <h1 style={styles.title}>{board.title}</h1>
+        <button
+          type="button"
+          onClick={() => setShareOpen(true)}
+          style={styles.shareBtn}
+          title="Share board"
+        >
+          Share
+        </button>
+        {shareOpen && (
+          <ShareModal
+            board={board}
+            onClose={() => setShareOpen(false)}
+          />
+        )}
         {others.length > 0 && (
           <span style={styles.presence}>
             {others.length} {others.length === 1 ? 'other' : 'others'} viewing
@@ -113,6 +129,14 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 18,
     fontWeight: 600,
     color: '#1a1a2e',
+  },
+  shareBtn: {
+    padding: '6px 14px',
+    fontSize: 14,
+    border: '1px solid #e0e0e0',
+    borderRadius: 6,
+    background: '#fff',
+    cursor: 'pointer',
   },
   presence: {
     marginLeft: 'auto',

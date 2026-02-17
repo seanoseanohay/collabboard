@@ -61,7 +61,7 @@ export function setupBoardSync(
   lockOptions?: BoardSyncLockOptions
 ): () => void {
   let isApplyingRemote = false
-  let currentLockId: string | null = null
+  const currentLockIds = new Set<string>()
   let cancelLockDisconnect: (() => void) | null = null
 
   const stripSyncFields = (d: Record<string, unknown>) => {
@@ -127,28 +127,38 @@ export function setupBoardSync(
     ? subscribeToLocks(boardId, applyLocksToObjects)
     : () => {}
 
-  const tryAcquireLock = async (objectId: string): Promise<boolean> => {
-    if (!lockOptions) return true
-    const ok = await acquireLock(
-      boardId,
-      objectId,
-      lockOptions.userId,
-      lockOptions.userName
+  const tryAcquireLocks = async (objectIds: string[]): Promise<boolean> => {
+    if (!lockOptions || objectIds.length === 0) return true
+    const results = await Promise.all(
+      objectIds.map((id) =>
+        acquireLock(boardId, id, lockOptions!.userId, lockOptions!.userName)
+      )
     )
-    if (ok) {
-      currentLockId = objectId
+    const allOk = results.every(Boolean)
+    if (allOk) {
+      objectIds.forEach((id) => currentLockIds.add(id))
       cancelLockDisconnect?.()
-      cancelLockDisconnect = setupLockDisconnect(boardId, objectId)
+      cancelLockDisconnect = setupLockDisconnect(boardId, objectIds[0] ?? '')
+    } else {
+      for (const id of objectIds) {
+        await releaseLock(boardId, id, lockOptions!.userId)
+      }
     }
-    return ok
+    return allOk
   }
 
-  const tryReleaseLock = async (objectId: string) => {
-    if (!lockOptions || currentLockId !== objectId) return
-    await releaseLock(boardId, objectId, lockOptions.userId)
-    currentLockId = null
-    cancelLockDisconnect?.()
-    cancelLockDisconnect = null
+  const tryReleaseLocks = async (objectIds: string[]) => {
+    if (!lockOptions) return
+    for (const id of objectIds) {
+      if (currentLockIds.has(id)) {
+        await releaseLock(boardId, id, lockOptions.userId)
+        currentLockIds.delete(id)
+      }
+    }
+    if (currentLockIds.size === 0) {
+      cancelLockDisconnect?.()
+      cancelLockDisconnect = null
+    }
   }
 
   const emitAdd = (obj: FabricObject) => {
@@ -193,7 +203,7 @@ export function setupBoardSync(
   canvas.on('object:removed', (e) => {
     if (e.target) {
       const id = getObjectId(e.target)
-      if (id) tryReleaseLock(id)
+      if (id) tryReleaseLocks([id])
       emitRemove(e.target)
     }
   })
@@ -201,31 +211,29 @@ export function setupBoardSync(
   if (lockOptions) {
     canvas.on('selection:created', async (e) => {
       const sel = e.selected
-      if (Array.isArray(sel) && sel.length === 1) {
-        const id = getObjectId(sel[0])
-        if (id) {
-          const ok = await tryAcquireLock(id)
-          if (!ok) {
-            canvas.discardActiveObject()
-            canvas.requestRenderAll()
-          }
+      const objs = Array.isArray(sel) ? sel : sel ? [sel] : []
+      const ids = objs.map(getObjectId).filter((id): id is string => !!id)
+      if (ids.length > 0) {
+        const ok = await tryAcquireLocks(ids)
+        if (!ok) {
+          canvas.discardActiveObject()
+          canvas.requestRenderAll()
         }
       }
     })
     canvas.on('selection:cleared', (e) => {
       const prev = e.deselected
-      if (Array.isArray(prev) && prev.length === 1) {
-        const id = getObjectId(prev[0])
-        if (id) tryReleaseLock(id)
-      }
+      const objs = Array.isArray(prev) ? prev : prev ? [prev] : []
+      const ids = objs.map(getObjectId).filter((id): id is string => !!id)
+      if (ids.length > 0) tryReleaseLocks(ids)
     })
   }
 
   return () => {
     unsub()
     unsubLocks()
-    if (currentLockId && lockOptions) {
-      tryReleaseLock(currentLockId)
+    if (currentLockIds.size > 0 && lockOptions) {
+      tryReleaseLocks([...currentLockIds])
     }
     cancelLockDisconnect?.()
     canvas.off('object:added')

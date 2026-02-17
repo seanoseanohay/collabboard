@@ -1,9 +1,12 @@
 # Active Context
 
 ## Current Focus
-Selection polish, tests, or deployment verification. Locking complete.
+**Google Auth setup** — Complete Google OAuth so "Continue with Google" works. See SUPABASE_SETUP.md §5. User must complete in Google Cloud Console + Supabase Dashboard (manual steps). Selection ✅ complete.
 
 ## Recent Changes
+- **Stack migration** ✅: Firebase → Supabase. Auth (Supabase Auth), DB (Postgres + Realtime), Edge Functions (invite-to-board). RLS replaces RTDB rules.
+- **Google Auth prep** ✅: signInWithGoogle passes redirectTo; SUPABASE_SETUP.md §5 has full steps (Google Cloud Console → Supabase Dashboard → URL config).
+- **Board sharing** ✅: joinBoard API, RTDB members rule (self-join), React Router /board/:boardId, Share button (copy link), Join Board flow (paste link or ID)
 - **Locking:** Dual-layer (client + server). locksApi, acquire on selection, release on deselection, RTDB rules reject writes when lock held by another
 - **Line movement fix:** Replaced Fabric Line (deprecated, transform bug) with Polyline (2 points) — line now moves correctly
 - Clarified: presence = who else is viewing board (list) + cursor dots with name labels
@@ -15,6 +18,9 @@ Selection polish, tests, or deployment verification. Locking complete.
 - FabricCanvas: selectedTool prop, drag-to-draw, preview, Delete/Backspace
 - WorkspacePage: tool state, toolbar above canvas
 
+## Recent Implementations
+- **Selection** ✅: Single + box-select (Fabric built-in); pan = middle-click or Space+drag (not left-drag on empty); boardSync locking for multi-select; Delete key removes all selected objects
+
 ## Next Steps (Recode Order)
 
 1. ~~**Dependencies**~~ ✅
@@ -24,6 +30,8 @@ Selection polish, tests, or deployment verification. Locking complete.
 5. ~~**RTDB delta sync**~~ ✅
 6. ~~**Presence & cursors**~~ ✅ (presenceApi, usePresence, CursorOverlay, RTDB rules)
 7. ~~**Locking**~~ ✅ (locksApi, acquire/release, RTDB rules, not-allowed cursor on locked)
+8. ~~**Board sharing**~~ ✅ (joinBoard, share link, join-by-ID, RTDB members rule)
+9. ~~**Selection**~~ ✅ (single + box-select; pan = middle-click or Space+drag)
 
 ## Active Decisions
 - PRD v5.0: Fabric.js for licensing; viewport culling for perf; AI + Undo post-MVP

@@ -20,7 +20,8 @@ interface FabricCanvasProps {
 /**
  * Fabric.js canvas wrapper with pan/zoom and shape drawing.
  * - Mouse wheel: zoom at cursor
- * - Middle mouse or left-drag on empty: pan (select tool)
+ * - Pan: middle mouse or Space+left-drag (enables box-select on left-drag empty)
+ * - Select tool: single-click object, drag empty = marquee box-select
  * - Shape tools: drag to create rect/circle/triangle/line/text/sticky
  */
 export function FabricCanvas({
@@ -58,6 +59,7 @@ export function FabricCanvas({
 
     let isPanning = false
     let isDrawing = false
+    let spacePressed = false
     let lastPointer: { x: number; y: number } | null = null
     let drawStart: { x: number; y: number } | null = null
     let drawEnd: { x: number; y: number } | null = null
@@ -124,8 +126,8 @@ export function FabricCanvas({
       }
 
       const isMiddle = 'button' in ev && ev.button === 1
-      const isLeftOnEmpty = 'button' in ev && ev.button === 0 && !target
-      if ((isMiddle || isLeftOnEmpty) && tool === 'select') {
+      const isSpaceLeftOnEmpty = 'button' in ev && ev.button === 0 && !target && spacePressed
+      if ((isMiddle || isSpaceLeftOnEmpty) && tool === 'select') {
         isPanning = true
         lastPointer = { x: ev.clientX, y: ev.clientY }
       }
@@ -206,17 +208,34 @@ export function FabricCanvas({
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
+      if (e.key === ' ') {
+        spacePressed = true
+        fabricCanvas.selection = false
+        e.preventDefault()
+      }
       if (e.key === 'Delete' || e.key === 'Backspace') {
         const active = fabricCanvas.getActiveObject()
         if (active) {
           e.preventDefault()
-          fabricCanvas.remove(active)
+          const objs = 'getObjects' in active ? (active as { getObjects: () => FabricObject[] }).getObjects() : [active]
+          objs.forEach((o) => fabricCanvas.remove(o))
           fabricCanvas.discardActiveObject()
           fabricCanvas.requestRenderAll()
         }
       }
     }
+    const handleKeyUp = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
+      if (e.key === ' ') {
+        e.preventDefault()
+        spacePressed = false
+        fabricCanvas.selection = true
+        if (isPanning) handleMouseUp()
+      }
+    }
     document.addEventListener('keydown', handleKeyDown)
+    document.addEventListener('keyup', handleKeyUp)
 
     const lockOpts =
       boardId && userId && userName
@@ -244,6 +263,7 @@ export function FabricCanvas({
     return () => {
       cleanupSync()
       document.removeEventListener('keydown', handleKeyDown)
+      document.removeEventListener('keyup', handleKeyUp)
       fabricCanvas.off('mouse:wheel', handleWheel)
       fabricCanvas.off('mouse:down', handleMouseDown)
       fabricCanvas.off('mouse:move', handleMouseMove)

@@ -1,55 +1,47 @@
-import { useEffect, useRef, useState } from 'react'
-import { type User, onAuthStateChanged } from 'firebase/auth'
-import { getAuthInstance } from '@/shared/lib/firebase/config'
+import { useEffect, useState } from 'react'
+import { getSupabaseClient } from '@/shared/lib/supabase/config'
 
-const AUTH_NULL_DEBOUNCE_MS = 1500
+/** Normalized user shape for app compatibility (maps Supabase User). */
+export interface AuthUser {
+  uid: string
+  email: string | null
+  displayName: string | null
+}
 
 export interface AuthState {
-  user: User | null
+  user: AuthUser | null
   loading: boolean
   error: string | null
 }
 
 export function useAuth(): AuthState {
-  const [user, setUser] = useState<User | null>(null)
+  const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const userRef = useRef<User | null>(null)
 
   useEffect(() => {
-    const auth = getAuthInstance()
-    let pendingNullTimer: ReturnType<typeof setTimeout> | null = null
+    const supabase = getSupabaseClient()
 
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      if (u !== null) {
-        if (pendingNullTimer) {
-          clearTimeout(pendingNullTimer)
-          pendingNullTimer = null
-        }
-        userRef.current = u
-        setUser(u)
-        setLoading(false)
-        setError(null)
-      } else {
-        if (userRef.current !== null) {
-          if (pendingNullTimer) clearTimeout(pendingNullTimer)
-          pendingNullTimer = setTimeout(() => {
-            pendingNullTimer = null
-            userRef.current = null
-            setUser(null)
-          }, AUTH_NULL_DEBOUNCE_MS)
-        } else {
-          setUser(null)
-          setLoading(false)
-        }
+    const mapUser = (u: { id: string; email?: string; user_metadata?: { full_name?: string } } | null) => {
+      if (!u) return null
+      return {
+        uid: u.id,
+        email: u.email ?? null,
+        displayName: (u.user_metadata?.full_name as string) ?? u.email ?? null,
       }
+    }
+
+    supabase.auth.getSession().then(({ data }) => {
+      setUser(mapUser(data.session?.user ?? null))
+      setLoading(false)
     })
 
-    return () => {
-      if (pendingNullTimer) clearTimeout(pendingNullTimer)
-      unsubscribe()
-    }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(mapUser(session?.user ?? null))
+      setLoading(false)
+    })
+
+    return () => subscription.unsubscribe()
   }, [])
 
-  return { user, loading, error }
+  return { user, loading, error: null }
 }

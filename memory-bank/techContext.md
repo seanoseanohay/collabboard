@@ -10,13 +10,13 @@
 - Multiplayer cursors + presence
 
 ### Sync / Backend / Persistence
-- **Firebase Realtime Database (RTDB)**
+- **Supabase PostgreSQL + Realtime**
 - Delta-only object patches
 - Presence & cursors
 - Graceful reconnect
 
 ### Authentication
-- **Firebase Auth** (Google + Email)
+- **Supabase Auth** (Google + Email)
 
 ### AI Integration
 - **Anthropic Claude** (function calling)
@@ -24,7 +24,7 @@
 
 ### Deployment
 - **Vercel** (frontend)
-- **Firebase** (RTDB, Auth, Rules, Cloud Functions)
+- **Supabase** (Postgres, Auth, RLS, Edge Functions)
 
 ## Development Practices
 - Jest + React Testing Library
@@ -38,7 +38,7 @@
 - Viewport culling: use Fabric viewportTransform, object.visible = false for off-screen
 - Rotation excluded from MVP (post-MVP: throttled ~50ms deltas)
 - Undo/Redo excluded from MVP (post-MVP)
-- Presence: RTDB `/presence/{boardId}/{userId}`, update 100ms or mousemove debounce
+- Presence: Supabase `presence` table, 100ms or mousemove debounce
 
 ## Performance Targets
 - 60 FPS during pan/zoom

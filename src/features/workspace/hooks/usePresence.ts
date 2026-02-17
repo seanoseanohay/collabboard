@@ -64,12 +64,13 @@ export function usePresence({ boardId, userId, userName }: UsePresenceOptions): 
 
   useEffect(() => {
     if (!boardId || !userId) return () => {}
-    setupPresenceDisconnect(boardId, userId)
+    const clearPresence = setupPresenceDisconnect(boardId, userId)
     const unsub = subscribeToPresence(boardId, (entries) => {
       setOthers(entries.filter((e) => e.userId !== userId))
     })
     return () => {
       unsub()
+      clearPresence()
       if (debounceRef.current) clearTimeout(debounceRef.current)
     }
   }, [boardId, userId])

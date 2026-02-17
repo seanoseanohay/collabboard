@@ -90,17 +90,20 @@ Functions)**
 
 1.  Login (Google / Email)
 2.  Board List
-3.  Create / Select Board
+3.  Create / Select Board / Join Board (share link or board ID) — **required
+    before collaboration features can be tested**
 4.  Workspace
 
-**Security Model** - Private by default - Multiple boards per user -
-Permanent invite links (revocable post-MVP) - RTDB rules deny read/write
-if not member - No guest access in MVP
+**Security Model** - Private by default - Multiple boards per user - Board
+sharing via invite link in MVP (revocable post-MVP) - RTDB rules deny
+read/write if not member - No guest access in MVP
 
 ------------------------------------------------------------------------
 
 ## 2. MVP Requirements (24-Hour Hard Gate)
 
+-   **Board sharing** — ≥2 users can access the same board (share link or
+    join-by-ID). *Implementation prerequisite for all collaboration features.*
 -   Infinite canvas with smooth pan/zoom
 -   Real-time sync (≥2 users)
 -   Multiplayer cursors with labels
@@ -109,6 +112,19 @@ if not member - No guest access in MVP
 -   Basic selection (single + box-select)
 -   Authentication required
 -   Public Vercel deployment
+
+### Implementation Priority
+
+**Board sharing must be implemented first** (or early in the MVP). Without it,
+multiple users cannot access the same board, which blocks testing of:
+
+-   Real-time sync (≥2 users)
+-   Multiplayer cursors
+-   Presence awareness
+-   Full-object locking
+
+Locking blocks objects when selected; that behavior cannot be verified until
+2+ users can view and interact with the same board.
 
 ------------------------------------------------------------------------
 
@@ -169,6 +185,22 @@ Rotation excluded from MVP (post-MVP support).
 -   Last-write-wins using server timestamps
 -   Optimistic UI + reconciliation
 -   AI commands serialized per board (when AI is implemented)
+
+### 5.1 Board Sharing (MVP Prerequisite)
+
+Collaboration features (sync, cursors, presence, locking) require ≥2 users on
+the same board. MVP must include at least one of:
+
+-   **Shareable link** — URL that adds the visitor as a board member when
+    opened (e.g. `/board/{boardId}/invite/{token}` or join flow)
+-   **Join by board ID** — authenticated user can enter a board ID and be
+    added as member if the board exists and they are invited
+
+**Implementation:** Add invited user to
+`boards/{boardId}/members/{userId}` and `user_boards/{userId}/{boardId}`.
+RTDB rules already enforce member access.
+
+**Post-MVP:** Revocable links, per-link expiry, owner-only revocation.
 
 ------------------------------------------------------------------------
 
@@ -288,6 +320,8 @@ for server-side serialization.
 
 ### MVP Complete When
 
+-   **Board sharing works** — 2+ users can open the same board; unblocks
+    testing of all collaboration features
 -   Cross-browser real-time sync works
 -   Dual-layer locking prevents corruption
 -   Selection enables core operations

@@ -1,18 +1,8 @@
 /**
- * RTDB locks for object-level editing. Prevents concurrent edits.
- * Path: boards/{boardId}/locks/{objectId}
+ * Supabase locks for object-level editing. Prevents concurrent edits.
  */
 
-import {
-  ref,
-  onValue,
-  runTransaction,
-  onDisconnect as rtdbOnDisconnect,
-  type Unsubscribe,
-} from 'firebase/database'
-import { getDatabaseInstance } from '@/shared/lib/firebase/config'
-
-const LOCKS_PATH = 'locks'
+import { getSupabaseClient } from '@/shared/lib/supabase/config'
 
 export interface LockEntry {
   objectId: string
@@ -21,89 +11,104 @@ export interface LockEntry {
   lastActive: number
 }
 
-function getLocksPath(boardId: string): string {
-  return `boards/${boardId}/${LOCKS_PATH}`
-}
-
-function getLockPath(boardId: string, objectId: string): string {
-  return `${getLocksPath(boardId)}/${objectId}`
-}
-
-export function acquireLock(
+export async function acquireLock(
   boardId: string,
   objectId: string,
   userId: string,
   userName: string
 ): Promise<boolean> {
-  const db = getDatabaseInstance()
-  const lockRef = ref(db, getLockPath(boardId, objectId))
+  const supabase = getSupabaseClient()
 
-  return runTransaction(lockRef, (current) => {
-    if (current.exists() && current.val().userId !== userId) {
-      return // Abort: someone else holds the lock
-    }
-    return {
-      userId,
-      userName,
-      lastActive: Date.now(),
-    }
-  }).then((result) => result.committed)
+  const { data: existing } = await supabase
+    .from('locks')
+    .select('user_id')
+    .eq('board_id', boardId)
+    .eq('object_id', objectId)
+    .maybeSingle()
+
+  if (existing && existing.user_id !== userId) return false
+
+  const { error } = await supabase.from('locks').upsert(
+    {
+      board_id: boardId,
+      object_id: objectId,
+      user_id: userId,
+      user_name: userName,
+      last_active: Date.now(),
+    },
+    { onConflict: 'board_id,object_id' }
+  )
+
+  return !error
 }
 
-export function releaseLock(
+export async function releaseLock(
   boardId: string,
   objectId: string,
   userId: string
 ): Promise<void> {
-  const db = getDatabaseInstance()
-  const lockRef = ref(db, getLockPath(boardId, objectId))
+  const supabase = getSupabaseClient()
+  const { data } = await supabase
+    .from('locks')
+    .select('user_id')
+    .eq('board_id', boardId)
+    .eq('object_id', objectId)
+    .maybeSingle()
 
-  return runTransaction(lockRef, (current) => {
-    if (!current.exists()) return undefined
-    if (current.val().userId !== userId) return undefined
-    return null // Remove node
-  }).then(() => undefined)
+  if (!data || data.user_id !== userId) return
+
+  await supabase
+    .from('locks')
+    .delete()
+    .eq('board_id', boardId)
+    .eq('object_id', objectId)
 }
 
 export function subscribeToLocks(
   boardId: string,
   onLocks: (locks: LockEntry[]) => void
-): Unsubscribe {
-  const db = getDatabaseInstance()
-  const locksRef = ref(db, getLocksPath(boardId))
-
-  const unsub = onValue(locksRef, (snapshot) => {
-    const val = snapshot.val()
-    if (!val || typeof val !== 'object') {
-      onLocks([])
-      return
-    }
-    const entries: LockEntry[] = []
-    for (const [objectId, data] of Object.entries(val)) {
-      if (objectId && data && typeof data === 'object') {
-        const d = data as Record<string, unknown>
-        const userId = typeof d.userId === 'string' ? d.userId : ''
-        const userName = typeof d.userName === 'string' ? d.userName : 'Unknown'
-        const lastActive = typeof d.lastActive === 'number' ? d.lastActive : 0
-        entries.push({ objectId, userId, userName, lastActive })
-      }
-    }
-    onLocks(entries)
-  })
-
-  return unsub
-}
-
-export function setupLockDisconnect(
-  boardId: string,
-  objectId: string
 ): () => void {
-  const db = getDatabaseInstance()
-  const lockRef = ref(db, getLockPath(boardId, objectId))
-  const onDisc = rtdbOnDisconnect(lockRef)
-  onDisc.remove()
+  const supabase = getSupabaseClient()
+
+  const fetch = async () => {
+    const { data } = await supabase
+      .from('locks')
+      .select('object_id, user_id, user_name, last_active')
+      .eq('board_id', boardId)
+
+    const entries: LockEntry[] = (data ?? []).map((r) => ({
+      objectId: r.object_id,
+      userId: r.user_id,
+      userName: r.user_name ?? 'Unknown',
+      lastActive: r.last_active ?? 0,
+    }))
+    onLocks(entries)
+  }
+
+  fetch()
+
+  let channel: ReturnType<typeof supabase.channel> | null = null
+  const id = setTimeout(() => {
+    channel = supabase
+      .channel(`locks:${boardId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'locks', filter: `board_id=eq.${boardId}` },
+        () => fetch()
+      )
+      .subscribe()
+  }, 0)
 
   return () => {
-    onDisc.cancel()
+    clearTimeout(id)
+    if (channel) supabase.removeChannel(channel)
   }
+}
+
+/** No-op for Supabase (no onDisconnect). Client should release on unmount. */
+export function setupLockDisconnect(
+  _boardId: string,
+  _objectId: string
+): () => void {
+  return () => {}
 }

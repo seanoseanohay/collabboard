@@ -1,30 +1,32 @@
 import '@testing-library/jest-dom'
 
-jest.mock('@/shared/lib/firebase/config', () => ({
-  getFirebaseApp: () => ({}),
-  getAuthInstance: () => ({}),
-  getDatabaseInstance: () => ({}),
-}))
+import { TextEncoder, TextDecoder } from 'util'
+Object.assign(global, { TextEncoder, TextDecoder })
 
-jest.mock('firebase/auth', () => ({
-  getAuth: () => ({}),
-  onAuthStateChanged: (_auth: unknown, cb: (u: unknown) => void) => {
-    setTimeout(() => cb(null), 0)
-    return () => {}
-  },
-  signInWithPopup: jest.fn(),
-  GoogleAuthProvider: jest.fn(),
-  signInWithEmailAndPassword: jest.fn(),
-  createUserWithEmailAndPassword: jest.fn(),
-  signOut: jest.fn(),
-}))
-
-jest.mock('firebase/app', () => ({
-  initializeApp: jest.fn(() => ({})),
-}))
-
-jest.mock('firebase/database', () => ({
-  getDatabase: jest.fn(() => ({})),
+jest.mock('@/shared/lib/supabase/config', () => ({
+  getSupabaseClient: () => ({
+    auth: {
+      getSession: () => Promise.resolve({ data: { session: null } }),
+      onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
+      signInWithOAuth: jest.fn(),
+      signInWithPassword: jest.fn(),
+      signUp: jest.fn(),
+      signOut: jest.fn(),
+    },
+    from: () => ({
+      select: () => ({ eq: () => ({ order: () => ({ data: [], error: null }), single: () => ({ data: null, error: null }), data: [], error: null }), data: [], error: null }),
+      insert: () => ({ select: () => ({ single: () => Promise.resolve({ data: { id: 'mock-id' }, error: null }) }) }),
+      upsert: () => Promise.resolve({ data: null, error: null }),
+      delete: () => ({ eq: () => ({ eq: () => ({ then: (fn: (r: { error: null }) => void) => { fn({ error: null }); return Promise.resolve() } }) }) }),
+    }),
+    channel: () => ({
+      on: () => ({ subscribe: () => {} }),
+    }),
+    removeChannel: () => {},
+    functions: {
+      invoke: () => Promise.resolve({ data: { message: 'OK' }, error: null }),
+    },
+  }),
 }))
 
 jest.mock('@/features/workspace/components/FabricCanvas', () => ({

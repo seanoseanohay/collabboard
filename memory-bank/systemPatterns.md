@@ -4,28 +4,29 @@
 
 ```
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│   React +       │     │   Firebase      │     │   Firebase      │
-│   Fabric.js     │────►│   RTDB          │◄────│   Cloud Fns     │
-│   (canvas)      │     │   (sync +       │     │   (AI post-MVP) │
-└────────┬────────┘     │    presence)    │     └─────────────────┘
+│   React +       │     │   Supabase      │     │   Supabase       │
+│   Fabric.js     │────►│   Postgres +    │◄────│   Edge Fns      │
+│   (canvas)      │     │   Realtime      │     │   (invite, AI)   │
+└────────┬────────┘     │   (sync +       │     └─────────────────┘
+         │              │    presence)    │
          │              └────────┬────────┘
          │                       │
          │              ┌────────▼────────┐
-         └─────────────►│   Firebase Auth  │
+         └─────────────►│   Supabase Auth  │
                         └─────────────────┘
 ```
 
 ## Sync Strategy (Critical)
 - **Object-level deltas only** — never write full board state
 - Fabric.js event listeners emit deltas (`object:modified`, `object:added`, `object:removed`)
-- RTDB `.update()` multi-path writes for atomic updates
-- Server timestamps via `.sv: "timestamp"` for ordering
+- Supabase upsert/insert for atomic updates
+- Server timestamps for ordering
 - Client-side UUID v4 for object IDs (`crypto.randomUUID()`)
-- zIndex: transactional increment / block reservation via transaction on `metadata.nextZIndex`
+- zIndex: transactional increment / block reservation (post-MVP)
 
 ## Locking (High Risk)
 - **Client:** Disable interaction on locked objects; show lock badge/overlay
-- **Server:** RTDB transactions enforce lock ownership; writes rejected if lock held
+- **Server:** RLS + row-level checks; writes rejected if lock held by another
 - **Lifecycle:** Acquire on edit start; auto-release after 30s inactivity; heartbeat every 5s; `onDisconnect()` clears locks
 - **AI:** Never overrides locks; skips locked objects and reports summary
 
@@ -43,7 +44,7 @@
 6. Return summary
 
 ## Presence
-- RTDB path: `presence/{boardId}/{userId}` or `boards/{boardId}/presence/{userId}`: `{ x, y, name, color, lastActive }`
+- Supabase table `presence`: `{ board_id, user_id, x, y, name, color, last_active }`
 - Update 100ms or mousemove (debounced)
 - **Who's on board:** Subscribe to presence node → show list of names in header or sidebar
 - **Cursors:** Overlay canvas or absolute divs for cursor dots + name labels

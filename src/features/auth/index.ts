@@ -1,6 +1,6 @@
 /**
  * Auth feature module.
- * Firebase Auth (Google + Email). Login required for MVP.
+ * Supabase Auth (Google + Email). Login required for MVP.
  */
 
 export { useAuth } from './hooks/useAuth'

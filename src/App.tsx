@@ -1,13 +1,11 @@
-import { useState } from 'react'
 import { useAuth } from '@/features/auth/hooks/useAuth'
 import { LoginPage } from '@/features/auth/components/LoginPage'
 import { BoardListPage } from '@/features/boards/components/BoardListPage'
-import { WorkspacePage } from '@/features/workspace/components/WorkspacePage'
-import type { BoardMeta } from '@/features/boards/api/boardsApi'
+import { BoardPage } from '@/features/boards/components/BoardPage'
+import { Routes, Route, Navigate } from 'react-router-dom'
 
 function App() {
   const { user, loading } = useAuth()
-  const [selectedBoard, setSelectedBoard] = useState<BoardMeta | null>(null)
 
   if (loading) {
     return (
@@ -21,21 +19,12 @@ function App() {
     return <LoginPage />
   }
 
-  if (selectedBoard) {
-    return (
-      <WorkspacePage
-        board={selectedBoard}
-        onBack={() => setSelectedBoard(null)}
-      />
-    )
-  }
-
   return (
-    <BoardListPage
-      userId={user.uid}
-      userEmail={user.email ?? 'Signed in'}
-      onSelectBoard={setSelectedBoard}
-    />
+    <Routes>
+      <Route path="/" element={<BoardListPage />} />
+      <Route path="/board/:boardId" element={<BoardPage />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   )
 }
 

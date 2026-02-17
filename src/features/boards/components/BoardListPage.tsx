@@ -1,29 +1,52 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { signOutUser } from '@/features/auth/api/authApi'
+import { useAuth } from '@/features/auth/hooks/useAuth'
 import { useUserBoards } from '@/features/boards/hooks/useUserBoards'
-import { createBoard } from '@/features/boards/api/boardsApi'
+import { createBoard, joinBoard } from '@/features/boards/api/boardsApi'
+import { parseBoardIdFromShareInput } from '@/shared/lib/shareLinks'
 import type { BoardMeta } from '@/features/boards/api/boardsApi'
 
-interface BoardListPageProps {
-  userId: string
-  userEmail: string
-  onSelectBoard: (board: BoardMeta) => void
-}
-
-export function BoardListPage({
-  userId,
-  userEmail,
-  onSelectBoard,
-}: BoardListPageProps) {
-  const boards = useUserBoards(userId)
+export function BoardListPage() {
+  const { user } = useAuth()
+  const navigate = useNavigate()
+  const boards = useUserBoards(user?.uid)
   const [creating, setCreating] = useState(false)
+  const [joinInput, setJoinInput] = useState('')
+  const [joinError, setJoinError] = useState<string | null>(null)
+  const [joining, setJoining] = useState(false)
+
+  const userId = user?.uid ?? ''
 
   const handleCreate = async () => {
     setCreating(true)
     try {
-      await createBoard(userId, 'Untitled Board')
+      const boardId = await createBoard(userId, 'Untitled Board')
+      navigate(`/board/${boardId}`)
     } finally {
       setCreating(false)
+    }
+  }
+
+  const handleSelectBoard = (board: BoardMeta) => {
+    navigate(`/board/${board.id}`)
+  }
+
+  const handleJoin = async () => {
+    const boardId = parseBoardIdFromShareInput(joinInput)
+    if (!boardId || !userId) {
+      setJoinError('Paste a board link or ID')
+      return
+    }
+    setJoinError(null)
+    setJoining(true)
+    try {
+      await joinBoard(boardId, userId)
+      navigate(`/board/${boardId}`)
+    } catch (err) {
+      setJoinError(err instanceof Error ? err.message : 'Board not found')
+    } finally {
+      setJoining(false)
     }
   }
 
@@ -32,7 +55,7 @@ export function BoardListPage({
       <header style={styles.header}>
         <h1 style={styles.title}>CollabBoard</h1>
         <div style={styles.userRow}>
-          <span style={styles.email}>{userEmail}</span>
+          <span style={styles.email}>{user?.email ?? 'Signed in'}</span>
           <button
             type="button"
             onClick={() => signOutUser()}
@@ -52,6 +75,28 @@ export function BoardListPage({
           >
             {creating ? 'Creating…' : '+ New Board'}
           </button>
+          <div style={styles.joinRow}>
+            <input
+              type="text"
+              placeholder="Paste board link or ID"
+              value={joinInput}
+              onChange={(e) => {
+                setJoinInput(e.target.value)
+                setJoinError(null)
+              }}
+              onKeyDown={(e) => e.key === 'Enter' && handleJoin()}
+              style={styles.joinInput}
+            />
+            <button
+              type="button"
+              onClick={handleJoin}
+              disabled={joining}
+              style={styles.joinBtn}
+            >
+              {joining ? 'Joining…' : 'Join Board'}
+            </button>
+          </div>
+          {joinError && <p style={styles.joinError}>{joinError}</p>}
         </div>
         {boards.length === 0 ? (
           <p style={styles.empty}>No boards yet. Create one to get started.</p>
@@ -61,7 +106,7 @@ export function BoardListPage({
               <li key={board.id} style={styles.item}>
                 <button
                   type="button"
-                  onClick={() => onSelectBoard(board)}
+                  onClick={() => handleSelectBoard(board)}
                   style={styles.boardBtn}
                 >
                   <span style={styles.boardTitle}>{board.title}</span>
@@ -132,6 +177,35 @@ const styles: Record<string, React.CSSProperties> = {
   },
   toolbar: {
     marginBottom: 16,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 12,
+  },
+  joinRow: {
+    display: 'flex',
+    gap: 8,
+  },
+  joinInput: {
+    flex: 1,
+    padding: '10px 14px',
+    fontSize: 14,
+    border: '1px solid #e0e0e0',
+    borderRadius: 8,
+  },
+  joinBtn: {
+    padding: '10px 20px',
+    fontSize: 14,
+    fontWeight: 500,
+    border: '1px solid #16213e',
+    borderRadius: 8,
+    background: '#fff',
+    color: '#16213e',
+    cursor: 'pointer',
+  },
+  joinError: {
+    margin: 0,
+    fontSize: 13,
+    color: '#b91c1c',
   },
   createBtn: {
     padding: '10px 20px',

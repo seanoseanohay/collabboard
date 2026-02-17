@@ -1,8 +1,9 @@
 # Progress
 
-## What Changed (PRD v5.0)
+## What Changed
 
-- **Canvas:** tldraw → Fabric.js (BSD license, no production key required)
+- **Stack (v6.0):** Firebase → Supabase (Auth, Postgres, Realtime, Edge Functions)
+- **Canvas (v5.0):** tldraw → Fabric.js (BSD license)
 - **Rationale:** tldraw v4+ requires trial/hobby/commercial license for deployed apps
 - **Trade-off:** More custom sync/presence code; mitigated by viewport culling + delta-only strategy
 - **Post-MVP:** AI agent, Undo/Redo (explicitly deferred)
@@ -10,10 +11,10 @@
 
 ## What Works
 
-- **Project scaffolding** — Vite + React + TypeScript, Firebase SDK, ESLint/Prettier/Husky, Jest + RTL
-- Feature-sliced structure: `features/{auth,boards,workspace,ai}`, `shared/{lib/firebase,config}`
-- Firebase config, `.env.example`, `firebase.json`, `database.rules.json`
-- **Authentication** — Firebase Auth, LoginPage, useAuth, BoardListPage
+- **Project scaffolding** — Vite + React + TypeScript, Supabase SDK, ESLint/Prettier/Husky, Jest + RTL
+- Feature-sliced structure: `features/{auth,boards,workspace,ai}`, `shared/{lib/supabase,config}`
+- Supabase config, `.env.example`, `supabase/migrations/`
+- **Authentication** — Supabase Auth, LoginPage, useAuth, BoardListPage
 - **Board list & CRUD** — createBoard, useUserBoards, BoardListPage, WorkspacePage
 - **Deployment** — Vercel, vercel.json (COOP header), auth debounce
 - **Workspace** — Fabric.js canvas (FabricCanvas) with pan/zoom, replaces tldraw
@@ -30,12 +31,14 @@
 7. ~~**Sync**~~ ✅ RTDB delta sync, object-level patches, server timestamps
 8. ~~**Presence & cursors**~~ ✅ presenceApi, usePresence, CursorOverlay, "N others viewing"
 9. ~~**Locking**~~ ✅ locksApi, acquire on select, release on deselect, server rejects writes
-10. **Selection** — Single + box-select (Fabric built-in)
-11. ~~**AI Agent**~~ — Post-MVP
-12. ~~**Deployment**~~ ✅ (Vercel live)
+10. ~~**Board sharing**~~ ✅ joinBoard, share link, join-by-ID, RTDB members rule
+11. **Google Auth** — Complete OAuth setup (SUPABASE_SETUP.md §5) — user manual steps
+12. ~~**Selection**~~ ✅ — Single + box-select; pan = middle-click or Space+drag
+13. ~~**AI Agent**~~ — Post-MVP
+14. ~~**Deployment**~~ ✅ (Vercel live)
 
 ### Post-MVP
-- AI agent (Cloud Function, Claude)
+- AI agent (Supabase Edge Function, Claude)
 - Undo/Redo
 - Rotation (throttled ~50ms)
 - Revocable invite links, touch handling, 6+ AI commands
@@ -63,10 +66,10 @@
 - Toolbar for create (rect, circle, triangle, line, text, sticky) — done
 - Clean/flat styling, Delete key support — done
 
-### 5. Delta Sync (RTDB) ✅
-- Path: `boards/{boardId}/documents/{objectId}`
+### 5. Delta Sync (Supabase) ✅
+- Table: `documents(board_id, object_id, data)`
 - documentsApi: writeDocument, deleteDocument, subscribeToDocuments
-- boardSync: Fabric events → RTDB, RTDB child_* → Fabric (enlivenObjects)
+- boardSync: Fabric events → Supabase, Realtime postgres_changes → Fabric (enlivenObjects)
 - Object IDs via data.id (UUID v4), server timestamps
 - Fix: strip `type` from serialized obj before existing.set() to avoid Fabric warning
 
@@ -75,27 +78,26 @@
 - usePresence: debounced (100ms) updates, filters self from others
 - CursorOverlay: scene→screen transform, cursor dots + name labels
 - FabricCanvas: onPointerMove, onViewportChange callbacks
-- RTDB rules: presence path, member read, own-write only
+- RLS: presence table, member read, own-write only
 
 ### 7. Locking ✅
 - locksApi: acquireLock, releaseLock, subscribeToLocks, setupLockDisconnect
 - boardSync: acquire on selection:created, release on selection:cleared
 - Client: selectable=false, hoverCursor=not-allowed on objects locked by others
-- Server: documents write rejected unless no lock or lock.userId === auth.uid
+- Server: RLS + locks table; write rejected unless no lock or lock matches auth.uid
 
 ### 8. Tests
 - Remove tldraw mocks from `src/test/setup.ts`
 - Add Fabric canvas mock or use jsdom + minimal Fabric stub
 - Fabric-specific: 500-object stress test, presence latency under throttle
 
-### 9. Database Rules
-- ~~Add rules for `boards/{boardId}/documents`~~ ✅ (member read/write)
-- ~~Add rules for `presence/{boardId}/{userId}`~~ ✅ (member read, own write)
-- ~~Add rules for locks path~~ ✅ (boards/$boardId/locks/$objectId)
+### 9. Security (RLS)
+- ~~RLS for boards, board_members, user_boards~~ ✅
+- ~~RLS for documents, locks, presence~~ ✅
 
 ## Current Status
-**Phase:** Locking complete — dual-layer (client + server)  
-**Next:** Selection polish, tests, or deploy rules (firebase deploy --only database)
+**Phase:** Supabase migration complete. Selection complete.  
+**Next:** **Google Auth setup** — User must complete SUPABASE_SETUP.md §5 (Google Cloud Console OAuth client + Supabase Dashboard providers + Redirect URLs). MVP gate ready after auth.
 
 ## Known Issues
 - **boardSync:** Fabric warns "Setting type has no effect" when applying remote updates — strip `type` from serialized object before `existing.set()` (type is read-only)
