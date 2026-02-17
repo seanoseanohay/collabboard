@@ -1,6 +1,8 @@
 /**
- * Connects Fabric canvas to RTDB for delta sync.
- * Optional locking: acquire on selection, release on deselection.
+ * Connects Fabric canvas to Supabase for delta sync.
+ * Document sync: always runs for position/add/remove updates.
+ * Lock sync: optional, acquire on selection, release on deselection.
+ * Split so document sync is NOT torn down when auth (lock options) changes.
  */
 
 import type { Canvas, FabricObject } from 'fabric'
@@ -34,7 +36,10 @@ export interface BoardSyncLockOptions {
   userName: string
 }
 
-function applyLockState(
+/** Mutable ref so lock sync can register callback for re-applying lock state after remote updates. */
+export type LockStateCallbackRef = { current: (() => void) | null }
+
+export function applyLockState(
   canvas: Canvas,
   locks: LockEntry[],
   currentUserId: string
@@ -80,14 +85,16 @@ function applyLockState(
   canvas.requestRenderAll()
 }
 
-export function setupBoardSync(
+/**
+ * Sets up document sync only. Never depends on auth.
+ * Call applyLockStateCallbackRef.current?.() after remote updates if lock sync is active.
+ */
+export function setupDocumentSync(
   canvas: Canvas,
   boardId: string,
-  lockOptions?: BoardSyncLockOptions
+  applyLockStateCallbackRef: LockStateCallbackRef
 ): () => void {
   let isApplyingRemote = false
-  const currentLockIds = new Set<string>()
-  let cancelLockDisconnect: (() => void) | null = null
 
   const stripSyncFields = (d: Record<string, unknown>) => {
     const { updatedAt, ...rest } = d
@@ -95,44 +102,31 @@ export function setupBoardSync(
   }
 
   const ensureGroupChildrenNotSelectable = (obj: FabricObject) => {
-    // For Groups (sticky notes), ensure children cannot be directly selected
     if (obj.type === 'group' && 'getObjects' in obj) {
       const children = (obj as { getObjects: () => FabricObject[] }).getObjects()
       children.forEach((child) => {
-        child.set({
-          selectable: false,
-          evented: false,
-        })
+        child.set({ selectable: false, evented: false })
       })
     }
   }
 
   const ensureTextEditable = (obj: FabricObject) => {
-    // Ensure IText objects are editable
-    if (obj.type === 'i-text' && 'editable' in obj) {
-      obj.set('editable', true)
-    }
-    // For groups, check children
+    if (obj.type === 'i-text' && 'editable' in obj) obj.set('editable', true)
     if (obj.type === 'group' && 'getObjects' in obj) {
       const children = (obj as { getObjects: () => FabricObject[] }).getObjects()
       children.forEach(ensureTextEditable)
     }
   }
 
-  const applyRemote = async (
-    objectId: string,
-    data: Record<string, unknown>
-  ) => {
+  const applyRemote = async (objectId: string, data: Record<string, unknown>) => {
     const clean = stripSyncFields(data)
     const existing = canvas.getObjects().find((o) => getObjectId(o) === objectId)
     if (existing) {
-      // For Groups, update carefully without breaking structure
       if (existing.type === 'group') {
         try {
           const objData = { ...clean, data: { id: objectId } }
           const [revived] = await util.enlivenObjects<FabricObject>([objData])
           if (revived) {
-            // Update position and transform properties
             existing.set({
               left: revived.left,
               top: revived.top,
@@ -142,16 +136,10 @@ export function setupBoardSync(
               flipX: revived.flipX,
               flipY: revived.flipY,
             })
-            
-            // Recalculate bounding box and control coordinates to match new position
-            // Fixes ghost clickable area at old position during real-time movement
             existing.setCoords()
-            
-            // Update text content in children if it changed
             if ('getObjects' in existing && 'getObjects' in revived) {
               const existingChildren = (existing as { getObjects: () => FabricObject[] }).getObjects()
               const revivedChildren = (revived as { getObjects: () => FabricObject[] }).getObjects()
-              
               existingChildren.forEach((child, index) => {
                 const revivedChild = revivedChildren[index]
                 if (child.type === 'i-text' && revivedChild && 'text' in revivedChild) {
@@ -159,45 +147,32 @@ export function setupBoardSync(
                 }
               })
             }
-            
             ensureGroupChildrenNotSelectable(existing)
             ensureTextEditable(existing)
-            // Reapply lock state - prevents locked objects from becoming clickable after position updates
-            if (lockOptions && lastLocks.length > 0) {
-              applyLockState(canvas, lastLocks, lockOptions.userId)
-            }
+            applyLockStateCallbackRef.current?.()
             canvas.requestRenderAll()
           }
         } catch {
-          // Ignore deserialization errors
+          /* ignore */
         }
         return
       }
-      
-      // For non-Group objects, update in place
       try {
         const objData = { ...clean, data: { id: objectId } }
         const [revived] = await util.enlivenObjects<FabricObject>([objData])
         if (revived) {
           const serialized = revived.toObject(['data']) as Record<string, unknown>
           delete serialized.data
-          delete serialized.type  // Fabric: "Setting type has no effect" - cannot change type on existing object
-          delete serialized.layoutManager  // Remove layoutManager - not serializable
+          delete serialized.type
+          delete serialized.layoutManager
           existing.set(serialized)
-          
-          // Recalculate bounding box and control coordinates to match new position
-          // Fixes ghost clickable area at old position during real-time movement
           existing.setCoords()
-          
           ensureTextEditable(existing)
-          // Reapply lock state - prevents locked objects from becoming clickable after position updates
-          if (lockOptions && lastLocks.length > 0) {
-            applyLockState(canvas, lastLocks, lockOptions.userId)
-          }
+          applyLockStateCallbackRef.current?.()
           canvas.requestRenderAll()
         }
       } catch {
-        // Ignore deserialization errors
+        /* ignore */
       }
       return
     }
@@ -210,19 +185,13 @@ export function setupBoardSync(
         ensureTextEditable(revived)
         isApplyingRemote = true
         canvas.add(revived)
-        
-        // Ensure coordinates are properly calculated for newly added objects
         revived.setCoords()
-        
-        // Reapply lock state - ensures newly added objects respect current locks
-        if (lockOptions && lastLocks.length > 0) {
-          applyLockState(canvas, lastLocks, lockOptions.userId)
-        }
+        applyLockStateCallbackRef.current?.()
         canvas.requestRenderAll()
         isApplyingRemote = false
       }
     } catch {
-      // Ignore deserialization errors
+      /* ignore */
     }
   }
 
@@ -236,137 +205,28 @@ export function setupBoardSync(
     }
   }
 
-  let lastLocks: LockEntry[] = []
-  let broadcastChannel: ReturnType<ReturnType<typeof import('@/shared/lib/supabase/config').getSupabaseClient>['channel']> | null = null
-  
-  const applyLocksToObjects = lockOptions
-    ? (locks: LockEntry[]) => {
-        // Merge server locks with our current locks, preserving locks we're actively holding
-        // This prevents race conditions where Realtime updates overwrite optimistic locks
-        const ourLockIds = Array.from(currentLockIds)
-        const ourLocks = lastLocks.filter(lock => 
-          ourLockIds.includes(lock.objectId) && lock.userId === lockOptions!.userId
-        )
-        const otherLocks = locks.filter(lock => 
-          !ourLockIds.includes(lock.objectId) || lock.userId !== lockOptions!.userId
-        )
-        lastLocks = [...ourLocks, ...otherLocks]
-        applyLockState(canvas, lastLocks, lockOptions!.userId)
-      }
-    : () => {}
-
-  // Handle instant broadcast messages for lock acquisition (<100ms)
-  const handleBroadcastLockAcquired = lockOptions
-    ? (lock: LockEntry) => {
-        console.log('[BOARDSYNC] 📥 Received lock_acquired broadcast:', lock)
-        
-        // Ignore our own broadcasts
-        if (lock.userId === lockOptions!.userId) {
-          console.log('[BOARDSYNC] Ignoring own lock broadcast')
-          return
-        }
-        
-        console.log('[BOARDSYNC] Adding lock to lastLocks, current count:', lastLocks.length)
-        
-        // Add lock immediately
-        lastLocks = [...lastLocks.filter(l => l.objectId !== lock.objectId), lock]
-        console.log('[BOARDSYNC] After adding, lastLocks count:', lastLocks.length, lastLocks)
-        
-        applyLockState(canvas, lastLocks, lockOptions!.userId)
-        console.log('[BOARDSYNC] ✅ Lock state applied')
-      }
-    : undefined
-
-  // Handle instant broadcast messages for lock release (<100ms)
-  const handleBroadcastLockReleased = lockOptions
-    ? (objectId: string, userId: string) => {
-        console.log('[BOARDSYNC] 📥 Received lock_released broadcast:', { objectId, userId })
-        
-        // Ignore our own broadcasts
-        if (userId === lockOptions!.userId) {
-          console.log('[BOARDSYNC] Ignoring own unlock broadcast')
-          return
-        }
-        
-        // Remove lock immediately
-        lastLocks = lastLocks.filter(l => l.objectId !== objectId || l.userId !== userId)
-        console.log('[BOARDSYNC] After removing, lastLocks count:', lastLocks.length)
-        
-        applyLockState(canvas, lastLocks, lockOptions!.userId)
-        console.log('[BOARDSYNC] ✅ Lock state applied')
-      }
-    : undefined
-
-  const lockSubscription = lockOptions
-    ? subscribeToLocks(boardId, applyLocksToObjects, handleBroadcastLockAcquired, handleBroadcastLockReleased)
-    : null
-
-  const unsubLocks = lockSubscription?.cleanup ?? (() => {})
-  if (lockSubscription) {
-    broadcastChannel = lockSubscription.channel
-  }
-
-  const tryAcquireLocks = async (objectIds: string[]): Promise<boolean> => {
-    if (!lockOptions || objectIds.length === 0) return true
-    const results = await Promise.all(
-      objectIds.map((id) =>
-        acquireLock(boardId, id, lockOptions!.userId, lockOptions!.userName, broadcastChannel ?? undefined)
-      )
-    )
-    const allOk = results.every(Boolean)
-    if (allOk) {
-      objectIds.forEach((id) => currentLockIds.add(id))
-      cancelLockDisconnect?.()
-      cancelLockDisconnect = setupLockDisconnect(boardId, objectIds[0] ?? '')
-    } else {
-      for (const id of objectIds) {
-        await releaseLock(boardId, id, lockOptions!.userId, broadcastChannel ?? undefined)
-      }
-    }
-    return allOk
-  }
-
-  const tryReleaseLocks = async (objectIds: string[]) => {
-    if (!lockOptions) return
-    for (const id of objectIds) {
-      if (currentLockIds.has(id)) {
-        await releaseLock(boardId, id, lockOptions.userId, broadcastChannel ?? undefined)
-        currentLockIds.delete(id)
-      }
-    }
-    if (currentLockIds.size === 0) {
-      cancelLockDisconnect?.()
-      cancelLockDisconnect = null
-    }
-  }
-
   const emitAdd = (obj: FabricObject) => {
     const id = getObjectId(obj)
     if (!id || isApplyingRemote) return
-    // Include 'data' and 'objects' (for Groups) in serialization
     const payload = obj.toObject(['data', 'objects']) as Record<string, unknown>
     delete payload.data
-    // Remove layoutManager - it's not serializable and Fabric will recreate it on deserialize
     delete payload.layoutManager
     writeDocument(boardId, id, payload).catch(console.error)
   }
 
   const MOVE_THROTTLE_MS = 80
+  let moveThrottleTimer: ReturnType<typeof setTimeout> | null = null
+  let lastMoveEmit = 0
+  let pendingMoveId: string | null = null
 
   const emitModify = (obj: FabricObject) => {
     const id = getObjectId(obj)
     if (!id || isApplyingRemote) return
-    // Include 'data' and 'objects' (for Groups) in serialization
     const payload = obj.toObject(['data', 'objects']) as Record<string, unknown>
     delete payload.data
-    // Remove layoutManager - it's not serializable and Fabric will recreate it on deserialize
     delete payload.layoutManager
     writeDocument(boardId, id, payload).catch(console.error)
   }
-
-  let moveThrottleTimer: ReturnType<typeof setTimeout> | null = null
-  let lastMoveEmit = 0
-  let pendingMoveId: string | null = null
 
   const emitModifyThrottled = (obj: FabricObject) => {
     if (!obj || isApplyingRemote) return
@@ -384,9 +244,7 @@ export function setupBoardSync(
       moveThrottleTimer = setTimeout(() => {
         moveThrottleTimer = null
         lastMoveEmit = Date.now()
-        const target = pendingMoveId
-          ? canvas.getObjects().find((o) => getObjectId(o) === pendingMoveId)
-          : null
+        const target = pendingMoveId ? canvas.getObjects().find((o) => getObjectId(o) === pendingMoveId) : null
         if (target) emitModify(target)
         pendingMoveId = null
       }, MOVE_THROTTLE_MS - elapsed)
@@ -406,12 +264,7 @@ export function setupBoardSync(
   })
 
   canvas.on('object:added', (e) => {
-    if (e.target) {
-      emitAdd(e.target)
-      if (lockOptions && lastLocks.length > 0) {
-        applyLockState(canvas, lastLocks, lockOptions.userId)
-      }
-    }
+    if (e.target) emitAdd(e.target)
   })
   canvas.on('object:moving', (e) => {
     if (e.target) emitModifyThrottled(e.target)
@@ -424,8 +277,6 @@ export function setupBoardSync(
   })
   canvas.on('text:editing:exited', (e) => {
     if (e.target) {
-      // For IText inside a Group (sticky notes), sync the parent Group
-      // Only sync when user FINISHES editing, not on every keystroke
       const objToSync = e.target.group || e.target
       if (getObjectId(objToSync)) emitModify(objToSync)
     }
@@ -438,96 +289,12 @@ export function setupBoardSync(
     if (e.target) emitModify(e.target)
   })
   canvas.on('object:removed', (e) => {
-    if (e.target) {
-      const id = getObjectId(e.target)
-      if (id) tryReleaseLocks([id])
-      emitRemove(e.target)
-    }
+    if (e.target) emitRemove(e.target)
   })
-
-  if (lockOptions) {
-    canvas.on('selection:created', async (e) => {
-      const sel = e.selected
-      const objs = Array.isArray(sel) ? sel : sel ? [sel] : []
-      const ids = objs.map(getObjectId).filter((id): id is string => !!id)
-      
-      console.log('[SELECTION] User trying to select objects:', ids)
-      console.log('[SELECTION] Current lastLocks:', lastLocks)
-      
-      if (ids.length > 0) {
-        // SYNCHRONOUS CHECK: Prevent selection if any object is already locked by another user
-        const lockedByOthers = ids.some(id => 
-          lastLocks.some(lock => lock.objectId === id && lock.userId !== lockOptions!.userId)
-        )
-        
-        console.log('[SELECTION] Objects locked by others?', lockedByOthers)
-        
-        if (lockedByOthers) {
-          console.log('[SELECTION] ❌ BLOCKED - Object already locked by another user')
-          // Immediately discard selection - object is already locked
-          canvas.discardActiveObject()
-          canvas.requestRenderAll()
-          return
-        }
-        
-        console.log('[SELECTION] ✅ Allowed - Adding optimistic lock')
-        
-        // OPTIMISTIC LOCKING: Immediately add locks locally before async DB call
-        // This prevents race conditions where another user clicks during the DB roundtrip
-        const optimisticLocks: LockEntry[] = ids.map(id => ({
-          objectId: id,
-          userId: lockOptions!.userId,
-          userName: lockOptions!.userName,
-          lastActive: Date.now(),
-        }))
-        
-        // Add to lastLocks and apply lock state immediately
-        lastLocks = [...lastLocks, ...optimisticLocks]
-        console.log('[SELECTION] Added optimistic locks, new lastLocks count:', lastLocks.length)
-        applyLockState(canvas, lastLocks, lockOptions!.userId)
-        
-        // Now try to acquire the lock from the server
-        console.log('[SELECTION] Acquiring lock from server...')
-        const ok = await tryAcquireLocks(ids)
-        console.log('[SELECTION] Lock acquisition result:', ok ? 'SUCCESS' : 'FAILED')
-        
-        if (!ok) {
-          console.log('[SELECTION] ❌ Lock acquisition failed - rolling back')
-          // Lock acquisition failed - remove optimistic locks and revert
-          lastLocks = lastLocks.filter(lock => 
-            !ids.includes(lock.objectId) || lock.userId !== lockOptions!.userId
-          )
-          applyLockState(canvas, lastLocks, lockOptions!.userId)
-          canvas.discardActiveObject()
-          canvas.requestRenderAll()
-        }
-      }
-    })
-    canvas.on('selection:cleared', (e) => {
-      const prev = e.deselected
-      const objs = Array.isArray(prev) ? prev : prev ? [prev] : []
-      const ids = objs.map(getObjectId).filter((id): id is string => !!id)
-      
-      if (ids.length > 0) {
-        // OPTIMISTIC UNLOCK: Immediately remove locks locally before async DB call
-        lastLocks = lastLocks.filter(lock => 
-          !ids.includes(lock.objectId) || lock.userId !== lockOptions!.userId
-        )
-        applyLockState(canvas, lastLocks, lockOptions!.userId)
-        
-        // Then release from server
-        tryReleaseLocks(ids)
-      }
-    })
-  }
 
   return () => {
     unsub()
-    unsubLocks()
-    if (currentLockIds.size > 0 && lockOptions) {
-      tryReleaseLocks([...currentLockIds])
-    }
-    cancelLockDisconnect?.()
+    if (moveThrottleTimer) clearTimeout(moveThrottleTimer)
     canvas.off('object:added')
     canvas.off('object:moving')
     canvas.off('object:scaling')
@@ -535,10 +302,165 @@ export function setupBoardSync(
     canvas.off('text:editing:exited')
     canvas.off('object:modified')
     canvas.off('object:removed')
-    if (moveThrottleTimer) clearTimeout(moveThrottleTimer)
-    if (lockOptions) {
-      canvas.off('selection:created')
-      canvas.off('selection:cleared')
+  }
+}
+
+/**
+ * Sets up lock sync only. Depends on auth (lockOptions).
+ * Registers applyLockStateCallbackRef so document sync can re-apply locks after remote updates.
+ */
+export function setupLockSync(
+  canvas: Canvas,
+  boardId: string,
+  lockOptions: BoardSyncLockOptions,
+  applyLockStateCallbackRef: LockStateCallbackRef
+): () => void {
+  const currentLockIds = new Set<string>()
+  let cancelLockDisconnect: (() => void) | null = null
+  let lastLocks: LockEntry[] = []
+  let broadcastChannel: ReturnType<ReturnType<typeof import('@/shared/lib/supabase/config').getSupabaseClient>['channel']> | null = null
+
+  const applyLocksToObjects = (locks: LockEntry[]) => {
+    const ourLockIds = Array.from(currentLockIds)
+    const ourLocks = lastLocks.filter(
+      (lock) => ourLockIds.includes(lock.objectId) && lock.userId === lockOptions.userId
+    )
+    const otherLocks = locks.filter(
+      (lock) => !ourLockIds.includes(lock.objectId) || lock.userId !== lockOptions.userId
+    )
+    lastLocks = [...ourLocks, ...otherLocks]
+    applyLockState(canvas, lastLocks, lockOptions.userId)
+  }
+
+  const handleBroadcastLockAcquired = (lock: LockEntry) => {
+    if (lock.userId === lockOptions.userId) return
+    lastLocks = [...lastLocks.filter((l) => l.objectId !== lock.objectId), lock]
+    applyLockState(canvas, lastLocks, lockOptions.userId)
+  }
+
+  const handleBroadcastLockReleased = (objectId: string, userId: string) => {
+    if (userId === lockOptions.userId) return
+    lastLocks = lastLocks.filter((l) => l.objectId !== objectId || l.userId !== userId)
+    applyLockState(canvas, lastLocks, lockOptions.userId)
+  }
+
+  const lockSubscription = subscribeToLocks(boardId, applyLocksToObjects, handleBroadcastLockAcquired, handleBroadcastLockReleased)
+  broadcastChannel = lockSubscription.channel
+
+  applyLockStateCallbackRef.current = () => {
+    if (lastLocks.length > 0) applyLockState(canvas, lastLocks, lockOptions.userId)
+  }
+
+  const tryAcquireLocks = async (objectIds: string[]): Promise<boolean> => {
+    const results = await Promise.all(
+      objectIds.map((id) =>
+        acquireLock(boardId, id, lockOptions.userId, lockOptions.userName, broadcastChannel ?? undefined)
+      )
+    )
+    const allOk = results.every(Boolean)
+    if (allOk) {
+      objectIds.forEach((id) => currentLockIds.add(id))
+      cancelLockDisconnect?.()
+      cancelLockDisconnect = setupLockDisconnect(boardId, objectIds[0] ?? '')
+    } else {
+      for (const id of objectIds) {
+        await releaseLock(boardId, id, lockOptions.userId, broadcastChannel ?? undefined)
+      }
     }
+    return allOk
+  }
+
+  const tryReleaseLocks = async (objectIds: string[]) => {
+    for (const id of objectIds) {
+      if (currentLockIds.has(id)) {
+        await releaseLock(boardId, id, lockOptions.userId, broadcastChannel ?? undefined)
+        currentLockIds.delete(id)
+      }
+    }
+    if (currentLockIds.size === 0) {
+      cancelLockDisconnect?.()
+      cancelLockDisconnect = null
+    }
+  }
+
+  const handleSelectionCreated = async (e: { selected?: unknown[] }) => {
+    const sel = e.selected
+    const objs = Array.isArray(sel) ? sel : sel ? [sel] : []
+    const ids = objs.map((o) => getObjectId(o as FabricObject)).filter((id): id is string => !!id)
+    if (ids.length === 0) return
+
+    const lockedByOthers = ids.some((id) =>
+      lastLocks.some((lock) => lock.objectId === id && lock.userId !== lockOptions.userId)
+    )
+    if (lockedByOthers) {
+      canvas.discardActiveObject()
+      canvas.requestRenderAll()
+      return
+    }
+
+    const optimisticLocks: LockEntry[] = ids.map((id) => ({
+      objectId: id,
+      userId: lockOptions.userId,
+      userName: lockOptions.userName,
+      lastActive: Date.now(),
+    }))
+    lastLocks = [...lastLocks, ...optimisticLocks]
+    applyLockState(canvas, lastLocks, lockOptions.userId)
+
+    const ok = await tryAcquireLocks(ids)
+    if (!ok) {
+      lastLocks = lastLocks.filter((lock) => !ids.includes(lock.objectId) || lock.userId !== lockOptions.userId)
+      applyLockState(canvas, lastLocks, lockOptions.userId)
+      canvas.discardActiveObject()
+      canvas.requestRenderAll()
+    }
+  }
+
+  const handleSelectionCleared = (e: { deselected?: unknown[] }) => {
+    const prev = e.deselected
+    const objs = Array.isArray(prev) ? prev : prev ? [prev] : []
+    const ids = objs.map((o) => getObjectId(o as FabricObject)).filter((id): id is string => !!id)
+    if (ids.length > 0) {
+      lastLocks = lastLocks.filter((lock) => !ids.includes(lock.objectId) || lock.userId !== lockOptions.userId)
+      applyLockState(canvas, lastLocks, lockOptions.userId)
+      tryReleaseLocks(ids)
+    }
+  }
+
+  const handleObjectRemoved = (e: { target?: FabricObject }) => {
+    if (e.target) {
+      const id = getObjectId(e.target)
+      if (id) tryReleaseLocks([id])
+    }
+  }
+
+  canvas.on('selection:created', handleSelectionCreated)
+  canvas.on('selection:cleared', handleSelectionCleared)
+  canvas.on('object:removed', handleObjectRemoved)
+
+  return () => {
+    applyLockStateCallbackRef.current = null
+    lockSubscription.cleanup()
+    if (currentLockIds.size > 0) tryReleaseLocks([...currentLockIds])
+    cancelLockDisconnect?.()
+    canvas.off('selection:created', handleSelectionCreated)
+    canvas.off('selection:cleared', handleSelectionCleared)
+    canvas.off('object:removed', handleObjectRemoved)
+  }
+}
+
+/** Single-call setup for document + optional lock sync. Used by FabricCanvas. */
+export function setupBoardSync(
+  canvas: Canvas,
+  boardId: string,
+  lockOptions?: BoardSyncLockOptions
+): () => void {
+  const applyLockStateCallbackRef: LockStateCallbackRef = { current: null }
+  const docCleanup = setupDocumentSync(canvas, boardId, applyLockStateCallbackRef)
+  if (!lockOptions) return docCleanup
+  const lockCleanup = setupLockSync(canvas, boardId, lockOptions, applyLockStateCallbackRef)
+  return () => {
+    lockCleanup()
+    docCleanup()
   }
 }

@@ -8,7 +8,7 @@ function isEditableText(obj: unknown): obj is { enterEditing: () => void } {
 import type { ToolType } from '../types/tools'
 import { isShapeTool } from '../types/tools'
 import { createShape } from '../lib/shapeFactory'
-import { setupBoardSync } from '../lib/boardSync'
+import { setupDocumentSync, setupLockSync, type LockStateCallbackRef } from '../lib/boardSync'
 
 interface FabricCanvasProps {
   width?: number
@@ -50,6 +50,7 @@ export function FabricCanvas({
   onViewportChangeRef.current = onViewportChange
   const lockOptsRef = useRef({ userId: userId ?? '', userName: userName ?? 'Anonymous' })
   lockOptsRef.current = { userId: userId ?? '', userName: userName ?? 'Anonymous' }
+  const applyLockStateCallbackRef = useRef<LockStateCallbackRef['current']>(null)
 
   useEffect(() => {
     const el = containerRef.current
@@ -327,22 +328,10 @@ export function FabricCanvas({
     document.addEventListener('keydown', handleKeyDown)
     document.addEventListener('keyup', handleKeyUp)
 
-    const { userId: uid, userName: uname } = lockOptsRef.current
-    const lockOpts =
-      boardId && uid && uname
-        ? { userId: uid, userName: uname }
-        : undefined
-    
-    // DEBUG: Alert if locking isn't enabled
-    if (!lockOpts && boardId) {
-      console.error('[FABRIC] ❌ LOCKING DISABLED - Missing:', { boardId: !!boardId, uid: !!uid, uname: !!uname })
-    } else if (lockOpts) {
-      console.log('[FABRIC] ✅ LOCKING ENABLED:', lockOpts)
-    }
-    
-    const cleanupSync =
+    // Document sync only - never torn down when auth changes
+    const cleanupDocSync =
       boardId
-        ? setupBoardSync(fabricCanvas, boardId, lockOpts)
+        ? setupDocumentSync(fabricCanvas, boardId, applyLockStateCallbackRef)
         : () => {}
 
     const attachTextEditOnDblClick = (obj: FabricObject) => {
@@ -407,7 +396,7 @@ export function FabricCanvas({
     resizeObserver.observe(el)
 
     return () => {
-      cleanupSync()
+      cleanupDocSync()
       fabricCanvas.off('object:added', handleObjectAdded)
       fabricCanvas.off('selection:created', handleSelectionCreated)
       fabricCanvas.off('object:moving', handleObjectTransforming)
@@ -427,7 +416,28 @@ export function FabricCanvas({
       el.removeChild(canvasEl)
       canvasRef.current = null
     }
-  }, [width, height, boardId, userId, userName])
+  }, [width, height, boardId])
+
+  // Lock sync only - torn down/recreated when auth changes, canvas+doc sync persist
+  useEffect(() => {
+    const canvas = canvasRef.current
+    const { userId: uid, userName: uname } = lockOptsRef.current
+    const lockOpts =
+      canvas && boardId && uid && uname
+        ? { userId: uid, userName: uname }
+        : undefined
+
+    if (!lockOpts && boardId && uid !== undefined) {
+      console.error('[FABRIC] ❌ LOCKING DISABLED - Missing:', { boardId: !!boardId, uid: !!uid, uname: !!uname })
+    } else if (lockOpts) {
+      console.log('[FABRIC] ✅ LOCKING ENABLED:', lockOpts)
+    }
+
+    if (!canvas || !boardId || !lockOpts) return
+
+    const cleanupLockSync = setupLockSync(canvas, boardId, lockOpts, applyLockStateCallbackRef)
+    return cleanupLockSync
+  }, [boardId, userId, userName])
 
   return <div ref={containerRef} className={className} style={styles.container} />
 }
