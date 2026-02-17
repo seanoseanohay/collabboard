@@ -28,9 +28,9 @@
 4. ~~**Workspace** — Fabric.js canvas + pan/zoom~~ ✅
 5. ~~**Shapes + toolbar**~~ ✅ (rect, circle, triangle, line, text, sticky; Delete key)
 6. ~~**Viewport culling**~~ ✅ (Fabric skipOffscreen)
-7. ~~**Sync**~~ ✅ RTDB delta sync, object-level patches, server timestamps
-8. ~~**Presence & cursors**~~ ✅ presenceApi, usePresence, CursorOverlay, "N others viewing"
-9. ~~**Locking**~~ ✅ locksApi, acquire on select, release on deselect, server rejects writes
+7. ~~**Sync**~~ ⚠️ implemented, NOT live with multiple users
+8. ~~**Presence & cursors**~~ ⚠️ implemented, not verified in multi-user
+9. **Locking** — ⚠️ implemented, NOT working
 10. ~~**Board sharing**~~ ✅ joinBoard, share link, join-by-ID, RTDB members rule
 11. **Google Auth** — Complete OAuth setup (SUPABASE_SETUP.md §5) — user manual steps
 12. ~~**Selection**~~ ✅ — Single + box-select; pan = middle-click or Space+drag
@@ -96,9 +96,11 @@
 - ~~RLS for documents, locks, presence~~ ✅
 
 ## Current Status
-**Phase:** Supabase migration complete. Selection complete.  
-**Next:** **Google Auth setup** — User must complete SUPABASE_SETUP.md §5 (Google Cloud Console OAuth client + Supabase Dashboard providers + Redirect URLs). MVP gate ready after auth.
+**Phase:** User enabled Realtime (Publications → supabase_realtime → documents, locks, presence).  
+**Next agent:** Test with 2 users—if sync works, fix locking. If not, debug subscribeToDocuments / Realtime.
 
 ## Known Issues
-- **boardSync:** Fabric warns "Setting type has no effect" when applying remote updates — strip `type` from serialized object before `existing.set()` (type is read-only)
-- **Legacy Line objects:** Boards created before the fix may have old Fabric Line objects; those still have the movement bug. New lines use Polyline.
+- **Real-time sync** — Was not working; user just enabled Publications. Test after browser refresh.
+- **Locking not working** — No edit protection when two users select same object.
+- **boardSync:** Fabric warns "Setting type has no effect" — strip `type` before `existing.set()`.
+- **Legacy Line objects:** Old Fabric Line objects have movement bug. New lines use Polyline.

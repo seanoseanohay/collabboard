@@ -87,21 +87,17 @@ export function subscribeToLocks(
 
   fetch()
 
-  let channel: ReturnType<typeof supabase.channel> | null = null
-  const id = setTimeout(() => {
-    channel = supabase
-      .channel(`locks:${boardId}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'locks', filter: `board_id=eq.${boardId}` },
-        () => fetch()
-      )
-      .subscribe()
-  }, 0)
+  const channel = supabase
+    .channel(`locks:${boardId}`)
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'locks', filter: `board_id=eq.${boardId}` },
+      () => fetch()
+    )
+    .subscribe()
 
   return () => {
-    clearTimeout(id)
-    if (channel) supabase.removeChannel(channel)
+    supabase.removeChannel(channel)
   }
 }
 

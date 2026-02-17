@@ -1,16 +1,20 @@
 # Active Context
 
-## Current Focus
-**Google Auth setup** — Complete Google OAuth so "Continue with Google" works. See SUPABASE_SETUP.md §5. User must complete in Google Cloud Console + Supabase Dashboard (manual steps). Selection ✅ complete.
+## Current Focus (for next agent)
+**Verify real-time sync & fix locking** — User was walked through enabling Realtime: Database Management → **Publications** (not Replication) → supabase_realtime → add documents, locks, presence. After enabling, user should refresh browser tabs and test with 2 users on same board.
+
+- If sync still doesn't work: debug documentsApi subscribeToDocuments, boardSync, Realtime subscription
+- If sync works: fix locking (acquire/release on selection, lock UI feedback)
+- No Vercel redeploy needed for Realtime changes
 
 ## Recent Changes
 - **Stack migration** ✅: Firebase → Supabase. Auth (Supabase Auth), DB (Postgres + Realtime), Edge Functions (invite-to-board). RLS replaces RTDB rules.
 - **Google Auth prep** ✅: signInWithGoogle passes redirectTo; SUPABASE_SETUP.md §5 has full steps (Google Cloud Console → Supabase Dashboard → URL config).
 - **Board sharing** ✅: joinBoard API, RTDB members rule (self-join), React Router /board/:boardId, Share button (copy link), Join Board flow (paste link or ID)
-- **Locking:** Dual-layer (client + server). locksApi, acquire on selection, release on deselection, RTDB rules reject writes when lock held by another
+- **Locking:** Implemented but NOT working in production — dual-layer design (locksApi, acquire/release, RLS)
 - **Line movement fix:** Replaced Fabric Line (deprecated, transform bug) with Polyline (2 points) — line now moves correctly
 - Clarified: presence = who else is viewing board (list) + cursor dots with name labels
-- RTDB delta sync: documentsApi, boardSync, Fabric↔RTDB bidir
+- Supabase delta sync: documentsApi, boardSync, Fabric↔Postgres Realtime — NOT live in multi-user tests
 - Zoom: expanded to 0.02–20x for infinite canvas feel (was 0.1–5x)
 - Viewport culling: Fabric skipOffscreen enabled
 - WorkspaceToolbar: Select, Rect, Circle, Triangle, Line, Text, Sticky tools
@@ -19,7 +23,10 @@
 - WorkspacePage: tool state, toolbar above canvas
 
 ## Recent Implementations
-- **Selection** ✅: Single + box-select (Fabric built-in); pan = middle-click or Space+drag (not left-drag on empty); boardSync locking for multi-select; Delete key removes all selected objects
+- **Selection** ✅: Single + box-select; pan = middle-click or Space+drag; Delete removes all selected
+- **Drawing fix** ✅: Preview shapes use assignId: false so they don't sync as duplicates
+- **Vercel SPA rewrite** ✅: Direct /board/:id links work (vercel.json rewrites)
+- **Resend** ✅: RESEND_FROM_EMAIL for verified domain (contact.meboard.dev)
 
 ## Next Steps (Recode Order)
 
@@ -27,9 +34,9 @@
 2. ~~**Fabric canvas wrapper**~~ ✅
 3. ~~**Shapes + toolbar**~~ ✅
 4. ~~**Viewport culling**~~ ✅ (Fabric skipOffscreen)
-5. ~~**RTDB delta sync**~~ ✅
-6. ~~**Presence & cursors**~~ ✅ (presenceApi, usePresence, CursorOverlay, RTDB rules)
-7. ~~**Locking**~~ ✅ (locksApi, acquire/release, RTDB rules, not-allowed cursor on locked)
+5. ~~**Delta sync**~~ ⚠️ implemented, NOT live (multi-user)
+6. ~~**Presence & cursors**~~ ⚠️ implemented, not verified
+7. **Locking** — ⚠️ implemented, NOT working
 8. ~~**Board sharing**~~ ✅ (joinBoard, share link, join-by-ID, RTDB members rule)
 9. ~~**Selection**~~ ✅ (single + box-select; pan = middle-click or Space+drag)
 
@@ -38,7 +45,6 @@
 - MVP gate: auth → canvas → objects → sync → cursors → locking
 
 ## Considerations
-- Fabric requires custom sync (vs tldraw's built-in); use delta-only, UUID v4, server timestamps
-- Locking: dual-layer (client + server); User A cannot edit what User B edits
-- Presence: RTDB `boards/{boardId}/presence/{userId}` or root `presence/{boardId}/{userId}`, 100ms or mousemove debounce
-- boardSync: strip `type` before existing.set() to avoid Fabric "Setting type has no effect" warning
+- **Realtime**: Tables (documents, locks, presence) in supabase_realtime. Path: Database Management → **Publications** (not Replication). SQL fallback: `ALTER PUBLICATION supabase_realtime ADD TABLE documents;` etc.
+- boardSync: strip `type` before existing.set() to avoid Fabric warning
+- Locking: dual-layer design; needs debugging in multi-user scenario

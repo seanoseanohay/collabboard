@@ -13,7 +13,7 @@
 - **Supabase PostgreSQL + Realtime**
 - Delta-only object patches
 - Presence & cursors
-- Graceful reconnect
+- **Critical:** Add documents, locks, presence to supabase_realtime publication (Dashboard → Database → Replication) for live sync
 
 ### Authentication
 - **Supabase Auth** (Google + Email)

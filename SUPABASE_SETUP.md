@@ -18,7 +18,7 @@ VITE_SUPABASE_ANON_KEY=eyJ...
 
 **Initial schema:** In Supabase Dashboard > SQL Editor, run `supabase/migrations/20260216000000_initial_schema.sql`.
 
-**RLS fix migration** (fixes board creation and recursion):
+**RLS fix migrations** (fix board creation, recursion, and 403 when joining via share link):
 
 **Option A – npm script (recommended)**
 
@@ -34,12 +34,27 @@ Run these two migrations in order (copy/paste each and Run):
 1. `supabase/migrations/20260216000001_fix_board_members_rls_recursion.sql`
 2. `supabase/migrations/20260216000002_fix_board_members_self_join.sql`
 
-## 4. Enable Realtime
+## 4. Enable Realtime (required for multi-user sync)
 
-In Dashboard > Database > Replication, add these tables to the `supabase_realtime` publication:
-- documents
-- locks
-- presence
+**Important:** This is under **Publications**, not Replication.
+
+### Option A – Dashboard (recommended)
+
+1. In the **left sidebar**, under **DATABASE MANAGEMENT**, click **Publications**
+2. Open the `supabase_realtime` publication
+3. Turn on these tables: **documents**, **locks**, **presence**
+
+### Option B – SQL Editor
+
+If `supabase_realtime` exists but tables aren't listed, run:
+
+```sql
+ALTER PUBLICATION supabase_realtime ADD TABLE documents;
+ALTER PUBLICATION supabase_realtime ADD TABLE locks;
+ALTER PUBLICATION supabase_realtime ADD TABLE presence;
+```
+
+(Run each line. If a table is already in the publication, you'll get an error—that's fine.)
 
 ## 5. Enable Google auth
 

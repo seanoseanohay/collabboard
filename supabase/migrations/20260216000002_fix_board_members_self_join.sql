@@ -16,3 +16,7 @@ DROP POLICY IF EXISTS board_members_insert ON board_members;
 CREATE POLICY board_members_insert ON board_members FOR INSERT WITH CHECK (
   auth.uid() = user_id AND board_exists(board_id)
 );
+
+-- Upsert needs UPDATE when row exists (e.g. re-join). Allow user to update own membership.
+DROP POLICY IF EXISTS board_members_update ON board_members;
+CREATE POLICY board_members_update ON board_members FOR UPDATE USING (auth.uid() = user_id);

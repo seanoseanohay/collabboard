@@ -64,21 +64,17 @@ export function subscribeToPresence(
 
   fetch()
 
-  let channel: ReturnType<typeof supabase.channel> | null = null
-  const id = setTimeout(() => {
-    channel = supabase
-      .channel(`presence:${boardId}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'presence', filter: `board_id=eq.${boardId}` },
-        () => fetch()
-      )
-      .subscribe()
-  }, 0)
+  const channel = supabase
+    .channel(`presence:${boardId}`)
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'presence', filter: `board_id=eq.${boardId}` },
+      () => fetch()
+    )
+    .subscribe()
 
   return () => {
-    clearTimeout(id)
-    if (channel) supabase.removeChannel(channel)
+    supabase.removeChannel(channel)
   }
 }
 

@@ -62,54 +62,50 @@ export function subscribeToDocuments(
 
   fetchInitial()
 
-  let channel: ReturnType<typeof supabase.channel> | null = null
-  const id = setTimeout(() => {
-    channel = supabase
-      .channel(`documents:${boardId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'documents',
-          filter: `board_id=eq.${boardId}`,
-        },
-        (payload) => {
-          const row = payload.new as { object_id: string; data?: Record<string, unknown> }
-          if (row?.object_id && row.data) callbacks.onAdded(row.object_id, row.data)
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'documents',
-          filter: `board_id=eq.${boardId}`,
-        },
-        (payload) => {
-          const row = payload.new as { object_id: string; data?: Record<string, unknown> }
-          if (row?.object_id && row.data) callbacks.onChanged(row.object_id, row.data)
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'DELETE',
-          schema: 'public',
-          table: 'documents',
-          filter: `board_id=eq.${boardId}`,
-        },
-        (payload) => {
-          const row = payload.old as { object_id?: string }
-          if (row?.object_id) callbacks.onRemoved(row.object_id)
-        }
-      )
-      .subscribe()
-  }, 0)
+  const channel = supabase
+    .channel(`documents:${boardId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'documents',
+        filter: `board_id=eq.${boardId}`,
+      },
+      (payload) => {
+        const row = payload.new as { object_id: string; data?: Record<string, unknown> }
+        if (row?.object_id && row.data) callbacks.onAdded(row.object_id, row.data)
+      }
+    )
+    .on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'documents',
+        filter: `board_id=eq.${boardId}`,
+      },
+      (payload) => {
+        const row = payload.new as { object_id: string; data?: Record<string, unknown> }
+        if (row?.object_id && row.data) callbacks.onChanged(row.object_id, row.data)
+      }
+    )
+    .on(
+      'postgres_changes',
+      {
+        event: 'DELETE',
+        schema: 'public',
+        table: 'documents',
+        filter: `board_id=eq.${boardId}`,
+      },
+      (payload) => {
+        const row = payload.old as { object_id?: string }
+        if (row?.object_id) callbacks.onRemoved(row.object_id)
+      }
+    )
+    .subscribe()
 
   return () => {
-    clearTimeout(id)
-    if (channel) supabase.removeChannel(channel)
+    supabase.removeChannel(channel)
   }
 }

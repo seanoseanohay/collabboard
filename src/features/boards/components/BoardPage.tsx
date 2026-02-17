@@ -12,12 +12,16 @@ import type { BoardMeta } from '@/features/boards/api/boardsApi'
 export function BoardPage() {
   const { boardId } = useParams<{ boardId: string }>()
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const [board, setBoard] = useState<BoardMeta | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (authLoading) {
+      setLoading(true)
+      return
+    }
     if (!boardId || !user) {
       setLoading(false)
       if (!user) return
@@ -50,16 +54,16 @@ export function BoardPage() {
     return () => {
       cancelled = true
     }
-  }, [boardId, user, navigate])
+  }, [boardId, user, authLoading, navigate])
 
   const handleBack = () => {
     navigate('/')
   }
 
-  if (!user) return null
   if (!boardId) return null
+  if (!user) return null
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div style={styles.center}>
         <p>Joining board…</p>
