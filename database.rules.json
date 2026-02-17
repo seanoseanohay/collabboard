@@ -6,7 +6,15 @@
         ".write": "auth != null && (!data.exists() && newData.child('members').child(auth.uid).exists() || data.child('members').child(auth.uid).exists())",
         "documents": {
           ".read": "auth != null && root.child('boards').child($boardId).child('members').child(auth.uid).exists()",
-          ".write": "auth != null && root.child('boards').child($boardId).child('members').child(auth.uid).exists()"
+          "$objectId": {
+            ".write": "auth != null && root.child('boards').child($boardId).child('members').child(auth.uid).exists() && (!root.child('boards').child($boardId).child('locks').child($objectId).exists() || root.child('boards').child($boardId).child('locks').child($objectId).child('userId').val() === auth.uid)"
+          }
+        },
+        "locks": {
+          ".read": "auth != null && root.child('boards').child($boardId).child('members').child(auth.uid).exists()",
+          "$objectId": {
+            ".write": "auth != null && root.child('boards').child($boardId).child('members').child(auth.uid).exists() && newData.child('userId').val() === auth.uid"
+          }
         }
       }
     },

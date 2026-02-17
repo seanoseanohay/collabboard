@@ -29,7 +29,7 @@
 6. ~~**Viewport culling**~~ ✅ (Fabric skipOffscreen)
 7. ~~**Sync**~~ ✅ RTDB delta sync, object-level patches, server timestamps
 8. ~~**Presence & cursors**~~ ✅ presenceApi, usePresence, CursorOverlay, "N others viewing"
-9. **Locking** — Client + server (object-level)
+9. ~~**Locking**~~ ✅ locksApi, acquire on select, release on deselect, server rejects writes
 10. **Selection** — Single + box-select (Fabric built-in)
 11. ~~**AI Agent**~~ — Post-MVP
 12. ~~**Deployment**~~ ✅ (Vercel live)
@@ -57,7 +57,8 @@
 - Explicitly set in FabricCanvas for 500+ object perf target
 
 ### 4. Shapes + Elements ✅
-- Fabric primitives: Rect, Circle, Triangle, Line, Text — done
+- Fabric primitives: Rect, Circle, Triangle, Polyline (line tool), Text — done
+- Line: uses Polyline (2 points) not deprecated Line — Fabric Line has transform bug (box moves, path doesn't)
 - Sticky notes: Fabric Text in colored Rect group — done
 - Toolbar for create (rect, circle, triangle, line, text, sticky) — done
 - Clean/flat styling, Delete key support — done
@@ -76,10 +77,11 @@
 - FabricCanvas: onPointerMove, onViewportChange callbacks
 - RTDB rules: presence path, member read, own-write only
 
-### 7. Locking
-- RTDB path for locks (e.g. `boards/{boardId}/locks/{objectId}`)
-- Client: disable Fabric interaction on locked objects, show lock overlay
-- Server: RTDB rules reject writes if lock held by another user
+### 7. Locking ✅
+- locksApi: acquireLock, releaseLock, subscribeToLocks, setupLockDisconnect
+- boardSync: acquire on selection:created, release on selection:cleared
+- Client: selectable=false, hoverCursor=not-allowed on objects locked by others
+- Server: documents write rejected unless no lock or lock.userId === auth.uid
 
 ### 8. Tests
 - Remove tldraw mocks from `src/test/setup.ts`
@@ -89,11 +91,12 @@
 ### 9. Database Rules
 - ~~Add rules for `boards/{boardId}/documents`~~ ✅ (member read/write)
 - ~~Add rules for `presence/{boardId}/{userId}`~~ ✅ (member read, own write)
-- Add rules for locks path
+- ~~Add rules for locks path~~ ✅ (boards/$boardId/locks/$objectId)
 
 ## Current Status
-**Phase:** Presence & cursors complete — multiplayer cursors + "N others viewing"  
-**Next:** Locking (client + server dual-layer)
+**Phase:** Locking complete — dual-layer (client + server)  
+**Next:** Selection polish, tests, or deploy rules (firebase deploy --only database)
 
 ## Known Issues
-- **boardSync:** Fabric warns "Setting type has no effect" when applying remote updates to Line/shapes — strip `type` from serialized object before `existing.set()` (type is read-only, used only for deserialization)
+- **boardSync:** Fabric warns "Setting type has no effect" when applying remote updates — strip `type` from serialized object before `existing.set()` (type is read-only)
+- **Legacy Line objects:** Boards created before the fix may have old Fabric Line objects; those still have the movement bug. New lines use Polyline.

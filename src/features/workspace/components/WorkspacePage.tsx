@@ -68,6 +68,8 @@ export function WorkspacePage({ board, onBack }: WorkspacePageProps) {
         <FabricCanvas
           selectedTool={selectedTool}
           boardId={board.id}
+          userId={user?.uid}
+          userName={userName}
           onPointerMove={user ? handlePointerMove : undefined}
           onViewportChange={handleViewportChange}
         />

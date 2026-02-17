@@ -11,6 +11,8 @@ interface FabricCanvasProps {
   className?: string
   selectedTool?: ToolType
   boardId?: string
+  userId?: string
+  userName?: string
   onPointerMove?: (scenePoint: { x: number; y: number }) => void
   onViewportChange?: (vpt: number[]) => void
 }
@@ -27,6 +29,8 @@ export function FabricCanvas({
   className,
   selectedTool = 'select',
   boardId,
+  userId,
+  userName,
   onPointerMove,
   onViewportChange,
 }: FabricCanvasProps) {
@@ -214,8 +218,14 @@ export function FabricCanvas({
     }
     document.addEventListener('keydown', handleKeyDown)
 
+    const lockOpts =
+      boardId && userId && userName
+        ? { userId, userName }
+        : undefined
     const cleanupSync =
-      boardId ? setupBoardSync(fabricCanvas, boardId) : () => {}
+      boardId
+        ? setupBoardSync(fabricCanvas, boardId, lockOpts)
+        : () => {}
 
     fabricCanvas.on('mouse:wheel', handleWheel)
     fabricCanvas.on('mouse:down', handleMouseDown)
@@ -244,7 +254,7 @@ export function FabricCanvas({
       el.removeChild(canvasEl)
       canvasRef.current = null
     }
-  }, [width, height, boardId, onPointerMove, onViewportChange])
+  }, [width, height, boardId, userId, userName, onPointerMove, onViewportChange])
 
   return <div ref={containerRef} className={className} style={styles.container} />
 }

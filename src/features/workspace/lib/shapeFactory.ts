@@ -6,7 +6,7 @@ import {
   Rect,
   Circle,
   Triangle,
-  Line,
+  Polyline,
   FabricText,
   Group,
   type FabricObject,
@@ -79,9 +79,10 @@ export function createShape(
       }))
     }
     case 'line': {
-      return withId(new Line([x1, y1, x2, y2], {
+      // Use Polyline instead of deprecated Line - Line has transform bugs (bounding box moves, path doesn't)
+      return withId(new Polyline([{ x: x1, y: y1 }, { x: x2, y: y2 }], {
         ...baseOpts,
-        fill: STROKE,
+        fill: '',
         stroke: STROKE,
       }))
     }

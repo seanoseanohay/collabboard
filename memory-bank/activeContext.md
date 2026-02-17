@@ -1,9 +1,11 @@
 # Active Context
 
 ## Current Focus
-Locking — dual-layer (client disable + server rules); next MVP requirement after presence.
+Selection polish, tests, or deployment verification. Locking complete.
 
 ## Recent Changes
+- **Locking:** Dual-layer (client + server). locksApi, acquire on selection, release on deselection, RTDB rules reject writes when lock held by another
+- **Line movement fix:** Replaced Fabric Line (deprecated, transform bug) with Polyline (2 points) — line now moves correctly
 - Clarified: presence = who else is viewing board (list) + cursor dots with name labels
 - RTDB delta sync: documentsApi, boardSync, Fabric↔RTDB bidir
 - Zoom: expanded to 0.02–20x for infinite canvas feel (was 0.1–5x)
@@ -21,7 +23,7 @@ Locking — dual-layer (client disable + server rules); next MVP requirement aft
 4. ~~**Viewport culling**~~ ✅ (Fabric skipOffscreen)
 5. ~~**RTDB delta sync**~~ ✅
 6. ~~**Presence & cursors**~~ ✅ (presenceApi, usePresence, CursorOverlay, RTDB rules)
-7. **Locking** — client disable + server rules
+7. ~~**Locking**~~ ✅ (locksApi, acquire/release, RTDB rules, not-allowed cursor on locked)
 
 ## Active Decisions
 - PRD v5.0: Fabric.js for licensing; viewport culling for perf; AI + Undo post-MVP
