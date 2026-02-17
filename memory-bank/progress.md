@@ -107,19 +107,27 @@
 - ~~RLS for documents, locks, presence~~ ✅
 
 ## Current Status
-**Phase:** Real-time sync working. Objects sync live during drag. Cursors visible. Sticky notes working. Text rotation fixed. 
-**Critical issue:** Locking has 200-500ms latency via postgres_changes, allowing race conditions.
-**Next agent:** Implement Supabase Broadcast for instant lock propagation (<100ms), then optimize board loading performance.
+**Phase:** Real-time sync working. Objects sync live during drag. Cursors visible. Sticky notes working. Text rotation fixed.
+**CRITICAL BUG DISCOVERED:** Locking system not running at all! `lockOptions` is undefined, so entire `if (lockOptions)` block is skipped.
+**Investigation status:** Debug check deployed. User needs to refresh and report console output:
+- If shows "LOCKING DISABLED": Auth not passing userId/userName
+- If shows "LOCKING ENABLED": Auth works, but broadcasts not working
+**Next agent:** Fix whichever issue the console reveals, then test multi-user locking.
 
 ## Known Issues
-- **Locking latency (CRITICAL)** — postgres_changes has 200-500ms delay. User 2 can click locked objects before lock propagates. Need Supabase Broadcast for instant (<100ms) lock messages.
+- **Locking not running (CRITICAL)** — Entire locking system skipped because `lockOptions` undefined. Check `FabricCanvas.tsx` line 332: requires `boardId && uid && uname`. Debug check deployed to identify missing value.
 - **Board loading performance** — Fetches ALL objects upfront. Slow on boards with 50+ objects. Consider lazy loading or pagination.
 - **Legacy Line objects:** Old Fabric Line objects have movement bug. New lines use Polyline.
 - **StrictMode** — Removed from main.tsx (was causing Realtime channel churn). Re-add for prod if desired.
 
-## Recently Fixed
+## Recently Fixed (2026-02-17)
 - ✅ Text rotation - objects no longer enter edit mode during transform
-- ✅ layoutManager serialization - removed from toObject() calls
-- ✅ Ghost click zone - reapply lock state after Realtime updates
+- ✅ layoutManager serialization - removed from toObject() calls  
+- ✅ Ghost click zone (visual) - call setCoords() after position updates
+- ✅ Ghost click zone (lock state) - reapply lock state after Realtime updates
 - ✅ Optimistic locking - locks apply locally before DB roundtrip
 - ✅ Sticky note locking - removed subTargetCheck to respect locks
+- ✅ INSERT instead of UPSERT - database enforces mutual exclusion atomically
+- ✅ Broadcast implementation - instant lock propagation (<100ms)
+- ✅ Comprehensive debug logging - shows lock flow in console
+- ❌ **BUT DISCOVERED:** None of it runs because lockOptions is undefined!
