@@ -3,7 +3,7 @@
  * Requires SUPABASE_DB_URL (from Dashboard > Settings > Database > Connection string URI).
  * Usage: SUPABASE_DB_URL="postgresql://..." npm run db:migrate
  *
- * Runs: 00001 (recursion fix), 00002 (board_members self-join fix).
+ * Runs: 00001 (recursion fix), 00002 (board_members self-join), 00003 (Realtime publication).
  * Initial schema (00000) is run separately in SQL Editor.
  */
 import { readFileSync } from 'fs'
@@ -16,6 +16,7 @@ const migrationsDir = join(__dirname, '../supabase/migrations')
 const FIX_MIGRATIONS = [
   '20260216000001_fix_board_members_rls_recursion.sql',
   '20260216000002_fix_board_members_self_join.sql',
+  '20260216000003_realtime_publication.sql',
 ]
 
 async function main() {

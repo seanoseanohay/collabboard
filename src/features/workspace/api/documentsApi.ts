@@ -49,10 +49,11 @@ export function subscribeToDocuments(
   const supabase = getSupabaseClient()
 
   const fetchInitial = async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('documents')
       .select('object_id, data')
       .eq('board_id', boardId)
+    console.log('[documents] fetchInitial', { count: data?.length ?? 0, error })
     for (const row of data ?? []) {
       if (row?.object_id && row.data) {
         callbacks.onAdded(row.object_id, row.data as Record<string, unknown>)
@@ -73,6 +74,7 @@ export function subscribeToDocuments(
         filter: `board_id=eq.${boardId}`,
       },
       (payload) => {
+        console.log('[documents] INSERT', payload)
         const row = payload.new as { object_id: string; data?: Record<string, unknown> }
         if (row?.object_id && row.data) callbacks.onAdded(row.object_id, row.data)
       }
@@ -86,6 +88,7 @@ export function subscribeToDocuments(
         filter: `board_id=eq.${boardId}`,
       },
       (payload) => {
+        console.log('[documents] UPDATE', payload)
         const row = payload.new as { object_id: string; data?: Record<string, unknown> }
         if (row?.object_id && row.data) callbacks.onChanged(row.object_id, row.data)
       }
@@ -99,11 +102,14 @@ export function subscribeToDocuments(
         filter: `board_id=eq.${boardId}`,
       },
       (payload) => {
+        console.log('[documents] DELETE', payload)
         const row = payload.old as { object_id?: string }
         if (row?.object_id) callbacks.onRemoved(row.object_id)
       }
     )
-    .subscribe()
+    .subscribe((status, err) => {
+      console.log('[documents] channel status', status, err)
+    })
 
   return () => {
     supabase.removeChannel(channel)

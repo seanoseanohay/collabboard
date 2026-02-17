@@ -73,6 +73,7 @@ export function setupBoardSync(
     objectId: string,
     data: Record<string, unknown>
   ) => {
+    console.log('[boardSync] applyRemote', objectId, data)
     const clean = stripSyncFields(data)
     const existing = canvas.getObjects().find((o) => getObjectId(o) === objectId)
     if (existing) {
@@ -84,9 +85,10 @@ export function setupBoardSync(
           delete serialized.data
           existing.set(serialized)
           canvas.requestRenderAll()
+          console.log('[boardSync] applied update to existing', objectId)
         }
-      } catch {
-        // Ignore deserialization errors
+      } catch (err) {
+        console.error('[boardSync] applyRemote existing failed', objectId, err)
       }
       return
     }
@@ -99,9 +101,10 @@ export function setupBoardSync(
         canvas.add(revived)
         canvas.requestRenderAll()
         isApplyingRemote = false
+        console.log('[boardSync] applied add', objectId)
       }
-    } catch {
-      // Ignore deserialization errors
+    } catch (err) {
+      console.error('[boardSync] applyRemote add failed', objectId, err)
     }
   }
 
@@ -174,7 +177,8 @@ export function setupBoardSync(
     if (!id || isApplyingRemote) return
     const payload = obj.toObject(['data']) as Record<string, unknown>
     delete payload.data
-    writeDocument(boardId, id, payload).catch(console.error)
+    console.log('[boardSync] emitModify', id)
+    writeDocument(boardId, id, payload).catch((err) => console.error('[boardSync] writeDocument failed', id, err))
   }
 
   const emitRemove = (obj: FabricObject) => {

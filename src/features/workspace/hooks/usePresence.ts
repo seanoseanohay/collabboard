@@ -25,7 +25,7 @@ function hashToColor(userId: string): string {
   return PRESENCE_COLORS[idx]
 }
 
-const DEBOUNCE_MS = 100
+const DEBOUNCE_MS = 50
 
 export interface UsePresenceOptions {
   boardId: string

@@ -30,9 +30,10 @@ VITE_SUPABASE_ANON_KEY=eyJ...
 
 **Option B – SQL Editor**
 
-Run these two migrations in order (copy/paste each and Run):
+Run these migrations in order (copy/paste each and Run):
 1. `supabase/migrations/20260216000001_fix_board_members_rls_recursion.sql`
 2. `supabase/migrations/20260216000002_fix_board_members_self_join.sql`
+3. `supabase/migrations/20260216000003_realtime_publication.sql` (adds documents, locks, presence to Realtime — required for shape sync)
 
 ## 4. Enable Realtime (required for multi-user sync)
 
