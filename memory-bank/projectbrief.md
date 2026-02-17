@@ -1,13 +1,22 @@
 # Project Brief: CollabBoard
 
 ## Source
-PRD Version 4.7 | February 16, 2026
+PRD Version 5.0 | February 16, 2026 (Fabric.js stack)
 
 ## Project Context
 Gauntlet AI G4 Week 1 — Real-Time Collaborative Whiteboard with AI Agent
 
 ## Goal
 Bulletproof multiplayer sync + reliable AI agent in a 7-day sprint. Project completion required for Austin admission.
+
+## Stack Change (v5.0)
+- **Canvas:** Fabric.js (replaced tldraw due to v4+ licensing requirements)
+- **Why:** tldraw needs trial/hobby/commercial key for prod; Fabric.js BSD-3 is free
+- **Trade-off:** Custom sync/presence; mitigated by viewport culling + delta-only
+- **Visual style:** Clean, flat (tldraw-like)
+- **Viewport culling:** Required; use viewportTransform, object.visible
+- **AI agent:** Post-MVP
+- **Undo/Redo:** Post-MVP
 
 ## Core Requirements
 
@@ -43,5 +52,6 @@ Bulletproof multiplayer sync + reliable AI agent in a 7-day sprint. Project comp
 - No guest access in MVP
 
 ## Scope Boundaries
-- **In scope:** Shapes (rect, circle, triangle, line), sticky notes, standalone text; create/move/resize/color/delete/zIndex; AI agent via Cloud Functions
-- **Out of scope (MVP):** Rotation, guest access, revocable invites
+- **In scope (MVP):** Shapes (rect, circle, triangle, line), sticky notes, standalone text; create/move/resize/color/delete/zIndex; viewport culling; Fabric.js canvas
+- **Out of scope (MVP):** Rotation, guest access, revocable invites, AI agent, Undo/Redo
+- **Post-MVP:** AI agent, Undo/Redo, Rotation

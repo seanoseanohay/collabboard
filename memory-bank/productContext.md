@@ -21,7 +21,7 @@ CollabBoard is a real-time collaborative whiteboard that enables multiple users 
    - Move, resize, change color, delete
    - See other users' cursors, presence, and edits in real time
    - Lock objects when editing (others cannot edit locked objects)
-   - AI commands via natural language (e.g., "add a red circle")
+   - AI commands via natural language (post-MVP; e.g., "add a red circle")
 
 ### Collaboration Behavior
 - Object sync latency <100ms, cursor sync <50ms
@@ -30,7 +30,7 @@ CollabBoard is a real-time collaborative whiteboard that enables multiple users 
 - Optimistic UI + reconciliation
 - Graceful reconnect and refresh persistence
 
-### AI Agent Behavior
+### AI Agent Behavior (Post-MVP)
 - All commands through Firebase Cloud Function (serialized per board)
 - Never overrides user locks; skips locked objects
 - Atomic writes (no partial state)

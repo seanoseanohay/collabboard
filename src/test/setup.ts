@@ -27,11 +27,8 @@ jest.mock('firebase/database', () => ({
   getDatabase: jest.fn(() => ({})),
 }))
 
-jest.mock('tldraw', () => {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports -- mock factory needs sync require
-  const React = require('react')
-  return {
-    Tldraw: () => React.createElement('div', { 'data-testid': 'tldraw-mock' }),
-  }
-})
-jest.mock('tldraw/tldraw.css', () => ({}))
+jest.mock('@/features/workspace/components/FabricCanvas', () => ({
+  FabricCanvas: () =>
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- mock factory
+    require('react').createElement('div', { 'data-testid': 'fabric-canvas-mock' }),
+}))

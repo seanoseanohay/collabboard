@@ -5,16 +5,24 @@ alwaysApply: true
 
 # CollabBoard Project Rules
 
-## Stack (from PRD v4.7)
-- **Frontend:** React + tldraw SDK v4.3.2
+Building CollabBoard per updated PRD v5.0 (Fabric.js instead of tldraw due
+to licensing). Current state: Vite + React + TS; tldraw to be replaced with
+Fabric.js. Priority: MVP gate first — auth → infinite canvas/pan/zoom →
+basic object create/move → delta sync via RTDB → cursors/presence. Implement
+viewport culling early for 500-object perf. Use client UUID v4, delta-only
+`.update()`, server timestamps. Start with Fabric canvas wrapper + pan/zoom.
+
+## Stack (from PRD v5.0)
+- **Frontend:** React + Fabric.js (BSD license). Visual style: clean/flat (tldraw-like).
 - **Sync:** Firebase Realtime Database (RTDB) — delta-only, object-level patches
 - **Auth:** Firebase Auth (Google + Email)
-- **AI:** Anthropic Claude via Firebase Cloud Functions
+- **AI:** Post-MVP (Anthropic Claude via Firebase Cloud Functions)
 - **Deploy:** Vercel + Firebase
 
 ## Critical Constraints
 - **Sync:** Never write full board state. Use object-level deltas only. RTDB `.update()` multi-path for atomic writes. Server timestamps via `.sv: "timestamp"`.
-- **Locking:** Dual-layer (client disable + server RTDB transactions). AI never overrides locks.
+- **Viewport culling:** Only render objects in view (500+ object target).
+- **Locking:** Dual-layer (client disable + server RTDB transactions). User A cannot edit what User B is editing.
 - **IDs:** Client-side UUID v4 (`crypto.randomUUID()`).
 
 ## Code Standards

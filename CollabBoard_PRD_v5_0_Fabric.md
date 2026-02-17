@@ -1,25 +1,35 @@
-# CollabBoard PRD (SUPERSEDED by v5.0)
+# CollabBoard PRD
 
-**Version:** 4.7\
+**Version:** 5.0\
 **Date:** February 16, 2026\
-**Note:** Superseded by CollabBoard_PRD_v5_0_Fabric.md — canvas engine changed from tldraw to Fabric.js.\
-**Project Context:** Gauntlet AI G4 Week 1 -- Real-Time Collaborative
+**Project Context:** Gauntlet AI G4 Week 1 — Real-Time Collaborative
 Whiteboard with AI Agent\
 **Goal:** Bulletproof multiplayer sync + reliable AI agent in a 7-day
 sprint. Project completion required for Austin admission.
+
+**Revision (v5.0):** Replaced tldraw SDK with Fabric.js due to licensing
+constraints. tldraw v4+ requires production license; Fabric.js is BSD-licensed.
+Visual style targets tldraw-like clean/flat aesthetic where possible.
+
+**Why Fabric:** Chose Fabric.js over tldraw due to production licensing
+requirements on tldraw v4+ (trial/hobby/commercial key needed for deployed
+apps). Fabric.js (BSD-3) is fully free/open, allowing unrestricted public
+deployment for this educational project. Trade-off: more custom sync/presence
+code, mitigated by viewport culling and delta-only strategy.
 
 ------------------------------------------------------------------------
 
 ## 0. Architecture Decisions (Chosen Stack)
 
-**Frontend --- React + tldraw SDK v4.3.2 (latest stable)**\
-- Infinite canvas\
+**Frontend --- React + Fabric.js**\
+- Infinite canvas with viewport culling (only render objects in view)\
 - Pan / Zoom\
 - Shapes, Sticky Notes, Text\
 - Selection (single + box)\
 - Transforms (move, resize; rotate post-MVP)\
 - Delete\
-- Multiplayer cursors + presence
+- Multiplayer cursors + presence\
+- Visual style: Clean, flat (tldraw-like)
 
 **Sync / Backend / Persistence --- Firebase Realtime Database (RTDB)**\
 - Delta-only object patches\
@@ -30,7 +40,7 @@ sprint. Project completion required for Austin admission.
 
 **Authentication --- Firebase Auth (Google + Email)**
 
-**AI Integration --- Anthropic Claude (function calling)**\
+**AI Integration --- Anthropic Claude (function calling)** — Post-MVP\
 - Fallback: OpenAI GPT-4o-mini
 
 **Deployment --- Vercel (frontend) + Firebase (RTDB/auth/rules + Cloud
@@ -38,10 +48,24 @@ Functions)**
 
 ------------------------------------------------------------------------
 
+## 0.1 Performance: Viewport Culling
+
+- Only render/draw objects whose bounds intersect the visible viewport
+- **Implementation:**
+  - Use Fabric's `viewportTransform` to compute current visible bounds
+  - In render loop or `requestRenderAll` hook: filter objects by
+    intersection with viewport rect
+  - Set `object.visible = false` for off-screen objects → dramatically
+    reduce draw calls
+  - Test with 500+ objects generated via script (rapid creation stress)
+- Required for 500+ objects without degradation
+
+------------------------------------------------------------------------
+
 ## Sync Strategy (Critical)
 
--   tldraw store interceptors / `onChange` emit **object-level deltas
-    only**
+-   Fabric.js event listeners (`object:modified`, `selection:created`, etc.)
+    emit **object-level deltas only**
 -   Never write full board state
 -   Use RTDB `.update()` multi-path writes for atomic updates
 -   Server timestamps via `.sv: "timestamp"` for ordering
@@ -50,7 +74,7 @@ Functions)**
 
 ------------------------------------------------------------------------
 
-## 0.1 Development Practices & Coding Standards
+## 0.2 Development Practices & Coding Standards
 
 -   Single Responsibility Principle (SRP)
 -   File size target \<400 LOC (hard max 1000 LOC)
@@ -119,6 +143,7 @@ Rotation excluded from MVP (post-MVP support).
 ### Post-MVP
 
 -   Rotate (throttled delta updates \~50ms)
+-   Undo / Redo
 
 ------------------------------------------------------------------------
 
@@ -130,11 +155,20 @@ Rotation excluded from MVP (post-MVP support).
 -   Refresh persistence
 -   Graceful reconnect
 
+### Presence / Cursors Implementation
+
+-   **Presence:** RTDB `/presence/{boardId}/{userId}` node with
+    `{ x, y, name, color, lastActive }`
+-   Update every 100ms or on mousemove (debounced)
+-   Render overlay canvas or absolute-positioned divs for cursor dots +
+    name labels
+-   Clean up on disconnect via `onDisconnect()` or TTL
+
 ### Conflict Resolution
 
 -   Last-write-wins using server timestamps
 -   Optimistic UI + reconciliation
--   AI commands serialized per board
+-   AI commands serialized per board (when AI is implemented)
 
 ------------------------------------------------------------------------
 
@@ -148,6 +182,8 @@ badge / overlay
 **Server-Side** - RTDB transactions enforce lock ownership - Writes
 rejected if lock held
 
+**Rule:** User A cannot move or edit what User B is editing.
+
 ### Lock Lifecycle
 
 -   Acquired transactionally on edit start
@@ -156,14 +192,14 @@ rejected if lock held
 -   `onDisconnect()` clears locks on disconnect
 -   Owner override available (transactional)
 
-### AI Interaction
+### AI Interaction (Post-MVP)
 
 -   AI never overrides locks
 -   Skips locked objects and reports summary
 
 ------------------------------------------------------------------------
 
-## 7. AI Board Agent
+## 7. AI Board Agent (Post-MVP)
 
 ### Entry Point
 
@@ -201,13 +237,13 @@ for server-side serialization.
 ## 8. Performance Targets
 
 -   60 FPS during pan/zoom/manipulation
--   500+ objects without degradation
+-   500+ objects without degradation (viewport culling required)
 -   Stable under 50 kbps network throttling
 -   5+ concurrent users stable
 
 ### Sync Constraint
 
--   Minimal `tldraw.update()` calls
+-   Minimal Fabric.js object updates from remote
 -   No full document resync
 -   Rotation deltas throttled (\~50ms)
 
@@ -221,7 +257,7 @@ for server-side serialization.
 -   Refresh mid-edit
 -   Rapid object creation / movement
 -   5 concurrent users
--   Simultaneous AI commands
+-   Simultaneous AI commands (when AI implemented)
 
 ### High-Risk Edge Cases
 
@@ -241,6 +277,11 @@ for server-side serialization.
 -   Unit: pure utils/services (aim 100%)
 -   Integration: locking, selection, AI batch flows
 
+### Fabric-Specific Tests
+
+-   500-object stress test with viewport culling → maintain 60 FPS
+-   Presence lag under throttling → cursors update \<50ms
+
 ------------------------------------------------------------------------
 
 ## 10. Definition of Done
@@ -253,12 +294,14 @@ for server-side serialization.
 -   Private access enforced via RTDB rules
 -   Public deployment live
 -   Code follows SRP + file limits
+-   Viewport culling implemented
 
 ### Production Complete When
 
 -   6+ reliable AI commands (including multi-step templates)
 -   Performance targets met
 -   Object rotation fully supported (UI + programmatic + synced)
+-   Undo / Redo implemented
 -   AI usage logged with exact token counts
 -   Touch-ready pointer handling
 -   New features addable in \<1 day (modular structure)

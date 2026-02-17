@@ -1,26 +1,32 @@
 # Active Context
 
 ## Current Focus
-Sync (RTDB delta sync). Workspace complete.
+Presence & cursors.
 
 ## Recent Changes
-- Workspace: tldraw canvas in WorkspacePage, header + full-height layout
-- Board list: boardsApi, useUserBoards, BoardListPage, WorkspacePage
-- RTDB structure: boards/{id}, user_boards/{userId}/{boardId}
+- RTDB delta sync: documentsApi, boardSync, Fabric↔RTDB bidir
+- Zoom: expanded to 0.02–20x for infinite canvas feel (was 0.1–5x)
+- Viewport culling: Fabric skipOffscreen enabled
+- WorkspaceToolbar: Select, Rect, Circle, Triangle, Line, Text, Sticky tools
+- shapeFactory: createShape() for all types, tldraw-like flat styling
+- FabricCanvas: selectedTool prop, drag-to-draw, preview, Delete/Backspace
+- WorkspacePage: tool state, toolbar above canvas
 
-## Next Steps
-1. Implement RTDB delta sync (object-level patches, server timestamps)
-5. Implement workspace with tldraw
-6. Add RTDB sync (delta-only, object-level)
-7. Add multiplayer cursors and presence
-8. Implement locking (client + server)
-9. Deploy to Vercel
+## Next Steps (Recode Order)
+
+1. ~~**Dependencies**~~ ✅
+2. ~~**Fabric canvas wrapper**~~ ✅
+3. ~~**Shapes + toolbar**~~ ✅
+4. ~~**Viewport culling**~~ ✅ (Fabric skipOffscreen)
+5. ~~**RTDB delta sync**~~ ✅
+6. **Presence & cursors** — presence path, overlay, onDisconnect
+7. **Locking** — client disable + server rules
 
 ## Active Decisions
-- Following PRD exactly for stack and sync strategy
-- 7-day sprint with MVP 24-hour gate as internal checkpoint
+- PRD v5.0: Fabric.js for licensing; viewport culling for perf; AI + Undo post-MVP
+- MVP gate: auth → canvas → objects → sync → cursors → locking
 
 ## Considerations
-- Locking is high-risk: dual-layer enforcement required
-- AI agent must be server-side for serialization and atomicity
-- Test edge cases early: lock races, disconnect mid-lock, AI batch failure
+- Fabric requires custom sync (vs tldraw's built-in); use delta-only, UUID v4, server timestamps
+- Locking: dual-layer (client + server); User A cannot edit what User B edits
+- Presence: RTDB `/presence/{boardId}/{userId}`, 100ms or mousemove debounce

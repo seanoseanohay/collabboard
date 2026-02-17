@@ -1,7 +1,7 @@
 # CollabBoard
 Real-time collaborative whiteboard with AI agent
 
-See CollabBoard_PRD_v4_7_Final.md for full spec.
+See CollabBoard_PRD_v5_0_Fabric.md for full spec.
 
 ## Setup
 

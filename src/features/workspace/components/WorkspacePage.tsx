@@ -1,6 +1,8 @@
-import { Tldraw } from 'tldraw'
-import 'tldraw/tldraw.css'
+import { useState } from 'react'
 import type { BoardMeta } from '@/features/boards/api/boardsApi'
+import { FabricCanvas } from './FabricCanvas'
+import { WorkspaceToolbar } from './WorkspaceToolbar'
+import type { ToolType } from '../types/tools'
 
 interface WorkspacePageProps {
   board: BoardMeta
@@ -8,6 +10,8 @@ interface WorkspacePageProps {
 }
 
 export function WorkspacePage({ board, onBack }: WorkspacePageProps) {
+  const [selectedTool, setSelectedTool] = useState<ToolType>('select')
+
   return (
     <div style={styles.container}>
       <header style={styles.header}>
@@ -16,8 +20,9 @@ export function WorkspacePage({ board, onBack }: WorkspacePageProps) {
         </button>
         <h1 style={styles.title}>{board.title}</h1>
       </header>
+      <WorkspaceToolbar selectedTool={selectedTool} onToolChange={setSelectedTool} />
       <div style={styles.canvas}>
-        <Tldraw />
+        <FabricCanvas selectedTool={selectedTool} boardId={board.id} />
       </div>
     </div>
   )

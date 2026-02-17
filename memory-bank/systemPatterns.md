@@ -5,8 +5,8 @@
 ```
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
 │   React +       │     │   Firebase      │     │   Firebase      │
-│   tldraw SDK    │────►│   RTDB          │◄────│   Cloud Fns     │
-│   v4.3.2        │     │   (sync +       │     │   (AI agent)    │
+│   Fabric.js     │────►│   RTDB          │◄────│   Cloud Fns     │
+│   (canvas)      │     │   (sync +       │     │   (AI post-MVP) │
 └────────┬────────┘     │    presence)    │     └─────────────────┘
          │              └────────┬────────┘
          │                       │
@@ -17,7 +17,7 @@
 
 ## Sync Strategy (Critical)
 - **Object-level deltas only** — never write full board state
-- tldraw store interceptors / `onChange` emit deltas
+- Fabric.js event listeners emit deltas (`object:modified`, `object:added`, `object:removed`)
 - RTDB `.update()` multi-path writes for atomic updates
 - Server timestamps via `.sv: "timestamp"` for ordering
 - Client-side UUID v4 for object IDs (`crypto.randomUUID()`)
@@ -41,6 +41,12 @@
 4. Plan in memory
 5. Single atomic multi-path `.update()` (objects + metadata + checks)
 6. Return summary
+
+## Presence
+- RTDB `/presence/{boardId}/{userId}`: `{ x, y, name, color, lastActive }`
+- Update 100ms or mousemove (debounced)
+- Overlay canvas or absolute divs for cursors + labels
+- `onDisconnect()` cleanup
 
 ## Code Structure
 - Feature-sliced folder structure

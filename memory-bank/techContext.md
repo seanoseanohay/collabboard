@@ -3,8 +3,9 @@
 ## Chosen Stack
 
 ### Frontend
-- **React** + **tldraw SDK v4.3.2** (latest stable)
-- Infinite canvas, pan/zoom, shapes, sticky notes, text
+- **React** + **Fabric.js** (BSD license)
+- Infinite canvas with viewport culling, pan/zoom
+- Shapes, sticky notes, text (tldraw-like clean/flat visual style)
 - Selection (single + box), transforms (move, resize)
 - Multiplayer cursors + presence
 
@@ -33,8 +34,11 @@
 ## Technical Constraints
 - Object IDs: Client-side UUID v4
 - Deterministic IDs for optimistic creation
-- Minimal `tldraw.update()` calls — no full document resync
+- Minimal remote updates — no full document resync
+- Viewport culling: use Fabric viewportTransform, object.visible = false for off-screen
 - Rotation excluded from MVP (post-MVP: throttled ~50ms deltas)
+- Undo/Redo excluded from MVP (post-MVP)
+- Presence: RTDB `/presence/{boardId}/{userId}`, update 100ms or mousemove debounce
 
 ## Performance Targets
 - 60 FPS during pan/zoom
@@ -46,4 +50,5 @@
 - TDD
 - Unit: pure utils/services (aim 100%)
 - Integration: locking, selection, AI batch flows
-- Core scenarios: 2 users editing, refresh mid-edit, rapid creation/movement, 5 concurrent users, simultaneous AI commands
+- Core scenarios: 2 users editing, refresh mid-edit, rapid creation/movement, 5 concurrent users
+- Fabric-specific: 500-object stress with culling → 60 FPS; presence under throttle → <50ms
