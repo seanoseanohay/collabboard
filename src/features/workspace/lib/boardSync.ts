@@ -146,6 +146,10 @@ export function setupBoardSync(
             
             ensureGroupChildrenNotSelectable(existing)
             ensureTextEditable(existing)
+            // Reapply lock state - prevents locked objects from becoming clickable after position updates
+            if (lockOptions && lastLocks.length > 0) {
+              applyLockState(canvas, lastLocks, lockOptions.userId)
+            }
             canvas.requestRenderAll()
           }
         } catch {
@@ -165,6 +169,10 @@ export function setupBoardSync(
           delete serialized.layoutManager  // Remove layoutManager - not serializable
           existing.set(serialized)
           ensureTextEditable(existing)
+          // Reapply lock state - prevents locked objects from becoming clickable after position updates
+          if (lockOptions && lastLocks.length > 0) {
+            applyLockState(canvas, lastLocks, lockOptions.userId)
+          }
           canvas.requestRenderAll()
         }
       } catch {
@@ -181,6 +189,10 @@ export function setupBoardSync(
         ensureTextEditable(revived)
         isApplyingRemote = true
         canvas.add(revived)
+        // Reapply lock state - ensures newly added objects respect current locks
+        if (lockOptions && lastLocks.length > 0) {
+          applyLockState(canvas, lastLocks, lockOptions.userId)
+        }
         canvas.requestRenderAll()
         isApplyingRemote = false
       }
