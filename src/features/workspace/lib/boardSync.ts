@@ -214,10 +214,20 @@ export function setupDocumentSync(
     writeDocument(boardId, id, payload).catch(console.error)
   }
 
+  /** Resolve event target to objects to sync: single object with id, or each object in ActiveSelection (multi-selection). */
+  const getObjectsToSync = (target: FabricObject): FabricObject[] => {
+    if (getObjectId(target)) return [target]
+    if ('getObjects' in target) {
+      const children = (target as { getObjects: () => FabricObject[] }).getObjects()
+      return children.filter((o) => !!getObjectId(o))
+    }
+    return []
+  }
+
   const MOVE_THROTTLE_MS = 80
   let moveThrottleTimer: ReturnType<typeof setTimeout> | null = null
   let lastMoveEmit = 0
-  let pendingMoveId: string | null = null
+  let pendingMoveIds = new Set<string>()
 
   const emitModify = (obj: FabricObject) => {
     const id = getObjectId(obj)
@@ -230,23 +240,29 @@ export function setupDocumentSync(
 
   const emitModifyThrottled = (obj: FabricObject) => {
     if (!obj || isApplyingRemote) return
-    const id = getObjectId(obj)
-    if (!id) return
-    pendingMoveId = id
+    const toSync = getObjectsToSync(obj)
+    if (toSync.length === 0) return
+    toSync.forEach((o) => {
+      const id = getObjectId(o)
+      if (id) pendingMoveIds.add(id)
+    })
     const now = Date.now()
     const elapsed = now - lastMoveEmit
     if (elapsed >= MOVE_THROTTLE_MS) {
       lastMoveEmit = now
-      emitModify(obj)
+      toSync.forEach((o) => emitModify(o))
+      pendingMoveIds.clear()
       return
     }
     if (!moveThrottleTimer) {
       moveThrottleTimer = setTimeout(() => {
         moveThrottleTimer = null
         lastMoveEmit = Date.now()
-        const target = pendingMoveId ? canvas.getObjects().find((o) => getObjectId(o) === pendingMoveId) : null
-        if (target) emitModify(target)
-        pendingMoveId = null
+        for (const id of pendingMoveIds) {
+          const target = canvas.getObjects().find((o) => getObjectId(o) === id)
+          if (target) emitModify(target)
+        }
+        pendingMoveIds.clear()
       }, MOVE_THROTTLE_MS - elapsed)
     }
   }
@@ -286,7 +302,10 @@ export function setupDocumentSync(
       clearTimeout(moveThrottleTimer)
       moveThrottleTimer = null
     }
-    if (e.target) emitModify(e.target)
+    if (e.target) {
+      const toSync = getObjectsToSync(e.target)
+      toSync.forEach((o) => emitModify(o))
+    }
   })
   canvas.on('object:removed', (e) => {
     if (e.target) emitRemove(e.target)

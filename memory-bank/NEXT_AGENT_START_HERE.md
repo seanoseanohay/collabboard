@@ -4,30 +4,22 @@
 
 ## Current State
 
-**Locking, document sync, and Google Auth are fully working.** ✅
+**Locking, document sync, Google Auth, presence awareness, and multi-selection move sync are working.** ✅
 
-### What Was Fixed (Previous Session)
-1. **Locking + document sync** — Split FabricCanvas effect so document sync persists when auth loads; lock sync in separate effect.
-2. **boardSync:** setupDocumentSync + setupLockSync; applyLockStateCallbackRef for re-applying locks after remote updates.
+### What Was Done (Previous Session)
+1. **Memory bank** — Presence awareness marked done; multi-selection move bug documented.
+2. **Multi-selection move sync** — Fixed in boardSync: `getObjectsToSync(target)` returns single object or each object in ActiveSelection; throttle uses `pendingMoveIds` (Set); `object:modified` syncs each object in selection. Moving circle + triangle together now syncs to other devices.
 
 ### Completed
-- Google Auth ✅ — User can log in with Google
+- Google Auth ✅
+- Presence awareness ✅ — Names in header
+- Multi-selection move sync ✅
 
-## Next Item: Presence Awareness — "Who's on Board"
+## Next Item (suggested)
 
-**Goal:** Show a **list of names** of who's currently viewing the board (in header or sidebar), per systemPatterns.md.
-
-**Current state:**
-- ✅ Cursor dots with name labels (CursorOverlay) — shows names when cursors are on canvas
-- ✅ Count in header — "X other(s) viewing" when others.length > 0
-- ❌ **Missing:** Persistent list of names (e.g. "Alice, Bob") so users see who's online at a glance, regardless of cursor position
-
-**PRD:** MVP requirement "Presence awareness" (PRD v5.0 line 109). systemPatterns.md: "Who's on board: Subscribe to presence node → show list of names in header or sidebar."
-
-**Implementation:** `others` from usePresence already has `{ userId, userName, color, ... }`. Enhance WorkspacePage header to show names (e.g. "Alice, Bob" or a compact list) instead of or in addition to "X others viewing". Consider: dropdown, inline list, or sidebar panel.
+- **Board loading performance** — Fetches ALL objects upfront; slow on 50+ objects. Consider lazy loading or pagination.
+- Or other polish / known issues from progress.md.
 
 ## Quick Reference
-- **Presence:** usePresence (boardId, userId, userName) → others, updatePresence
-- **WorkspacePage:** Header shows `{others.length} other(s) viewing` (lines 76-79)
-- **CursorOverlay:** Renders cursor dots + name labels from others
-- **presenceApi:** subscribeToPresence, writePresence, setupPresenceDisconnect
+- **boardSync.ts:** getObjectsToSync(), pendingMoveIds (Set), object:modified syncs each in selection.
+- **Fabric:** ActiveSelection has getObjects() but no data.id; we sync each child.

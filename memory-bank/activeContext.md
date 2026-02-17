@@ -1,7 +1,7 @@
 # Active Context
 
 ## Current Focus (for next agent)
-**Locking is now fully working.** ✅
+**Multi-selection move sync is fixed.** ✅ Next: board loading performance (lazy load for 50+ objects) or other polish.
 
 ### What Was Fixed (2026-02-17)
 1. **Locking never enabled** — Effect ran before auth loaded; `userId`/`userName` were empty. Added `userId`/`userName` to effect deps so sync re-ran when auth ready.
@@ -16,10 +16,15 @@
 
 ## Next Steps
 
-1. **Presence awareness — "Who's on board"** — Show list of names in header or sidebar (per systemPatterns.md). Currently: cursor dots + name labels ✅; count ("X others viewing") ✅. Missing: persistent list of names (e.g. "Alice, Bob") so users see who's online at a glance.
-2. **Board loading performance** — Fetches ALL objects upfront. Slow on boards with 50+ objects. Consider lazy loading or pagination.
+1. **Board loading performance** — Fetches ALL objects upfront. Slow on boards with 50+ objects. Consider lazy loading or pagination.
 
 ## Recent Changes (2026-02-17)
+
+**Multi-selection move sync:**
+- ✅ boardSync: getObjectsToSync(target) returns [target] if id, else getObjects() for ActiveSelection; emitModifyThrottled uses pendingMoveIds (Set); object:modified syncs each object in selection. Moving circle + triangle together now syncs to other devices.
+
+**Presence awareness:**
+- ✅ Header shows names list: "X others viewing — Alice, Bob" (WorkspacePage); tooltip with full list; ellipsis for long lists. Working as wanted (not perfect).
 
 **Locking + Document Sync Fix:**
 - ✅ Split FabricCanvas effect: document sync vs lock sync
@@ -47,8 +52,9 @@
 9. ~~Selection~~ ✅
 10. ~~Tests~~ ✅
 11. ~~**Google Auth**~~ ✅ — Complete (user can log in with Google)
-12. **Presence awareness — "Who's on board"** — Show list of names in header or sidebar (next item)
-13. **Board loading performance** — Lazy load for 50+ objects (Known Issue)
+12. ~~**Presence awareness — "Who's on board"**~~ ✅ — Names list in header ("X others viewing — Alice, Bob"); working as wanted (not perfect).
+13. ~~**Multi-selection move sync**~~ ✅ — boardSync getObjectsToSync + pendingMoveIds; object:modified syncs each in selection.
+14. **Board loading performance** — Lazy load for 50+ objects (Known Issue)
 
 ## Active Decisions
 - PRD v5.0: Fabric.js for licensing; viewport culling for perf; AI + Undo post-MVP

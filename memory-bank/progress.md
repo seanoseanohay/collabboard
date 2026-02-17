@@ -36,8 +36,9 @@
 9. ~~Locking~~ ✅
 10. ~~Board sharing~~ ✅
 11. ~~**Google Auth**~~ ✅ — Complete (user can log in with Google)
-12. **Presence awareness — "Who's on board"** — Show list of names in header or sidebar (next item)
-13. ~~Selection~~ ✅
+12. ~~**Presence awareness — "Who's on board"**~~ ✅ — Names in header ("X others viewing — Alice, Bob"); working as wanted.
+13. ~~**Multi-selection move sync**~~ ✅ — boardSync syncs each object in selection (getObjectsToSync + pendingMoveIds).
+14. ~~Selection~~ ✅
 13. ~~AI Agent~~ — Post-MVP
 14. ~~Deployment~~ ✅
 
@@ -48,8 +49,8 @@
 - Revocable invite links, touch handling, 6+ AI commands
 
 ## Current Status
-**Phase:** MVP near complete. Locking and document sync working. Real-time position updates + locking coexist.
-**Next:** Presence awareness — show list of names ("who's on board") in header or sidebar.
+**Phase:** MVP near complete. Presence awareness done (names in header). Locking and document sync working.
+**Next:** Board loading performance (lazy load) or other polish.
 
 ## Known Issues
 - **Board loading performance** — Fetches ALL objects upfront. Slow on boards with 50+ objects. Consider lazy loading or pagination.
@@ -57,6 +58,8 @@
 - **StrictMode** — Removed from main.tsx (was causing Realtime channel churn). Re-add for prod if desired.
 
 ## Recently Fixed (2026-02-17)
+- ✅ Multi-selection move sync — Moving multiple selected objects (circle + triangle) now syncs; boardSync getObjectsToSync + pendingMoveIds
+- ✅ Presence awareness — Header shows "X others viewing — Alice, Bob"; working as wanted
 - ✅ Locking + document sync — Split FabricCanvas effect so document sync persists when auth loads; lock sync in separate effect
 - ✅ Locking enabled — userId/userName in lock sync effect deps; boardSync refactored to setupDocumentSync + setupLockSync
 - ✅ Text rotation — objects no longer enter edit mode during transform
