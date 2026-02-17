@@ -28,7 +28,7 @@
 5. ~~**Shapes + toolbar**~~ ✅ (rect, circle, triangle, line, text, sticky; Delete key)
 6. ~~**Viewport culling**~~ ✅ (Fabric skipOffscreen)
 7. ~~**Sync**~~ ✅ RTDB delta sync, object-level patches, server timestamps
-8. **Presence & cursors** — RTDB `/presence/{boardId}/{userId}`, overlay rendering
+8. ~~**Presence & cursors**~~ ✅ presenceApi, usePresence, CursorOverlay, "N others viewing"
 9. **Locking** — Client + server (object-level)
 10. **Selection** — Single + box-select (Fabric built-in)
 11. ~~**AI Agent**~~ — Post-MVP
@@ -67,12 +67,14 @@
 - documentsApi: writeDocument, deleteDocument, subscribeToDocuments
 - boardSync: Fabric events → RTDB, RTDB child_* → Fabric (enlivenObjects)
 - Object IDs via data.id (UUID v4), server timestamps
+- Fix: strip `type` from serialized obj before existing.set() to avoid Fabric warning
 
-### 6. Presence & Cursors
-- RTDB path: `/presence/{boardId}/{userId}` → `{ x, y, name, color, lastActive }`
-- Update on mousemove (debounced) or every 100ms
-- Overlay canvas or absolute divs for cursor dots + labels
-- `onDisconnect()` cleanup
+### 6. Presence & Cursors ✅
+- presenceApi: writePresence, subscribeToPresence, setupPresenceDisconnect
+- usePresence: debounced (100ms) updates, filters self from others
+- CursorOverlay: scene→screen transform, cursor dots + name labels
+- FabricCanvas: onPointerMove, onViewportChange callbacks
+- RTDB rules: presence path, member read, own-write only
 
 ### 7. Locking
 - RTDB path for locks (e.g. `boards/{boardId}/locks/{objectId}`)
@@ -85,13 +87,13 @@
 - Fabric-specific: 500-object stress test, presence latency under throttle
 
 ### 9. Database Rules
-- Add rules for `presence/{boardId}/{userId}` (member write own presence)
-- Add rules for `boards/{boardId}/documents` (member read/write)
+- ~~Add rules for `boards/{boardId}/documents`~~ ✅ (member read/write)
+- ~~Add rules for `presence/{boardId}/{userId}`~~ ✅ (member read, own write)
 - Add rules for locks path
 
 ## Current Status
-**Phase:** RTDB delta sync complete — real-time object sync  
-**Next:** Presence & cursors
+**Phase:** Presence & cursors complete — multiplayer cursors + "N others viewing"  
+**Next:** Locking (client + server dual-layer)
 
 ## Known Issues
-- None
+- **boardSync:** Fabric warns "Setting type has no effect" when applying remote updates to Line/shapes — strip `type` from serialized object before `existing.set()` (type is read-only, used only for deserialization)

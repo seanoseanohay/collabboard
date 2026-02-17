@@ -43,9 +43,10 @@
 6. Return summary
 
 ## Presence
-- RTDB `/presence/{boardId}/{userId}`: `{ x, y, name, color, lastActive }`
+- RTDB path: `presence/{boardId}/{userId}` or `boards/{boardId}/presence/{userId}`: `{ x, y, name, color, lastActive }`
 - Update 100ms or mousemove (debounced)
-- Overlay canvas or absolute divs for cursors + labels
+- **Who's on board:** Subscribe to presence node → show list of names in header or sidebar
+- **Cursors:** Overlay canvas or absolute divs for cursor dots + name labels
 - `onDisconnect()` cleanup
 
 ## Code Structure

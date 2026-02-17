@@ -11,6 +11,8 @@ interface FabricCanvasProps {
   className?: string
   selectedTool?: ToolType
   boardId?: string
+  onPointerMove?: (scenePoint: { x: number; y: number }) => void
+  onViewportChange?: (vpt: number[]) => void
 }
 
 /**
@@ -25,6 +27,8 @@ export function FabricCanvas({
   className,
   selectedTool = 'select',
   boardId,
+  onPointerMove,
+  onViewportChange,
 }: FabricCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<Canvas | null>(null)
@@ -70,6 +74,11 @@ export function FabricCanvas({
       return { x: (vp.x - t[4]) / zoom, y: (vp.y - t[5]) / zoom }
     }
 
+    const notifyViewport = () => {
+      const vpt = fabricCanvas.viewportTransform
+      if (vpt && onViewportChange) onViewportChange([...vpt])
+    }
+
     const handleWheel = (opt: { e: WheelEvent }) => {
       const e = opt.e
       e.preventDefault()
@@ -79,6 +88,7 @@ export function FabricCanvas({
       const pt = new Point(e.offsetX, e.offsetY)
       fabricCanvas.zoomToPoint(pt, newZoom)
       fabricCanvas.requestRenderAll()
+      notifyViewport()
     }
 
     const handleMouseDown = (
@@ -127,6 +137,9 @@ export function FabricCanvas({
       if (!('clientX' in ev)) return
       const tool = toolRef.current
 
+      const sp = getScenePoint(opt)
+      if (sp && onPointerMove) onPointerMove(sp)
+
       if (isDrawing && drawStart && previewObj) {
         const sp = getScenePoint(opt)
         if (sp) {
@@ -150,7 +163,13 @@ export function FabricCanvas({
         fabricCanvas.relativePan(new Point(dx, dy))
         lastPointer = { x: ev.clientX, y: ev.clientY }
         fabricCanvas.requestRenderAll()
+        notifyViewport()
       }
+    }
+
+    if (onViewportChange) {
+      const vpt = fabricCanvas.viewportTransform
+      if (vpt) onViewportChange([...vpt])
     }
 
     const handleMouseUp = () => {
@@ -225,7 +244,7 @@ export function FabricCanvas({
       el.removeChild(canvasEl)
       canvasRef.current = null
     }
-  }, [width, height, boardId])
+  }, [width, height, boardId, onPointerMove, onViewportChange])
 
   return <div ref={containerRef} className={className} style={styles.container} />
 }

@@ -10,6 +10,14 @@
         }
       }
     },
+    "presence": {
+      "$boardId": {
+        ".read": "auth != null && root.child('boards').child($boardId).child('members').child(auth.uid).exists()",
+        "$userId": {
+          ".write": "auth != null && auth.uid === $userId && root.child('boards').child($boardId).child('members').child(auth.uid).exists()"
+        }
+      }
+    },
     "user_boards": {
       "$userId": {
         ".read": "auth != null && auth.uid === $userId",

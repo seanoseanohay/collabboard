@@ -1,9 +1,10 @@
 # Active Context
 
 ## Current Focus
-Presence & cursors.
+Locking — dual-layer (client disable + server rules); next MVP requirement after presence.
 
 ## Recent Changes
+- Clarified: presence = who else is viewing board (list) + cursor dots with name labels
 - RTDB delta sync: documentsApi, boardSync, Fabric↔RTDB bidir
 - Zoom: expanded to 0.02–20x for infinite canvas feel (was 0.1–5x)
 - Viewport culling: Fabric skipOffscreen enabled
@@ -19,7 +20,7 @@ Presence & cursors.
 3. ~~**Shapes + toolbar**~~ ✅
 4. ~~**Viewport culling**~~ ✅ (Fabric skipOffscreen)
 5. ~~**RTDB delta sync**~~ ✅
-6. **Presence & cursors** — presence path, overlay, onDisconnect
+6. ~~**Presence & cursors**~~ ✅ (presenceApi, usePresence, CursorOverlay, RTDB rules)
 7. **Locking** — client disable + server rules
 
 ## Active Decisions
@@ -29,4 +30,5 @@ Presence & cursors.
 ## Considerations
 - Fabric requires custom sync (vs tldraw's built-in); use delta-only, UUID v4, server timestamps
 - Locking: dual-layer (client + server); User A cannot edit what User B edits
-- Presence: RTDB `/presence/{boardId}/{userId}`, 100ms or mousemove debounce
+- Presence: RTDB `boards/{boardId}/presence/{userId}` or root `presence/{boardId}/{userId}`, 100ms or mousemove debounce
+- boardSync: strip `type` before existing.set() to avoid Fabric "Setting type has no effect" warning
