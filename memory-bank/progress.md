@@ -30,7 +30,7 @@
 6. ~~**Viewport culling**~~ ✅ (Fabric skipOffscreen)
 7. ~~**Sync**~~ ✅ live with multiple users; real-time drag (object:moving/scaling/rotating, 80ms throttle)
 8. ~~**Presence & cursors**~~ ✅ working in multi-user
-9. **Locking** — ⚠️ implemented, NOT working
+9. **Locking** — ⚠️ partially working; postgres_changes too slow (200-500ms); needs Broadcast
 10. ~~**Board sharing**~~ ✅ joinBoard, share link, join-by-ID, RTDB members rule
 11. **Google Auth** — Complete OAuth setup (SUPABASE_SETUP.md §5) — user manual steps
 12. ~~**Selection**~~ ✅ — Single + box-select; pan = middle-click or Space+drag
@@ -107,12 +107,19 @@
 - ~~RLS for documents, locks, presence~~ ✅
 
 ## Current Status
-**Phase:** Real-time sync working. Objects sync live during drag. Cursors visible. **Sticky notes mostly working** ✅ (movement, text editing, persistence all functional; minor selection refinement needed).
-**Next agent:** Address remaining minor sticky note issues (user will specify), then verify locking system in multi-user scenarios.
+**Phase:** Real-time sync working. Objects sync live during drag. Cursors visible. Sticky notes working. Text rotation fixed. 
+**Critical issue:** Locking has 200-500ms latency via postgres_changes, allowing race conditions.
+**Next agent:** Implement Supabase Broadcast for instant lock propagation (<100ms), then optimize board loading performance.
 
 ## Known Issues
-- **Sticky notes** — Mostly fixed (2026-02-17); minor selection/interaction issues remain (details TBD from user)
-- **Locking** — Not verified; may need debugging when two users select same object (deferred).
-- **boardSync:** Strip `type` before existing.set() — ✅ done.
+- **Locking latency (CRITICAL)** — postgres_changes has 200-500ms delay. User 2 can click locked objects before lock propagates. Need Supabase Broadcast for instant (<100ms) lock messages.
+- **Board loading performance** — Fetches ALL objects upfront. Slow on boards with 50+ objects. Consider lazy loading or pagination.
 - **Legacy Line objects:** Old Fabric Line objects have movement bug. New lines use Polyline.
 - **StrictMode** — Removed from main.tsx (was causing Realtime channel churn). Re-add for prod if desired.
+
+## Recently Fixed
+- ✅ Text rotation - objects no longer enter edit mode during transform
+- ✅ layoutManager serialization - removed from toObject() calls
+- ✅ Ghost click zone - reapply lock state after Realtime updates
+- ✅ Optimistic locking - locks apply locally before DB roundtrip
+- ✅ Sticky note locking - removed subTargetCheck to respect locks

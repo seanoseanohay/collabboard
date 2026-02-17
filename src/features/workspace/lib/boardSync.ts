@@ -212,6 +212,8 @@ export function setupBoardSync(
   }
 
   let lastLocks: LockEntry[] = []
+  let broadcastChannel: ReturnType<ReturnType<typeof import('@/shared/lib/supabase/config').getSupabaseClient>['channel']> | null = null
+  
   const applyLocksToObjects = lockOptions
     ? (locks: LockEntry[]) => {
         // Merge server locks with our current locks, preserving locks we're actively holding
@@ -228,15 +230,44 @@ export function setupBoardSync(
       }
     : () => {}
 
-  const unsubLocks = lockOptions
-    ? subscribeToLocks(boardId, applyLocksToObjects)
-    : () => {}
+  // Handle instant broadcast messages for lock acquisition (<100ms)
+  const handleBroadcastLockAcquired = lockOptions
+    ? (lock: LockEntry) => {
+        // Ignore our own broadcasts
+        if (lock.userId === lockOptions!.userId) return
+        
+        // Add lock immediately
+        lastLocks = [...lastLocks.filter(l => l.objectId !== lock.objectId), lock]
+        applyLockState(canvas, lastLocks, lockOptions!.userId)
+      }
+    : undefined
+
+  // Handle instant broadcast messages for lock release (<100ms)
+  const handleBroadcastLockReleased = lockOptions
+    ? (objectId: string, userId: string) => {
+        // Ignore our own broadcasts
+        if (userId === lockOptions!.userId) return
+        
+        // Remove lock immediately
+        lastLocks = lastLocks.filter(l => l.objectId !== objectId || l.userId !== userId)
+        applyLockState(canvas, lastLocks, lockOptions!.userId)
+      }
+    : undefined
+
+  const lockSubscription = lockOptions
+    ? subscribeToLocks(boardId, applyLocksToObjects, handleBroadcastLockAcquired, handleBroadcastLockReleased)
+    : null
+
+  const unsubLocks = lockSubscription?.cleanup ?? (() => {})
+  if (lockSubscription) {
+    broadcastChannel = lockSubscription.channel
+  }
 
   const tryAcquireLocks = async (objectIds: string[]): Promise<boolean> => {
     if (!lockOptions || objectIds.length === 0) return true
     const results = await Promise.all(
       objectIds.map((id) =>
-        acquireLock(boardId, id, lockOptions!.userId, lockOptions!.userName)
+        acquireLock(boardId, id, lockOptions!.userId, lockOptions!.userName, broadcastChannel ?? undefined)
       )
     )
     const allOk = results.every(Boolean)
@@ -246,7 +277,7 @@ export function setupBoardSync(
       cancelLockDisconnect = setupLockDisconnect(boardId, objectIds[0] ?? '')
     } else {
       for (const id of objectIds) {
-        await releaseLock(boardId, id, lockOptions!.userId)
+        await releaseLock(boardId, id, lockOptions!.userId, broadcastChannel ?? undefined)
       }
     }
     return allOk
@@ -256,7 +287,7 @@ export function setupBoardSync(
     if (!lockOptions) return
     for (const id of objectIds) {
       if (currentLockIds.has(id)) {
-        await releaseLock(boardId, id, lockOptions.userId)
+        await releaseLock(boardId, id, lockOptions.userId, broadcastChannel ?? undefined)
         currentLockIds.delete(id)
       }
     }

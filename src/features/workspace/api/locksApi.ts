@@ -15,7 +15,8 @@ export async function acquireLock(
   boardId: string,
   objectId: string,
   userId: string,
-  userName: string
+  userName: string,
+  broadcastChannel?: ReturnType<ReturnType<typeof getSupabaseClient>['channel']>
 ): Promise<boolean> {
   const supabase = getSupabaseClient()
 
@@ -39,13 +40,23 @@ export async function acquireLock(
     { onConflict: 'board_id,object_id' }
   )
 
+  // Broadcast lock acquisition for instant propagation (<100ms)
+  if (!error && broadcastChannel) {
+    broadcastChannel.send({
+      type: 'broadcast',
+      event: 'lock_acquired',
+      payload: { objectId, userId, userName, lastActive: Date.now() },
+    })
+  }
+
   return !error
 }
 
 export async function releaseLock(
   boardId: string,
   objectId: string,
-  userId: string
+  userId: string,
+  broadcastChannel?: ReturnType<ReturnType<typeof getSupabaseClient>['channel']>
 ): Promise<void> {
   const supabase = getSupabaseClient()
   const { data } = await supabase
@@ -62,12 +73,23 @@ export async function releaseLock(
     .delete()
     .eq('board_id', boardId)
     .eq('object_id', objectId)
+
+  // Broadcast lock release for instant propagation (<100ms)
+  if (broadcastChannel) {
+    broadcastChannel.send({
+      type: 'broadcast',
+      event: 'lock_released',
+      payload: { objectId, userId },
+    })
+  }
 }
 
 export function subscribeToLocks(
   boardId: string,
-  onLocks: (locks: LockEntry[]) => void
-): () => void {
+  onLocks: (locks: LockEntry[]) => void,
+  onBroadcastLockAcquired?: (lock: LockEntry) => void,
+  onBroadcastLockReleased?: (objectId: string, userId: string) => void
+): { cleanup: () => void; channel: ReturnType<ReturnType<typeof getSupabaseClient>['channel']> } {
   const supabase = getSupabaseClient()
 
   const fetch = async () => {
@@ -94,10 +116,38 @@ export function subscribeToLocks(
       { event: '*', schema: 'public', table: 'locks', filter: `board_id=eq.${boardId}` },
       () => fetch()
     )
+    .on(
+      'broadcast',
+      { event: 'lock_acquired' },
+      (payload) => {
+        const data = payload.payload as { objectId: string; userId: string; userName: string; lastActive: number }
+        if (onBroadcastLockAcquired) {
+          onBroadcastLockAcquired({
+            objectId: data.objectId,
+            userId: data.userId,
+            userName: data.userName,
+            lastActive: data.lastActive,
+          })
+        }
+      }
+    )
+    .on(
+      'broadcast',
+      { event: 'lock_released' },
+      (payload) => {
+        const data = payload.payload as { objectId: string; userId: string }
+        if (onBroadcastLockReleased) {
+          onBroadcastLockReleased(data.objectId, data.userId)
+        }
+      }
+    )
     .subscribe()
 
-  return () => {
-    supabase.removeChannel(channel)
+  return {
+    cleanup: () => {
+      supabase.removeChannel(channel)
+    },
+    channel,
   }
 }
 

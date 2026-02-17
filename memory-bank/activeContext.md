@@ -1,20 +1,37 @@
 # Active Context
 
 ## Current Focus (for next agent)
-**Sticky notes (Groups) mostly working** ✅ — Major fixes completed (2026-02-17):
-1. Text editing works (double-click, type full sentences, exits cleanly)
-2. Movement works (entire Group moves together - background + text)
-3. Position and text persist correctly after reload
-4. Rotation and transforms persist
+**CRITICAL: Locking latency issue** ⚠️ — Lock propagation via postgres_changes is too slow (200-500ms), allowing race conditions where User 2 can click locked objects before lock propagates.
 
-**Remaining minor sticky note issues for next session:**
-- Selection behavior needs minor refinement
-- Deletion may need verification
-- (User will detail specific issues)
+**Two critical performance issues identified:**
+1. **Lock latency (HIGH PRIORITY):** 200-500ms delay between lock acquisition and visibility to other users
+   - Current: Uses `postgres_changes` Realtime (slow)
+   - Fix: Use Supabase **Broadcast** for instant lock messages (<100ms)
+   - Keep postgres_changes as backup for persistence
 
-**Next:** Address remaining sticky note issues, then verify locking system in multi-user scenarios.
+2. **Board loading (MEDIUM PRIORITY):** Slow initial load on boards with many objects
+   - Current: Fetches ALL objects upfront in single query
+   - Fix options: Lazy loading, pagination, or add DB indexes
+
+**Next:** Implement broadcast-based locking, then optimize board loading.
 
 ## Recent Changes (2026-02-17)
+
+**Locking fixes (multiple iterations):**
+- ✅ Fixed `evented: true` bug - locked objects now have `evented: false` 
+- ✅ Optimistic locking - locks apply instantly before DB roundtrip
+- ✅ Removed `subTargetCheck` from Groups - prevents clicking child elements
+- ✅ Reapply lock state after Realtime updates - fixes "ghost click zone"
+- ❌ **REMAINING:** Lock propagation still too slow (200-500ms via postgres_changes)
+
+**Text rotation fix:**
+- ✅ Track `objectWasTransformed` flag to prevent edit mode during rotation
+- ✅ Text objects can now be rotated without losing selection box
+
+**layoutManager serialization fix:**
+- ✅ Remove `layoutManager` from `toObject()` calls - fixes crash when moving Groups
+
+## Recent Changes (Earlier 2026-02-17)
 - **Sticky notes (Groups) — comprehensive fixes:**
   - `text:editing:exited` instead of `text:changed` — syncs only when editing completes, not every keystroke
   - Group serialization: `toObject(['data', 'objects'])` to include children in sync
@@ -30,7 +47,7 @@
 - **board_members RLS** ✅: Migration 00002 (board_exists SECURITY DEFINER, board_members_update for upsert). Migration 00003 adds documents/locks/presence to Realtime publication.
 - **Stack migration** ✅: Firebase → Supabase. Auth (Supabase Auth), DB (Postgres + Realtime), Edge Functions (invite-to-board). RLS replaces RTDB rules.
 - **Board sharing** ✅: joinBoard API, self-join via board_members, React Router /board/:boardId, Share button, Join Board flow
-- **Locking:** Implemented but NOT verified — dual-layer design (locksApi, acquire/release, RLS)
+- **Locking:** Partially working — optimistic locking implemented but postgres_changes is too slow (200-500ms latency). Needs broadcast for instant propagation.
 - **Line movement fix:** Polyline (2 points) replaces deprecated Fabric Line
 - Viewport culling: Fabric skipOffscreen enabled
 - WorkspaceToolbar: Select, Rect, Circle, Triangle, Line, Text, Sticky tools
@@ -69,4 +86,4 @@
 - **Group (sticky note) sync**: Include 'objects' in toObject(['data', 'objects']) for full Group serialization. Update existing Groups by setting position/transform properties + updating child text content separately (don't remove/replace). ensureGroupChildrenNotSelectable() marks children as non-selectable after sync.
 - **Sticky note selection**: selection:created handler redirects child selections to parent Group; children have selectable: false, evented: false
 - **Text editing**: IText must be set as active object before enterEditing(); setTimeout(0) ensures initialization; works for both standalone text and Groups (sticky notes)
-- **Locking**: dual-layer design; needs verification in multi-user scenario
+- **Locking**: Optimistic locking working locally, but Realtime propagation via postgres_changes has 200-500ms latency. Need to implement Supabase Broadcast for instant lock messages (<100ms). Keep postgres_changes as backup for persistence.
