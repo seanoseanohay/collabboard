@@ -9,7 +9,9 @@ let client: SupabaseClient<any> | null = null
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function getSupabaseClient(): SupabaseClient<any> {
   if (!client) {
-    client = createClient(supabaseUrl, supabaseAnonKey)
+    client = createClient(supabaseUrl, supabaseAnonKey, {
+      realtime: { timeout: 20000 },
+    })
   }
   return client
 }

@@ -68,43 +68,24 @@ export function subscribeToDocuments(
     .on(
       'postgres_changes',
       {
-        event: 'INSERT',
+        event: '*',
         schema: 'public',
         table: 'documents',
         filter: `board_id=eq.${boardId}`,
       },
       (payload) => {
-        console.log('[documents] INSERT', payload)
-        const row = payload.new as { object_id: string; data?: Record<string, unknown> }
-        if (row?.object_id && row.data) callbacks.onAdded(row.object_id, row.data)
-      }
-    )
-    .on(
-      'postgres_changes',
-      {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'documents',
-        filter: `board_id=eq.${boardId}`,
-      },
-      (payload) => {
-        console.log('[documents] UPDATE', payload)
-        const row = payload.new as { object_id: string; data?: Record<string, unknown> }
-        if (row?.object_id && row.data) callbacks.onChanged(row.object_id, row.data)
-      }
-    )
-    .on(
-      'postgres_changes',
-      {
-        event: 'DELETE',
-        schema: 'public',
-        table: 'documents',
-        filter: `board_id=eq.${boardId}`,
-      },
-      (payload) => {
-        console.log('[documents] DELETE', payload)
-        const row = payload.old as { object_id?: string }
-        if (row?.object_id) callbacks.onRemoved(row.object_id)
+        const evt = (payload as { eventType?: string }).eventType
+        console.log('[documents]', evt, payload)
+        if (evt === 'DELETE' && payload.old) {
+          const row = payload.old as { board_id?: string; object_id?: string }
+          if (row?.object_id && row.board_id === boardId) callbacks.onRemoved(row.object_id)
+        } else if (payload.new) {
+          const row = payload.new as { board_id?: string; object_id: string; data?: Record<string, unknown> }
+          if (row?.object_id && row.data && row.board_id === boardId) {
+            if (evt === 'INSERT') callbacks.onAdded(row.object_id, row.data)
+            else callbacks.onChanged(row.object_id, row.data)
+          }
+        }
       }
     )
     .subscribe((status, err) => {
