@@ -74,8 +74,9 @@ export function WorkspacePage({ board, onBack }: WorkspacePageProps) {
           />
         )}
         {others.length > 0 && (
-          <span style={styles.presence}>
+          <span style={styles.presence} title={`Viewing with: ${others.map((o) => o.name).join(', ')}`}>
             {others.length} {others.length === 1 ? 'other' : 'others'} viewing
+            <span style={styles.presenceNames}> — {others.map((o) => o.name).join(', ')}</span>
           </span>
         )}
       </header>
@@ -142,6 +143,17 @@ const styles: Record<string, React.CSSProperties> = {
     marginLeft: 'auto',
     fontSize: 13,
     color: '#64748b',
+  },
+  presenceNames: {
+    marginLeft: 4,
+    fontWeight: 500,
+    color: '#475569',
+    maxWidth: 240,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    display: 'inline-block',
+    verticalAlign: 'bottom',
   },
   canvas: {
     flex: 1,

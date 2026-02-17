@@ -20,7 +20,7 @@
 - **Object-level deltas only** — never write full board state
 - Fabric.js events: `object:added`, `object:removed`, `object:modified` (final) + `object:moving`, `object:scaling`, `object:rotating` (throttled 80ms for live drag) + `text:editing:exited` (text changes)
 - documentsApi: single `event: '*'` postgres_changes subscription (avoid 3 separate INSERT/UPDATE/DELETE)
-- FabricCanvas effect deps: `[width, height, boardId]` only—use refs for callbacks/lockOpts to prevent channel churn
+- **FabricCanvas effect split:** Document sync in Effect 1 (deps: `[width, height, boardId]`). Lock sync in Effect 2 (deps: `[boardId, userId, userName]`). Prevents document subscription teardown when auth loads.
 - Supabase upsert/insert for atomic updates
 - Server timestamps for ordering
 - Client-side UUID v4 for object IDs (`crypto.randomUUID()`)
