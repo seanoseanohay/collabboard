@@ -18,10 +18,13 @@
 
 ## Sync Strategy (Critical)
 - **Object-level deltas only** — never write full board state
-- Fabric.js event listeners emit deltas (`object:modified`, `object:added`, `object:removed`)
+- Fabric.js events: `object:added`, `object:removed`, `object:modified` (final) + `object:moving`, `object:scaling`, `object:rotating` (throttled 80ms for live drag) + `text:editing:exited` (text changes)
+- documentsApi: single `event: '*'` postgres_changes subscription (avoid 3 separate INSERT/UPDATE/DELETE)
+- FabricCanvas effect deps: `[width, height, boardId]` only—use refs for callbacks/lockOpts to prevent channel churn
 - Supabase upsert/insert for atomic updates
 - Server timestamps for ordering
 - Client-side UUID v4 for object IDs (`crypto.randomUUID()`)
+- **Groups (sticky notes):** Serialize with `toObject(['data', 'objects'])` to include children; update by setting properties separately (not remove/replace)
 - zIndex: transactional increment / block reservation (post-MVP)
 
 ## Locking (High Risk)
@@ -45,7 +48,7 @@
 
 ## Presence
 - Supabase table `presence`: `{ board_id, user_id, x, y, name, color, last_active }`
-- Update 100ms or mousemove (debounced)
+- Update 50ms debounce; use payload directly on postgres_changes (no refetch)
 - **Who's on board:** Subscribe to presence node → show list of names in header or sidebar
 - **Cursors:** Overlay canvas or absolute divs for cursor dots + name labels
 - `onDisconnect()` cleanup

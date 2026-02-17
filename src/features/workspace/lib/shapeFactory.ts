@@ -7,7 +7,7 @@ import {
   Circle,
   Triangle,
   Polyline,
-  FabricText,
+  IText,
   Group,
   type FabricObject,
 } from 'fabric'
@@ -89,15 +89,17 @@ export function createShape(
       }))
     }
     case 'text': {
-      return withId(new FabricText('Text', {
+      return withId(new IText('Text', {
         ...baseOpts,
         left,
         top,
         fontSize: 16,
         fill: STROKE,
+        editable: true,
       }))
     }
     case 'sticky': {
+      // Create background rect - positioned at 0,0 within group
       const bg = new Rect({
         left: 0,
         top: 0,
@@ -109,15 +111,25 @@ export function createShape(
         originX: 'left',
         originY: 'top',
       })
-      const txt = new FabricText('Note', {
+      // Create text - positioned with 8px padding from top-left
+      const txt = new IText('Note', {
         left: 8,
         top: 8,
         fontSize: 14,
         fill: STROKE,
         originX: 'left',
         originY: 'top',
+        editable: true,
       })
-      return withId(new Group([bg, txt], { left, top, originX: 'left', originY: 'top' }))
+      // Create group - will be selected as a whole unit
+      const group = new Group([bg, txt], { 
+        left, 
+        top,
+        originX: 'left',
+        originY: 'top',
+        subTargetCheck: true,
+      })
+      return withId(group)
     }
     default:
       return null

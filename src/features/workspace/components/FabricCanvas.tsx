@@ -1,5 +1,10 @@
 import { useEffect, useRef } from 'react'
 import { Canvas, Point, type FabricObject } from 'fabric'
+
+/** IText has enterEditing; FabricText does not. Check by method presence. */
+function isEditableText(obj: unknown): obj is { enterEditing: () => void } {
+  return !!obj && typeof (obj as { enterEditing?: () => void }).enterEditing === 'function'
+}
 import type { ToolType } from '../types/tools'
 import { isShapeTool } from '../types/tools'
 import { createShape } from '../lib/shapeFactory'
@@ -211,20 +216,90 @@ export function FabricCanvas({
 
     const handleWindowMouseUp = () => handleMouseUp()
 
+    const tryEnterTextEditing = (obj: FabricObject) => {
+      if (!isEditableText(obj)) return
+      const itext = obj as FabricObject & { enterEditing: () => void; exitEditing?: () => void; canvas?: unknown }
+      if (!itext.canvas) itext.canvas = fabricCanvas
+      // For IText inside a Group, we need to set the text as active, not the group
+      fabricCanvas.setActiveObject(obj)
+      fabricCanvas.requestRenderAll()
+      // Use setTimeout to ensure the object is fully initialized and active
+      setTimeout(() => {
+        itext.enterEditing()
+        fabricCanvas.requestRenderAll()
+      }, 0)
+    }
+
+    const getTextToEdit = (target: FabricObject): FabricObject | null => {
+      if (isEditableText(target)) return target
+      if (target.type === 'group' && 'getObjects' in target) {
+        const objects = (target as { getObjects: () => FabricObject[] }).getObjects()
+        const textChild = objects.find((o) => isEditableText(o))
+        return textChild ?? null
+      }
+      return null
+    }
+
+    const handleDblClick = (opt: { target?: unknown }) => {
+      const target = opt.target as FabricObject | undefined
+      if (!target) return
+      const text = getTextToEdit(target)
+      if (text) tryEnterTextEditing(text)
+    }
+
+    const handleMouseUpForText = (opt: { target?: unknown }) => {
+      if (isDrawing) return
+      const target = opt.target as FabricObject | undefined
+      if (!target) return
+      const active = fabricCanvas.getActiveObject()
+      
+      // Check if we clicked on an already-selected object
+      const clickedOnActive =
+        active === target ||
+        (target.group && target.group === active) ||
+        (active && 'getObjects' in active && 
+          (active as { getObjects: () => FabricObject[] }).getObjects().includes(target))
+      
+      if (!clickedOnActive) return
+      
+      // Get the text object to edit (could be target itself or child of group)
+      let text = getTextToEdit(target)
+      if (!text && active) {
+        text = getTextToEdit(active)
+      }
+      
+      if (text) {
+        // Check if already editing
+        const alreadyEditing = 'isEditing' in text && (text as { isEditing: boolean }).isEditing
+        if (!alreadyEditing) {
+          tryEnterTextEditing(text)
+        }
+      }
+    }
+
+    const hasEditingText = (obj: unknown) =>
+      obj && 'isEditing' in (obj as object) && (obj as { isEditing: boolean }).isEditing
+    const isEditingText = (active: unknown) =>
+      active && (hasEditingText(active) ||
+        ('getObjects' in (active as object) &&
+          (active as { getObjects: () => unknown[] }).getObjects().some(hasEditingText)))
+
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
+      
+      const active = fabricCanvas.getActiveObject()
+      if (isEditingText(active)) return
+      
       if (e.key === ' ') {
         spacePressed = true
         fabricCanvas.selection = false
         e.preventDefault()
       }
       if (e.key === 'Delete' || e.key === 'Backspace') {
-        const active = fabricCanvas.getActiveObject()
         if (active) {
           e.preventDefault()
-          const objs = 'getObjects' in active ? (active as { getObjects: () => FabricObject[] }).getObjects() : [active]
-          objs.forEach((o) => fabricCanvas.remove(o))
+          fabricCanvas.remove(active)
           fabricCanvas.discardActiveObject()
           fabricCanvas.requestRenderAll()
         }
@@ -233,6 +308,10 @@ export function FabricCanvas({
     const handleKeyUp = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
+      
+      const active = fabricCanvas.getActiveObject()
+      if (isEditingText(active)) return
+      
       if (e.key === ' ') {
         e.preventDefault()
         spacePressed = false
@@ -253,10 +332,49 @@ export function FabricCanvas({
         ? setupBoardSync(fabricCanvas, boardId, lockOpts)
         : () => {}
 
+    const attachTextEditOnDblClick = (obj: FabricObject) => {
+      const handler = () => {
+        const text = getTextToEdit(obj)
+        if (text) tryEnterTextEditing(text)
+      }
+      obj.on('mousedblclick', handler)
+      return () => obj.off('mousedblclick', handler)
+    }
+
+    const handleObjectAdded = (e: { target?: FabricObject }) => {
+      const obj = e.target
+      if (!obj) return
+      if (isEditableText(obj) || (obj.type === 'group' && getTextToEdit(obj))) {
+        attachTextEditOnDblClick(obj)
+      }
+    }
+
+    const handleSelectionCreated = (e: { selected?: FabricObject[] }) => {
+      const selected = e.selected
+      if (!selected || selected.length !== 1) return
+      
+      const obj = selected[0]
+      // If a child of a Group was selected, select the parent Group instead
+      if (obj && obj.group) {
+        fabricCanvas.discardActiveObject()
+        fabricCanvas.setActiveObject(obj.group)
+        fabricCanvas.requestRenderAll()
+      }
+    }
+
+    fabricCanvas.on('object:added', handleObjectAdded)
+    fabricCanvas.on('selection:created', handleSelectionCreated)
+    fabricCanvas.getObjects().forEach((obj) => {
+      if (isEditableText(obj) || (obj.type === 'group' && getTextToEdit(obj))) {
+        attachTextEditOnDblClick(obj)
+      }
+    })
     fabricCanvas.on('mouse:wheel', handleWheel)
     fabricCanvas.on('mouse:down', handleMouseDown)
     fabricCanvas.on('mouse:move', handleMouseMove)
     fabricCanvas.on('mouse:up', handleMouseUp)
+    fabricCanvas.on('mouse:up', handleMouseUpForText)
+    fabricCanvas.on('mouse:dblclick', handleDblClick)
     window.addEventListener('mouseup', handleWindowMouseUp)
 
     const resizeObserver = new ResizeObserver((entries) => {
@@ -269,12 +387,16 @@ export function FabricCanvas({
 
     return () => {
       cleanupSync()
+      fabricCanvas.off('object:added', handleObjectAdded)
+      fabricCanvas.off('selection:created', handleSelectionCreated)
       document.removeEventListener('keydown', handleKeyDown)
       document.removeEventListener('keyup', handleKeyUp)
       fabricCanvas.off('mouse:wheel', handleWheel)
       fabricCanvas.off('mouse:down', handleMouseDown)
       fabricCanvas.off('mouse:move', handleMouseMove)
       fabricCanvas.off('mouse:up', handleMouseUp)
+      fabricCanvas.off('mouse:up', handleMouseUpForText)
+      fabricCanvas.off('mouse:dblclick', handleDblClick)
       window.removeEventListener('mouseup', handleWindowMouseUp)
       resizeObserver.disconnect()
       fabricCanvas.dispose()

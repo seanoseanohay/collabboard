@@ -12,7 +12,7 @@ CollabBoard is a real-time collaborative whiteboard that enables multiple users 
 ## How It Should Work
 
 ### User Journey
-1. **Authenticate** — Google or Email login via Firebase Auth
+1. **Authenticate** — Google or Email login via Supabase Auth
 2. **Board List** — See owned/accessible boards
 3. **Create/Select Board** — Start new or open existing
 4. **Workspace** — Infinite canvas with:
@@ -31,7 +31,7 @@ CollabBoard is a real-time collaborative whiteboard that enables multiple users 
 - Graceful reconnect and refresh persistence
 
 ### AI Agent Behavior (Post-MVP)
-- All commands through Firebase Cloud Function (serialized per board)
+- All commands through Supabase Edge Function (serialized per board)
 - Never overrides user locks; skips locked objects
 - Atomic writes (no partial state)
 - Loading indicator (>2s warning at 3s)

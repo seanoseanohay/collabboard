@@ -69,6 +69,31 @@ export function setupBoardSync(
     return rest
   }
 
+  const ensureGroupChildrenNotSelectable = (obj: FabricObject) => {
+    // For Groups (sticky notes), ensure children cannot be directly selected
+    if (obj.type === 'group' && 'getObjects' in obj) {
+      const children = (obj as { getObjects: () => FabricObject[] }).getObjects()
+      children.forEach((child) => {
+        child.set({
+          selectable: false,
+          evented: false,
+        })
+      })
+    }
+  }
+
+  const ensureTextEditable = (obj: FabricObject) => {
+    // Ensure IText objects are editable
+    if (obj.type === 'i-text' && 'editable' in obj) {
+      obj.set('editable', true)
+    }
+    // For groups, check children
+    if (obj.type === 'group' && 'getObjects' in obj) {
+      const children = (obj as { getObjects: () => FabricObject[] }).getObjects()
+      children.forEach(ensureTextEditable)
+    }
+  }
+
   const applyRemote = async (
     objectId: string,
     data: Record<string, unknown>
@@ -76,13 +101,57 @@ export function setupBoardSync(
     const clean = stripSyncFields(data)
     const existing = canvas.getObjects().find((o) => getObjectId(o) === objectId)
     if (existing) {
+      // For Groups, update carefully without breaking structure
+      if (existing.type === 'group') {
+        try {
+          const objData = { ...clean, data: { id: objectId } }
+          const [revived] = await util.enlivenObjects<FabricObject>([objData])
+          if (revived) {
+            // Update position and transform properties
+            existing.set({
+              left: revived.left,
+              top: revived.top,
+              angle: revived.angle,
+              scaleX: revived.scaleX,
+              scaleY: revived.scaleY,
+              flipX: revived.flipX,
+              flipY: revived.flipY,
+            })
+            
+            // Update text content in children if it changed
+            if ('getObjects' in existing && 'getObjects' in revived) {
+              const existingChildren = (existing as { getObjects: () => FabricObject[] }).getObjects()
+              const revivedChildren = (revived as { getObjects: () => FabricObject[] }).getObjects()
+              
+              existingChildren.forEach((child, index) => {
+                const revivedChild = revivedChildren[index]
+                if (child.type === 'i-text' && revivedChild && 'text' in revivedChild) {
+                  child.set('text', (revivedChild as { text: string }).text)
+                }
+              })
+            }
+            
+            ensureGroupChildrenNotSelectable(existing)
+            ensureTextEditable(existing)
+            canvas.requestRenderAll()
+          }
+        } catch {
+          // Ignore deserialization errors
+        }
+        return
+      }
+      
+      // For non-Group objects, update in place
       try {
         const objData = { ...clean, data: { id: objectId } }
         const [revived] = await util.enlivenObjects<FabricObject>([objData])
         if (revived) {
           const serialized = revived.toObject(['data']) as Record<string, unknown>
           delete serialized.data
+          delete serialized.type  // Fabric: "Setting type has no effect" - cannot change type on existing object
+          delete serialized.layoutManager  // Remove layoutManager - not serializable
           existing.set(serialized)
+          ensureTextEditable(existing)
           canvas.requestRenderAll()
         }
       } catch {
@@ -95,6 +164,8 @@ export function setupBoardSync(
       const [revived] = await util.enlivenObjects<FabricObject>([objData])
       if (revived) {
         revived.set('data', { id: objectId })
+        ensureGroupChildrenNotSelectable(revived)
+        ensureTextEditable(revived)
         isApplyingRemote = true
         canvas.add(revived)
         canvas.requestRenderAll()
@@ -164,8 +235,11 @@ export function setupBoardSync(
   const emitAdd = (obj: FabricObject) => {
     const id = getObjectId(obj)
     if (!id || isApplyingRemote) return
-    const payload = obj.toObject(['data']) as Record<string, unknown>
+    // Include 'data' and 'objects' (for Groups) in serialization
+    const payload = obj.toObject(['data', 'objects']) as Record<string, unknown>
     delete payload.data
+    // Remove layoutManager - it's not serializable and Fabric will recreate it on deserialize
+    delete payload.layoutManager
     writeDocument(boardId, id, payload).catch(console.error)
   }
 
@@ -174,8 +248,11 @@ export function setupBoardSync(
   const emitModify = (obj: FabricObject) => {
     const id = getObjectId(obj)
     if (!id || isApplyingRemote) return
-    const payload = obj.toObject(['data']) as Record<string, unknown>
+    // Include 'data' and 'objects' (for Groups) in serialization
+    const payload = obj.toObject(['data', 'objects']) as Record<string, unknown>
     delete payload.data
+    // Remove layoutManager - it's not serializable and Fabric will recreate it on deserialize
+    delete payload.layoutManager
     writeDocument(boardId, id, payload).catch(console.error)
   }
 
@@ -237,6 +314,14 @@ export function setupBoardSync(
   canvas.on('object:rotating', (e) => {
     if (e.target) emitModifyThrottled(e.target)
   })
+  canvas.on('text:editing:exited', (e) => {
+    if (e.target) {
+      // For IText inside a Group (sticky notes), sync the parent Group
+      // Only sync when user FINISHES editing, not on every keystroke
+      const objToSync = e.target.group || e.target
+      if (getObjectId(objToSync)) emitModify(objToSync)
+    }
+  })
   canvas.on('object:modified', (e) => {
     if (moveThrottleTimer) {
       clearTimeout(moveThrottleTimer)
@@ -284,6 +369,7 @@ export function setupBoardSync(
     canvas.off('object:moving')
     canvas.off('object:scaling')
     canvas.off('object:rotating')
+    canvas.off('text:editing:exited')
     canvas.off('object:modified')
     canvas.off('object:removed')
     if (moveThrottleTimer) clearTimeout(moveThrottleTimer)

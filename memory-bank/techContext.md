@@ -11,9 +11,9 @@
 
 ### Sync / Backend / Persistence
 - **Supabase PostgreSQL + Realtime**
-- Delta-only object patches
-- Presence & cursors
-- **Critical:** Add documents, locks, presence to supabase_realtime publication (Dashboard → Database → Replication) for live sync
+- Delta-only object patches; live drag via object:moving/scaling/rotating (80ms throttle)
+- Presence & cursors (50ms debounce, payload-based)
+- **Critical:** documents, locks, presence in supabase_realtime publication (Migration 00003). Realtime timeout 20s (config).
 
 ### Authentication
 - **Supabase Auth** (Google + Email)
@@ -38,7 +38,7 @@
 - Viewport culling: use Fabric viewportTransform, object.visible = false for off-screen
 - Rotation excluded from MVP (post-MVP: throttled ~50ms deltas)
 - Undo/Redo excluded from MVP (post-MVP)
-- Presence: Supabase `presence` table, 100ms or mousemove debounce
+- Presence: Supabase `presence` table, 50ms debounce; payload-based updates (no refetch)
 
 ## Performance Targets
 - 60 FPS during pan/zoom

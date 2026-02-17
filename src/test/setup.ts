@@ -1,7 +1,24 @@
 import '@testing-library/jest-dom'
 
 import { TextEncoder, TextDecoder } from 'util'
+import { randomUUID } from 'crypto'
 Object.assign(global, { TextEncoder, TextDecoder })
+// Polyfill crypto.randomUUID for Jest (Node < 19 or jsdom)
+if (!globalThis.crypto) {
+  (globalThis as { crypto: { randomUUID: () => string } }).crypto = {
+    randomUUID,
+  }
+} else if (!globalThis.crypto.randomUUID) {
+  (globalThis.crypto as { randomUUID: () => string }).randomUUID = randomUUID
+}
+
+jest.mock('@/shared/config/env', () => ({
+  env: {
+    supabaseUrl: 'https://test.supabase.co',
+    supabaseAnonKey: 'test-anon-key',
+    isDev: true,
+  },
+}))
 
 jest.mock('@/shared/lib/supabase/config', () => ({
   getSupabaseClient: () => ({
