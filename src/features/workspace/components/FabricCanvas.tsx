@@ -43,6 +43,8 @@ export function FabricCanvas({
   onPointerMoveRef.current = onPointerMove
   const onViewportChangeRef = useRef(onViewportChange)
   onViewportChangeRef.current = onViewportChange
+  const lockOptsRef = useRef({ userId: userId ?? '', userName: userName ?? 'Anonymous' })
+  lockOptsRef.current = { userId: userId ?? '', userName: userName ?? 'Anonymous' }
 
   useEffect(() => {
     const el = containerRef.current
@@ -241,9 +243,10 @@ export function FabricCanvas({
     document.addEventListener('keydown', handleKeyDown)
     document.addEventListener('keyup', handleKeyUp)
 
+    const { userId: uid, userName: uname } = lockOptsRef.current
     const lockOpts =
-      boardId && userId && userName
-        ? { userId, userName }
+      boardId && uid && uname
+        ? { userId: uid, userName: uname }
         : undefined
     const cleanupSync =
       boardId
@@ -278,7 +281,7 @@ export function FabricCanvas({
       el.removeChild(canvasEl)
       canvasRef.current = null
     }
-  }, [width, height, boardId, userId, userName])
+  }, [width, height, boardId])
 
   return <div ref={containerRef} className={className} style={styles.container} />
 }
