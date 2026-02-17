@@ -49,7 +49,7 @@ export function subscribeToDocuments(
   const supabase = getSupabaseClient()
 
   const fetchInitial = async () => {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('documents')
       .select('object_id, data')
       .eq('board_id', boardId)
