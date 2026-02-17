@@ -73,7 +73,6 @@ export function setupBoardSync(
     objectId: string,
     data: Record<string, unknown>
   ) => {
-    console.log('[boardSync] applyRemote', objectId, data)
     const clean = stripSyncFields(data)
     const existing = canvas.getObjects().find((o) => getObjectId(o) === objectId)
     if (existing) {
@@ -85,10 +84,9 @@ export function setupBoardSync(
           delete serialized.data
           existing.set(serialized)
           canvas.requestRenderAll()
-          console.log('[boardSync] applied update to existing', objectId)
         }
-      } catch (err) {
-        console.error('[boardSync] applyRemote existing failed', objectId, err)
+      } catch {
+        // Ignore deserialization errors
       }
       return
     }
@@ -101,10 +99,9 @@ export function setupBoardSync(
         canvas.add(revived)
         canvas.requestRenderAll()
         isApplyingRemote = false
-        console.log('[boardSync] applied add', objectId)
       }
-    } catch (err) {
-      console.error('[boardSync] applyRemote add failed', objectId, err)
+    } catch {
+      // Ignore deserialization errors
     }
   }
 
@@ -172,13 +169,43 @@ export function setupBoardSync(
     writeDocument(boardId, id, payload).catch(console.error)
   }
 
+  const MOVE_THROTTLE_MS = 80
+
   const emitModify = (obj: FabricObject) => {
     const id = getObjectId(obj)
     if (!id || isApplyingRemote) return
     const payload = obj.toObject(['data']) as Record<string, unknown>
     delete payload.data
-    console.log('[boardSync] emitModify', id)
-    writeDocument(boardId, id, payload).catch((err) => console.error('[boardSync] writeDocument failed', id, err))
+    writeDocument(boardId, id, payload).catch(console.error)
+  }
+
+  let moveThrottleTimer: ReturnType<typeof setTimeout> | null = null
+  let lastMoveEmit = 0
+  let pendingMoveId: string | null = null
+
+  const emitModifyThrottled = (obj: FabricObject) => {
+    if (!obj || isApplyingRemote) return
+    const id = getObjectId(obj)
+    if (!id) return
+    pendingMoveId = id
+    const now = Date.now()
+    const elapsed = now - lastMoveEmit
+    if (elapsed >= MOVE_THROTTLE_MS) {
+      lastMoveEmit = now
+      emitModify(obj)
+      return
+    }
+    if (!moveThrottleTimer) {
+      moveThrottleTimer = setTimeout(() => {
+        moveThrottleTimer = null
+        lastMoveEmit = Date.now()
+        const target = pendingMoveId
+          ? canvas.getObjects().find((o) => getObjectId(o) === pendingMoveId)
+          : null
+        if (target) emitModify(target)
+        pendingMoveId = null
+      }, MOVE_THROTTLE_MS - elapsed)
+    }
   }
 
   const emitRemove = (obj: FabricObject) => {
@@ -201,7 +228,20 @@ export function setupBoardSync(
       }
     }
   })
+  canvas.on('object:moving', (e) => {
+    if (e.target) emitModifyThrottled(e.target)
+  })
+  canvas.on('object:scaling', (e) => {
+    if (e.target) emitModifyThrottled(e.target)
+  })
+  canvas.on('object:rotating', (e) => {
+    if (e.target) emitModifyThrottled(e.target)
+  })
   canvas.on('object:modified', (e) => {
+    if (moveThrottleTimer) {
+      clearTimeout(moveThrottleTimer)
+      moveThrottleTimer = null
+    }
     if (e.target) emitModify(e.target)
   })
   canvas.on('object:removed', (e) => {
@@ -241,8 +281,12 @@ export function setupBoardSync(
     }
     cancelLockDisconnect?.()
     canvas.off('object:added')
+    canvas.off('object:moving')
+    canvas.off('object:scaling')
+    canvas.off('object:rotating')
     canvas.off('object:modified')
     canvas.off('object:removed')
+    if (moveThrottleTimer) clearTimeout(moveThrottleTimer)
     if (lockOptions) {
       canvas.off('selection:created')
       canvas.off('selection:cleared')

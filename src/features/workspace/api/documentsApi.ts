@@ -53,7 +53,6 @@ export function subscribeToDocuments(
       .from('documents')
       .select('object_id, data')
       .eq('board_id', boardId)
-    console.log('[documents] fetchInitial', { count: data?.length ?? 0, error })
     for (const row of data ?? []) {
       if (row?.object_id && row.data) {
         callbacks.onAdded(row.object_id, row.data as Record<string, unknown>)
@@ -75,7 +74,6 @@ export function subscribeToDocuments(
       },
       (payload) => {
         const evt = (payload as { eventType?: string }).eventType
-        console.log('[documents]', evt, payload)
         if (evt === 'DELETE' && payload.old) {
           const row = payload.old as { board_id?: string; object_id?: string }
           if (row?.object_id && row.board_id === boardId) callbacks.onRemoved(row.object_id)
@@ -88,9 +86,7 @@ export function subscribeToDocuments(
         }
       }
     )
-    .subscribe((status, err) => {
-      console.log('[documents] channel status', status, err)
-    })
+    .subscribe()
 
   return () => {
     supabase.removeChannel(channel)
