@@ -42,10 +42,20 @@ function applyLockState(
   const lockedByOthers = new Set(
     locks.filter((l) => l.userId !== currentUserId).map((l) => l.objectId)
   )
+  
+  console.log('[APPLYLOCK] Applying lock state. Locked by others:', Array.from(lockedByOthers))
+  
+  let lockedCount = 0
   for (const obj of canvas.getObjects()) {
     const id = getObjectId(obj)
     if (!id) continue
     const locked = lockedByOthers.has(id)
+    
+    if (locked) {
+      console.log('[APPLYLOCK] 🔒 Locking object:', id, 'setting evented=false, selectable=false')
+      lockedCount++
+    }
+    
     obj.set({
       selectable: !locked,
       evented: !locked,  // Prevent all mouse events on locked objects
@@ -65,6 +75,8 @@ function applyLockState(
       })
     }
   }
+  
+  console.log('[APPLYLOCK] ✅ Applied locks to', lockedCount, 'objects')
   canvas.requestRenderAll()
 }
 
@@ -246,24 +258,42 @@ export function setupBoardSync(
   // Handle instant broadcast messages for lock acquisition (<100ms)
   const handleBroadcastLockAcquired = lockOptions
     ? (lock: LockEntry) => {
+        console.log('[BOARDSYNC] 📥 Received lock_acquired broadcast:', lock)
+        
         // Ignore our own broadcasts
-        if (lock.userId === lockOptions!.userId) return
+        if (lock.userId === lockOptions!.userId) {
+          console.log('[BOARDSYNC] Ignoring own lock broadcast')
+          return
+        }
+        
+        console.log('[BOARDSYNC] Adding lock to lastLocks, current count:', lastLocks.length)
         
         // Add lock immediately
         lastLocks = [...lastLocks.filter(l => l.objectId !== lock.objectId), lock]
+        console.log('[BOARDSYNC] After adding, lastLocks count:', lastLocks.length, lastLocks)
+        
         applyLockState(canvas, lastLocks, lockOptions!.userId)
+        console.log('[BOARDSYNC] ✅ Lock state applied')
       }
     : undefined
 
   // Handle instant broadcast messages for lock release (<100ms)
   const handleBroadcastLockReleased = lockOptions
     ? (objectId: string, userId: string) => {
+        console.log('[BOARDSYNC] 📥 Received lock_released broadcast:', { objectId, userId })
+        
         // Ignore our own broadcasts
-        if (userId === lockOptions!.userId) return
+        if (userId === lockOptions!.userId) {
+          console.log('[BOARDSYNC] Ignoring own unlock broadcast')
+          return
+        }
         
         // Remove lock immediately
         lastLocks = lastLocks.filter(l => l.objectId !== objectId || l.userId !== userId)
+        console.log('[BOARDSYNC] After removing, lastLocks count:', lastLocks.length)
+        
         applyLockState(canvas, lastLocks, lockOptions!.userId)
+        console.log('[BOARDSYNC] ✅ Lock state applied')
       }
     : undefined
 
@@ -421,18 +451,26 @@ export function setupBoardSync(
       const objs = Array.isArray(sel) ? sel : sel ? [sel] : []
       const ids = objs.map(getObjectId).filter((id): id is string => !!id)
       
+      console.log('[SELECTION] User trying to select objects:', ids)
+      console.log('[SELECTION] Current lastLocks:', lastLocks)
+      
       if (ids.length > 0) {
         // SYNCHRONOUS CHECK: Prevent selection if any object is already locked by another user
         const lockedByOthers = ids.some(id => 
           lastLocks.some(lock => lock.objectId === id && lock.userId !== lockOptions!.userId)
         )
         
+        console.log('[SELECTION] Objects locked by others?', lockedByOthers)
+        
         if (lockedByOthers) {
+          console.log('[SELECTION] ❌ BLOCKED - Object already locked by another user')
           // Immediately discard selection - object is already locked
           canvas.discardActiveObject()
           canvas.requestRenderAll()
           return
         }
+        
+        console.log('[SELECTION] ✅ Allowed - Adding optimistic lock')
         
         // OPTIMISTIC LOCKING: Immediately add locks locally before async DB call
         // This prevents race conditions where another user clicks during the DB roundtrip
@@ -445,11 +483,16 @@ export function setupBoardSync(
         
         // Add to lastLocks and apply lock state immediately
         lastLocks = [...lastLocks, ...optimisticLocks]
+        console.log('[SELECTION] Added optimistic locks, new lastLocks count:', lastLocks.length)
         applyLockState(canvas, lastLocks, lockOptions!.userId)
         
         // Now try to acquire the lock from the server
+        console.log('[SELECTION] Acquiring lock from server...')
         const ok = await tryAcquireLocks(ids)
+        console.log('[SELECTION] Lock acquisition result:', ok ? 'SUCCESS' : 'FAILED')
+        
         if (!ok) {
+          console.log('[SELECTION] ❌ Lock acquisition failed - rolling back')
           // Lock acquisition failed - remove optimistic locks and revert
           lastLocks = lastLocks.filter(lock => 
             !ids.includes(lock.objectId) || lock.userId !== lockOptions!.userId
