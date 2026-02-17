@@ -332,6 +332,14 @@ export function FabricCanvas({
       boardId && uid && uname
         ? { userId: uid, userName: uname }
         : undefined
+    
+    // DEBUG: Alert if locking isn't enabled
+    if (!lockOpts && boardId) {
+      console.error('[FABRIC] ❌ LOCKING DISABLED - Missing:', { boardId: !!boardId, uid: !!uid, uname: !!uname })
+    } else if (lockOpts) {
+      console.log('[FABRIC] ✅ LOCKING ENABLED:', lockOpts)
+    }
+    
     const cleanupSync =
       boardId
         ? setupBoardSync(fabricCanvas, boardId, lockOpts)
