@@ -46,7 +46,7 @@ describe('shapeFactory', () => {
     it('creates circle with radius from bounding box', () => {
       const shape = createShape('circle', 0, 0, 100, 100)
       expect(shape).not.toBeNull()
-      expect(shape!.radius).toBe(50)
+      expect((shape as any).radius).toBe(50)
     })
 
     it('creates line (Polyline) with two points', () => {
@@ -58,7 +58,7 @@ describe('shapeFactory', () => {
     it('creates text with default content', () => {
       const shape = createShape('text', 0, 0, 100, 40)
       expect(shape).not.toBeNull()
-      expect(shape!.text).toBe('Text')
+      expect((shape as any).text).toBe('Text')
     })
 
     it('creates sticky as Group', () => {
