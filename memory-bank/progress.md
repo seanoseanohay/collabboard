@@ -53,11 +53,13 @@
 **Next:** Board loading performance (lazy load) or other polish.
 
 ## Known Issues
+- **Shape tool vs selection** — When a shape tool is active (circle, rect, triangle, etc.), drawing inside an existing object (e.g. after zooming in) selects that object instead of creating a new shape. Selection should only occur when the select tool is active; with any shape tool, pointer down/drag should create the new shape, not select. Fix in FabricCanvas: when `selectedTool !== 'select'`, prevent selection (e.g. discard active object on draw start, or make objects non-selectable during shape-tool interaction). Do soon.
 - **Board loading performance** — Fetches ALL objects upfront. Slow on boards with 50+ objects. Consider lazy loading or pagination.
 - **Legacy Line objects** — Old Fabric Line objects have movement bug. New lines use Polyline.
 - **StrictMode** — Removed from main.tsx (was causing Realtime channel churn). Re-add for prod if desired.
 
 ## Recently Fixed (2026-02-17)
+- ✅ Multi-selection move sync (scene coords) — Objects in selection were synced with group-relative coords → others saw them disappear during move and in wrong place on drop. Now payloadWithSceneCoords() uses qrDecompose(calcTransformMatrix()) so we sync absolute left/top/angle/scale.
 - ✅ Multi-selection move sync — Moving multiple selected objects (circle + triangle) now syncs; boardSync getObjectsToSync + pendingMoveIds
 - ✅ Presence awareness — Header shows "X others viewing — Alice, Bob"; working as wanted
 - ✅ Locking + document sync — Split FabricCanvas effect so document sync persists when auth loads; lock sync in separate effect

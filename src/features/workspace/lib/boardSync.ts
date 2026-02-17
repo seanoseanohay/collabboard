@@ -7,6 +7,27 @@
 
 import type { Canvas, FabricObject } from 'fabric'
 import { util } from 'fabric'
+
+/** When object is inside a group/ActiveSelection, left/top/angle/scale are relative. Override with scene (absolute) transform. */
+function payloadWithSceneCoords(
+  obj: FabricObject,
+  payload: Record<string, unknown>
+): Record<string, unknown> {
+  const group = (obj as { group?: unknown }).group
+  if (!group) return payload
+  const matrix = obj.calcTransformMatrix()
+  const d = util.qrDecompose(matrix)
+  return {
+    ...payload,
+    left: d.translateX,
+    top: d.translateY,
+    angle: d.angle,
+    scaleX: d.scaleX,
+    scaleY: d.scaleY,
+    skewX: d.skewX,
+    skewY: d.skewY,
+  }
+}
 import {
   subscribeToDocuments,
   writeDocument,
@@ -208,7 +229,8 @@ export function setupDocumentSync(
   const emitAdd = (obj: FabricObject) => {
     const id = getObjectId(obj)
     if (!id || isApplyingRemote) return
-    const payload = obj.toObject(['data', 'objects']) as Record<string, unknown>
+    let payload = obj.toObject(['data', 'objects']) as Record<string, unknown>
+    payload = payloadWithSceneCoords(obj, payload)
     delete payload.data
     delete payload.layoutManager
     writeDocument(boardId, id, payload).catch(console.error)
@@ -232,7 +254,8 @@ export function setupDocumentSync(
   const emitModify = (obj: FabricObject) => {
     const id = getObjectId(obj)
     if (!id || isApplyingRemote) return
-    const payload = obj.toObject(['data', 'objects']) as Record<string, unknown>
+    let payload = obj.toObject(['data', 'objects']) as Record<string, unknown>
+    payload = payloadWithSceneCoords(obj, payload)
     delete payload.data
     delete payload.layoutManager
     writeDocument(boardId, id, payload).catch(console.error)

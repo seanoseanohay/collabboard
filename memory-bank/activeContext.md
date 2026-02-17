@@ -16,9 +16,13 @@
 
 ## Next Steps
 
-1. **Board loading performance** — Fetches ALL objects upfront. Slow on boards with 50+ objects. Consider lazy loading or pagination.
+1. **Shape tool vs selection (priority)** — When a shape tool is active (circle, rect, triangle, etc.), pointer actions should create a new shape, not select an existing object. Currently: zoom in so an object fills the screen, try to draw inside it → the existing object gets selected instead of starting a draw. Selection should only happen when the select tool is active. Fix: when `selectedTool !== 'select'`, do not allow selection on pointer down; let the draw path create the new shape (FabricCanvas / mouse handlers).
+2. **Board loading performance** — Fetches ALL objects upfront. Slow on boards with 50+ objects. Consider lazy loading or pagination.
 
 ## Recent Changes (2026-02-17)
+
+**Multi-selection move sync (coordinates fix):**
+- ✅ Objects in ActiveSelection have relative left/top/angle/scale; we were syncing those so other clients saw wrong position (disappear during move, wrong place on drop). boardSync now uses payloadWithSceneCoords(obj, payload): when obj.group exists, override payload with util.qrDecompose(obj.calcTransformMatrix()) so left/top/angle/scaleX/scaleY/skew are scene (absolute) coordinates. Used in emitAdd and emitModify.
 
 **Multi-selection move sync:**
 - ✅ boardSync: getObjectsToSync(target) returns [target] if id, else getObjects() for ActiveSelection; emitModifyThrottled uses pendingMoveIds (Set); object:modified syncs each object in selection. Moving circle + triangle together now syncs to other devices.
@@ -54,7 +58,8 @@
 11. ~~**Google Auth**~~ ✅ — Complete (user can log in with Google)
 12. ~~**Presence awareness — "Who's on board"**~~ ✅ — Names list in header ("X others viewing — Alice, Bob"); working as wanted (not perfect).
 13. ~~**Multi-selection move sync**~~ ✅ — boardSync getObjectsToSync + pendingMoveIds; object:modified syncs each in selection.
-14. **Board loading performance** — Lazy load for 50+ objects (Known Issue)
+14. **Shape tool: no selection when drawing** — When shape tool is on, clicking inside an existing object should draw, not select (do soon).
+15. **Board loading performance** — Lazy load for 50+ objects (Known Issue)
 
 ## Active Decisions
 - PRD v5.0: Fabric.js for licensing; viewport culling for perf; AI + Undo post-MVP
