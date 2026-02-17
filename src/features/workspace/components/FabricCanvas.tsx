@@ -427,7 +427,7 @@ export function FabricCanvas({
       el.removeChild(canvasEl)
       canvasRef.current = null
     }
-  }, [width, height, boardId])
+  }, [width, height, boardId, userId, userName])
 
   return <div ref={containerRef} className={className} style={styles.container} />
 }
