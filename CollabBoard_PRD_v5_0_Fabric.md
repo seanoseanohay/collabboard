@@ -104,7 +104,8 @@ read/write if not member - No guest access in MVP
 
 -   **Board sharing** — ≥2 users can access the same board (share link or
     join-by-ID). *Implementation prerequisite for all collaboration features.*
--   Infinite canvas with smooth pan/zoom
+-   Infinite canvas with smooth pan/zoom — **Zoom range MVP:** very wide zoom
+    (0.01%–10000%+). See §2.1 Zoom & Pan.
 -   Real-time sync (≥2 users)
 -   Multiplayer cursors with labels
 -   Presence awareness
@@ -112,6 +113,24 @@ read/write if not member - No guest access in MVP
 -   Basic selection (single + box-select)
 -   Authentication required
 -   Public Vercel deployment
+
+### 2.1 Zoom & Pan (Figma-like)
+
+**MVP (implemented):** Very wide zoom range 0.01%–10000%+ for infinite-canvas
+feel. Zoom at cursor; smooth and quick. FabricCanvas MIN_ZOOM = 0.0001,
+MAX_ZOOM = 100.
+
+**Planned (post–MVP or next):**
+
+- **Hand tool** — Toolbar tool; when selected, left-drag always pans (never
+  selects or moves objects). Select tool keeps current behavior (move/select,
+  Space+drag to pan).
+- **Trackpad** — Two-finger drag = pan; pinch / Ctrl+wheel = zoom (Figma-like).
+- **Infinite pan** — No hard bounds on viewport pan.
+- **Shortcuts** — Space+drag = temporary pan (any tool); +/- = zoom in/out;
+  0 = fit to screen; 1 = 100%.
+- **Zoom UI** — Production list only: zoom dropdown/slider (e.g. 50%/100%/200%,
+  Fit, Fill) in UI.
 
 ### Implementation Priority
 

@@ -77,8 +77,8 @@ export function FabricCanvas({
     let drawEnd: { x: number; y: number } | null = null
     let previewObj: FabricObject | null = null
     let objectWasTransformed = false  // Track if object was rotated/scaled/moved
-    const MIN_ZOOM = 0.02  // 2% - zoom out for broad view (infinite canvas)
-    const MAX_ZOOM = 20   // 2000% - zoom in for detail work
+    const MIN_ZOOM = 0.0001  // 0.01% - very wide zoom out (MVP infinite canvas)
+    const MAX_ZOOM = 100    // 10000% - very wide zoom in (Figma-like)
 
     const getScenePoint = (opt: {
       scenePoint?: { x: number; y: number }

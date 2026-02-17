@@ -22,7 +22,7 @@ Bulletproof multiplayer sync + reliable AI agent in a 7-day sprint. Project comp
 
 ### MVP (24-Hour Hard Gate)
 - **Board sharing** — ≥2 users can access same board (prerequisite for testing collaboration)
-- Infinite canvas with smooth pan/zoom
+- Infinite canvas with smooth pan/zoom (zoom range 0.01%–10000%+ for MVP)
 - Real-time sync (≥2 users)
 - Multiplayer cursors with labels
 - Presence awareness

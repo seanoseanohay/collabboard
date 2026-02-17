@@ -17,7 +17,7 @@
 - **Authentication** — Supabase Auth (Google + Email), LoginPage, useAuth, BoardListPage
 - **Board list & CRUD** — createBoard, useUserBoards, BoardListPage, WorkspacePage
 - **Deployment** — Vercel, vercel.json (COOP header), auth debounce
-- **Workspace** — Fabric.js canvas (FabricCanvas) with pan/zoom
+- **Workspace** — Fabric.js canvas (FabricCanvas) with pan/zoom; zoom range 0.01%–10000% (MVP)
 - **Sync** — Live document sync; real-time position updates (object:moving/scaling/rotating, 80ms throttle)
 - **Presence & cursors** — Working in multi-user
 - **Locking** — Fully working: acquire on selection, release on deselection; objects locked by others are non-selectable; position updates sync while locking active
@@ -49,8 +49,8 @@
 - Revocable invite links, touch handling, 6+ AI commands
 
 ## Current Status
-**Phase:** MVP near complete. Presence awareness done (names in header). Locking and document sync working.
-**Next:** Board loading performance (lazy load) or other polish.
+**Phase:** MVP near complete. Very wide zoom (0.01%–10000%) in place for MVP. Locking and document sync working.
+**Next:** Hand tool / two-finger pan / shortcuts (zoom/pan); shape-tool vs selection; or board loading performance.
 
 ## Known Issues
 - **Shape tool vs selection** — When a shape tool is active (circle, rect, triangle, etc.), drawing inside an existing object (e.g. after zooming in) selects that object instead of creating a new shape. Selection should only occur when the select tool is active; with any shape tool, pointer down/drag should create the new shape, not select. Fix in FabricCanvas: when `selectedTool !== 'select'`, prevent selection (e.g. discard active object on draw start, or make objects non-selectable during shape-tool interaction). Do soon.
@@ -59,6 +59,7 @@
 - **StrictMode** — Removed from main.tsx (was causing Realtime channel churn). Re-add for prod if desired.
 
 ## Recently Fixed (2026-02-17)
+- ✅ Zoom (MVP) — Very wide zoom range 0.01%–10000% (MIN_ZOOM 0.0001, MAX_ZOOM 100); FabricCanvas. Figma-like infinite canvas.
 - ✅ Multi-selection move sync (scene coords) — Objects in selection were synced with group-relative coords → others saw them disappear during move and in wrong place on drop. Now payloadWithSceneCoords() uses qrDecompose(calcTransformMatrix()) so we sync absolute left/top/angle/scale.
 - ✅ Multi-selection move sync — Moving multiple selected objects (circle + triangle) now syncs; boardSync getObjectsToSync + pendingMoveIds
 - ✅ Presence awareness — Header shows "X others viewing — Alice, Bob"; working as wanted
