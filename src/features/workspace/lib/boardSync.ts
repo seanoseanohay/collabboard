@@ -131,6 +131,10 @@ export function setupBoardSync(
               flipY: revived.flipY,
             })
             
+            // Recalculate bounding box and control coordinates to match new position
+            // Fixes ghost clickable area at old position during real-time movement
+            existing.setCoords()
+            
             // Update text content in children if it changed
             if ('getObjects' in existing && 'getObjects' in revived) {
               const existingChildren = (existing as { getObjects: () => FabricObject[] }).getObjects()
@@ -168,6 +172,11 @@ export function setupBoardSync(
           delete serialized.type  // Fabric: "Setting type has no effect" - cannot change type on existing object
           delete serialized.layoutManager  // Remove layoutManager - not serializable
           existing.set(serialized)
+          
+          // Recalculate bounding box and control coordinates to match new position
+          // Fixes ghost clickable area at old position during real-time movement
+          existing.setCoords()
+          
           ensureTextEditable(existing)
           // Reapply lock state - prevents locked objects from becoming clickable after position updates
           if (lockOptions && lastLocks.length > 0) {
@@ -189,6 +198,10 @@ export function setupBoardSync(
         ensureTextEditable(revived)
         isApplyingRemote = true
         canvas.add(revived)
+        
+        // Ensure coordinates are properly calculated for newly added objects
+        revived.setCoords()
+        
         // Reapply lock state - ensures newly added objects respect current locks
         if (lockOptions && lastLocks.length > 0) {
           applyLockState(canvas, lastLocks, lockOptions.userId)
