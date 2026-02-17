@@ -48,9 +48,22 @@ function applyLockState(
     const locked = lockedByOthers.has(id)
     obj.set({
       selectable: !locked,
-      evented: true,
+      evented: !locked,  // Prevent all mouse events on locked objects
       hoverCursor: locked ? 'not-allowed' : undefined,
     })
+    
+    // Ensure Group children remain non-selectable regardless of lock state
+    if (obj.type === 'group' && 'getObjects' in obj) {
+      const children = (obj as { getObjects: () => unknown[] }).getObjects()
+      children.forEach((child: unknown) => {
+        if (child && typeof child === 'object' && 'set' in child) {
+          (child as { set: (props: { selectable: boolean; evented: boolean }) => void }).set({
+            selectable: false,
+            evented: false,
+          })
+        }
+      })
+    }
   }
   canvas.requestRenderAll()
 }
@@ -342,7 +355,22 @@ export function setupBoardSync(
       const sel = e.selected
       const objs = Array.isArray(sel) ? sel : sel ? [sel] : []
       const ids = objs.map(getObjectId).filter((id): id is string => !!id)
+      
       if (ids.length > 0) {
+        // SYNCHRONOUS CHECK: Prevent selection if any object is already locked by another user
+        // This handles race conditions before the async DB lock propagates
+        const lockedByOthers = ids.some(id => 
+          lastLocks.some(lock => lock.objectId === id && lock.userId !== lockOptions!.userId)
+        )
+        
+        if (lockedByOthers) {
+          // Immediately discard selection - object is already locked
+          canvas.discardActiveObject()
+          canvas.requestRenderAll()
+          return
+        }
+        
+        // Now try to acquire the lock from the server
         const ok = await tryAcquireLocks(ids)
         if (!ok) {
           canvas.discardActiveObject()
