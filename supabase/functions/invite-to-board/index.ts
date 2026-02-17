@@ -13,6 +13,7 @@ Deno.serve(async (req: Request) => {
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const resendApiKey = Deno.env.get('RESEND_API_KEY')
+    const resendFrom = Deno.env.get('RESEND_FROM_EMAIL') ?? 'CollabBoard <onboarding@resend.dev>'
 
     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } },
@@ -110,7 +111,7 @@ Deno.serve(async (req: Request) => {
         Authorization: `Bearer ${resendApiKey}`,
       },
       body: JSON.stringify({
-        from: 'CollabBoard <onboarding@resend.dev>',
+        from: resendFrom,
         to: trimmedEmail,
         subject: `You're invited to collaborate on "${board.title ?? 'Untitled Board'}"`,
         html: `

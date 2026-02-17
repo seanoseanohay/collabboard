@@ -65,7 +65,7 @@ export function ShareModal({ board, onClose }: ShareModalProps) {
       const needsDomain = /domain|verify|recipient|testing/i.test(msg)
       setMessage(
         needsDomain
-          ? `${msg} Use "Copy share link" below and send it manually, or verify a domain at resend.com/domains.`
+          ? 'Resend free tier only emails your own address. Use "Copy share link" below, or verify a domain at resend.com/domains.'
           : msg
       )
       setStatus('error')

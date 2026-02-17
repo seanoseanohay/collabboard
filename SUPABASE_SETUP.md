@@ -85,7 +85,8 @@ supabase login
 supabase link --project-ref qcnmixjyggvvnlyjhfgl
 supabase functions deploy invite-to-board
 supabase secrets set RESEND_API_KEY=re_xxxx   # from resend.com
-# Resend free tier: can only email your own address. To email others, verify a domain at resend.com/domains.
+supabase secrets set RESEND_FROM_EMAIL="CollabBoard <noreply@yourdomain.com>"   # use your verified domain
+# After verifying a domain at resend.com/domains, set RESEND_FROM_EMAIL to an email on that domain.
 ```
 
 ## 7. Run locally
