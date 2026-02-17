@@ -39,6 +39,10 @@ export function FabricCanvas({
   const canvasRef = useRef<Canvas | null>(null)
   const toolRef = useRef(selectedTool)
   toolRef.current = selectedTool
+  const onPointerMoveRef = useRef(onPointerMove)
+  onPointerMoveRef.current = onPointerMove
+  const onViewportChangeRef = useRef(onViewportChange)
+  onViewportChangeRef.current = onViewportChange
 
   useEffect(() => {
     const el = containerRef.current
@@ -82,7 +86,7 @@ export function FabricCanvas({
 
     const notifyViewport = () => {
       const vpt = fabricCanvas.viewportTransform
-      if (vpt && onViewportChange) onViewportChange([...vpt])
+      if (vpt && onViewportChangeRef.current) onViewportChangeRef.current([...vpt])
     }
 
     const handleWheel = (opt: { e: WheelEvent }) => {
@@ -144,7 +148,7 @@ export function FabricCanvas({
       const tool = toolRef.current
 
       const sp = getScenePoint(opt)
-      if (sp && onPointerMove) onPointerMove(sp)
+      if (sp && onPointerMoveRef.current) onPointerMoveRef.current(sp)
 
       if (isDrawing && drawStart && previewObj) {
         const sp = getScenePoint(opt)
@@ -173,9 +177,9 @@ export function FabricCanvas({
       }
     }
 
-    if (onViewportChange) {
+    if (onViewportChangeRef.current) {
       const vpt = fabricCanvas.viewportTransform
-      if (vpt) onViewportChange([...vpt])
+      if (vpt) onViewportChangeRef.current([...vpt])
     }
 
     const handleMouseUp = () => {
@@ -274,7 +278,7 @@ export function FabricCanvas({
       el.removeChild(canvasEl)
       canvasRef.current = null
     }
-  }, [width, height, boardId, userId, userName, onPointerMove, onViewportChange])
+  }, [width, height, boardId, userId, userName])
 
   return <div ref={containerRef} className={className} style={styles.container} />
 }
