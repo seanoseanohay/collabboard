@@ -127,7 +127,7 @@ export function createShape(
         top,
         originX: 'left',
         originY: 'top',
-        subTargetCheck: true,
+        // subTargetCheck removed - Groups are atomic units, children cannot be clicked directly
       })
       return withId(group)
     }

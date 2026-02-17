@@ -202,8 +202,17 @@ export function setupBoardSync(
   let lastLocks: LockEntry[] = []
   const applyLocksToObjects = lockOptions
     ? (locks: LockEntry[]) => {
-        lastLocks = locks
-        applyLockState(canvas, locks, lockOptions!.userId)
+        // Merge server locks with our current locks, preserving locks we're actively holding
+        // This prevents race conditions where Realtime updates overwrite optimistic locks
+        const ourLockIds = Array.from(currentLockIds)
+        const ourLocks = lastLocks.filter(lock => 
+          ourLockIds.includes(lock.objectId) && lock.userId === lockOptions!.userId
+        )
+        const otherLocks = locks.filter(lock => 
+          !ourLockIds.includes(lock.objectId) || lock.userId !== lockOptions!.userId
+        )
+        lastLocks = [...ourLocks, ...otherLocks]
+        applyLockState(canvas, lastLocks, lockOptions!.userId)
       }
     : () => {}
 
@@ -358,7 +367,6 @@ export function setupBoardSync(
       
       if (ids.length > 0) {
         // SYNCHRONOUS CHECK: Prevent selection if any object is already locked by another user
-        // This handles race conditions before the async DB lock propagates
         const lockedByOthers = ids.some(id => 
           lastLocks.some(lock => lock.objectId === id && lock.userId !== lockOptions!.userId)
         )
@@ -370,9 +378,27 @@ export function setupBoardSync(
           return
         }
         
+        // OPTIMISTIC LOCKING: Immediately add locks locally before async DB call
+        // This prevents race conditions where another user clicks during the DB roundtrip
+        const optimisticLocks: LockEntry[] = ids.map(id => ({
+          objectId: id,
+          userId: lockOptions!.userId,
+          userName: lockOptions!.userName,
+          lastActive: Date.now(),
+        }))
+        
+        // Add to lastLocks and apply lock state immediately
+        lastLocks = [...lastLocks, ...optimisticLocks]
+        applyLockState(canvas, lastLocks, lockOptions!.userId)
+        
         // Now try to acquire the lock from the server
         const ok = await tryAcquireLocks(ids)
         if (!ok) {
+          // Lock acquisition failed - remove optimistic locks and revert
+          lastLocks = lastLocks.filter(lock => 
+            !ids.includes(lock.objectId) || lock.userId !== lockOptions!.userId
+          )
+          applyLockState(canvas, lastLocks, lockOptions!.userId)
           canvas.discardActiveObject()
           canvas.requestRenderAll()
         }
@@ -382,7 +408,17 @@ export function setupBoardSync(
       const prev = e.deselected
       const objs = Array.isArray(prev) ? prev : prev ? [prev] : []
       const ids = objs.map(getObjectId).filter((id): id is string => !!id)
-      if (ids.length > 0) tryReleaseLocks(ids)
+      
+      if (ids.length > 0) {
+        // OPTIMISTIC UNLOCK: Immediately remove locks locally before async DB call
+        lastLocks = lastLocks.filter(lock => 
+          !ids.includes(lock.objectId) || lock.userId !== lockOptions!.userId
+        )
+        applyLockState(canvas, lastLocks, lockOptions!.userId)
+        
+        // Then release from server
+        tryReleaseLocks(ids)
+      }
     })
   }
 
