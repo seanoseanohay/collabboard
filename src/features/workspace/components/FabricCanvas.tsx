@@ -8,7 +8,12 @@ function isEditableText(obj: unknown): obj is { enterEditing: () => void } {
 import type { ToolType } from '../types/tools'
 import { isShapeTool } from '../types/tools'
 import { createShape } from '../lib/shapeFactory'
-import { getStrokeWidthFromObject, setStrokeWidthOnObject } from '../lib/strokeUtils'
+import {
+  getStrokeWidthFromObject,
+  setStrokeWidthOnObject,
+  getStrokeColorFromObject,
+  setStrokeColorOnObject,
+} from '../lib/strokeUtils'
 import { getFillFromObject, setFillOnObject } from '../lib/fillUtils'
 import { updateStickyTextFontSize } from '../lib/shapeFactory'
 import {
@@ -22,6 +27,7 @@ import {
 
 export interface SelectionStrokeInfo {
   strokeWidth: number
+  strokeColor: string | null
   fill: string | null
 }
 
@@ -31,6 +37,7 @@ export interface FabricCanvasZoomHandle {
   getActiveObject: () => FabricObject | null
   setActiveObjectStrokeWidth: (strokeWidth: number) => void
   setActiveObjectFill: (fill: string) => void
+  setActiveObjectStrokeColor: (stroke: string) => void
   bringToFront: () => void
   sendToBack: () => void
 }
@@ -104,6 +111,15 @@ const FabricCanvasInner = (
       const active = canvas.getActiveObject()
       if (!active) return
       setFillOnObject(active, fill)
+      canvas.fire('object:modified', { target: active })
+      canvas.requestRenderAll()
+    },
+    setActiveObjectStrokeColor: (stroke: string) => {
+      const canvas = canvasRef.current
+      if (!canvas) return
+      const active = canvas.getActiveObject()
+      if (!active) return
+      setStrokeColorOnObject(active, stroke)
       canvas.fire('object:modified', { target: active })
       canvas.requestRenderAll()
     },
@@ -327,6 +343,12 @@ const FabricCanvasInner = (
       // Use setTimeout to ensure the object is fully initialized and active
       setTimeout(() => {
         itext.enterEditing()
+        // Hide sticky placeholder while editing so "Double-click to edit" doesn't show
+        const grp = (obj as { group?: unknown }).group
+        if (grp && typeof grp === 'object' && 'getObjects' in grp) {
+          const ch = (grp as { getObjects: () => FabricObject[] }).getObjects()
+          if (ch.length >= 3 && ch[1]) ch[1].set('visible', false)
+        }
         fabricCanvas.requestRenderAll()
       }, 0)
     }
@@ -522,6 +544,7 @@ const FabricCanvasInner = (
         active
           ? {
               strokeWidth: getStrokeWidthFromObject(active) ?? 0,
+              strokeColor: getStrokeColorFromObject(active),
               fill: getFillFromObject(active),
             }
           : null

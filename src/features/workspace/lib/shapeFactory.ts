@@ -27,13 +27,22 @@ export function stickyFontSizeFromSize(width: number, height: number): number {
   return Math.max(MIN_STICKY_FONT_SIZE, Math.round(Math.min(width, height) * STICKY_TEXT_SIZE_RATIO))
 }
 
-/** Update sticky group's text child fontSize from the group's current effective size (e.g. after resize/sync). */
-export function updateStickyTextFontSize(group: FabricObject): void {
-  if (group.type !== 'group' || !('getObjects' in group)) return
+/** Index of main (editable) text in sticky group: last IText. Placeholder is at 1 when 3 children. */
+function getStickyTextChildren(group: FabricObject): { placeholder: FabricObject | null; mainText: FabricObject } | null {
+  if (group.type !== 'group' || !('getObjects' in group)) return null
   const children = (group as { getObjects: () => FabricObject[] }).getObjects()
-  if (children.length < 2) return
-  const txt = children[1]
-  if (txt.type !== 'i-text') return
+  const textChildren = children.filter((c) => c.type === 'i-text')
+  if (textChildren.length === 0) return null
+  const mainText = textChildren[textChildren.length - 1]
+  const placeholder = textChildren.length >= 2 ? textChildren[textChildren.length - 2] : null
+  return { placeholder, mainText }
+}
+
+/** Update sticky group's text child(ren) fontSize from the group's current effective size (e.g. after resize/sync). */
+export function updateStickyTextFontSize(group: FabricObject): void {
+  const pair = getStickyTextChildren(group)
+  if (!pair) return
+  const { placeholder, mainText } = pair
   const w = (group.get('width') as number) ?? 120
   const h = (group.get('height') as number) ?? 80
   const scaleX = (group.get('scaleX') as number) ?? 1
@@ -41,7 +50,16 @@ export function updateStickyTextFontSize(group: FabricObject): void {
   const effectiveW = w * scaleX
   const effectiveH = h * scaleY
   const fontSize = stickyFontSizeFromSize(effectiveW, effectiveH)
-  txt.set('fontSize', fontSize)
+  mainText.set('fontSize', fontSize)
+  if (placeholder) placeholder.set('fontSize', fontSize)
+}
+
+/** Show placeholder when main text is empty; hide when it has content. Call after edit or when applying sync. */
+export function updateStickyPlaceholderVisibility(group: FabricObject): void {
+  const pair = getStickyTextChildren(group)
+  if (!pair || !pair.placeholder) return
+  const text = (pair.mainText.get('text') as string) ?? ''
+  pair.placeholder.set('visible', !text.trim())
 }
 
 let stickyColorIndex = 0
@@ -141,22 +159,35 @@ export function createShape(
       })
       // Text scales with sticky size so it stays readable at any zoom/size
       const fontSize = stickyFontSizeFromSize(width, height)
-      const txt = new IText('Note', {
-        left: 8,
-        top: 8,
+      const padding = 8
+      // Placeholder: shown when main text is empty (like form input placeholder)
+      const placeholderText = new IText('Double-click to edit', {
+        left: padding,
+        top: padding,
+        fontSize,
+        fill: '#9ca3af',
+        originX: 'left',
+        originY: 'top',
+        selectable: false,
+        evented: false,
+        editable: false,
+      })
+      // Main (editable) text - empty by default
+      const mainText = new IText('', {
+        left: padding,
+        top: padding,
         fontSize,
         fill: STROKE,
         originX: 'left',
         originY: 'top',
         editable: true,
       })
-      // Create group - will be selected as a whole unit
-      const group = new Group([bg, txt], { 
-        left, 
+      // Create group: [bg, placeholder, mainText] - placeholder visibility updated by updateStickyPlaceholderVisibility
+      const group = new Group([bg, placeholderText, mainText], {
+        left,
         top,
         originX: 'left',
         originY: 'top',
-        // subTargetCheck removed - Groups are atomic units, children cannot be clicked directly
       })
       return withId(group)
     }

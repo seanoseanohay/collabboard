@@ -40,7 +40,7 @@ import {
   setupLockDisconnect,
   type LockEntry,
 } from '../api/locksApi'
-import { updateStickyTextFontSize } from './shapeFactory'
+import { updateStickyTextFontSize, updateStickyPlaceholderVisibility } from './shapeFactory'
 
 const OBJ_ID_KEY = 'id'
 
@@ -186,15 +186,18 @@ export function setupDocumentSync(
             if ('getObjects' in existing && 'getObjects' in revived) {
               const existingChildren = (existing as { getObjects: () => FabricObject[] }).getObjects()
               const revivedChildren = (revived as { getObjects: () => FabricObject[] }).getObjects()
-              existingChildren.forEach((child, index) => {
-                const revivedChild = revivedChildren[index]
-                if (child.type === 'i-text' && revivedChild && 'text' in revivedChild) {
-                  child.set('text', (revivedChild as { text: string }).text)
-                }
-              })
+              const existingTexts = existingChildren.filter((c) => c.type === 'i-text')
+              const revivedTexts = revivedChildren.filter((c) => c.type === 'i-text')
+              if (existingTexts.length && revivedTexts.length) {
+                existingTexts[existingTexts.length - 1].set(
+                  'text',
+                  (revivedTexts[revivedTexts.length - 1].get('text') as string) ?? ''
+                )
+              }
             }
             applyZIndex(existing, clean)
             updateStickyTextFontSize(existing)
+            updateStickyPlaceholderVisibility(existing)
             ensureGroupChildrenNotSelectable(existing)
             ensureTextEditable(existing)
             applyLockStateCallbackRef.current?.()
@@ -233,7 +236,10 @@ export function setupDocumentSync(
       if (revived) {
         revived.set('data', { id: objectId })
         applyZIndex(revived, clean)
-        if (revived.type === 'group') updateStickyTextFontSize(revived)
+        if (revived.type === 'group') {
+          updateStickyTextFontSize(revived)
+          updateStickyPlaceholderVisibility(revived)
+        }
         ensureGroupChildrenNotSelectable(revived)
         ensureTextEditable(revived)
         isApplyingRemote = true
@@ -354,7 +360,10 @@ export function setupDocumentSync(
   canvas.on('text:editing:exited', (e) => {
     if (e.target) {
       const objToSync = e.target.group || e.target
-      if (getObjectId(objToSync)) emitModify(objToSync)
+      if (getObjectId(objToSync)) {
+        emitModify(objToSync)
+        if (objToSync.type === 'group') updateStickyPlaceholderVisibility(objToSync)
+      }
     }
   })
   canvas.on('object:modified', (e) => {

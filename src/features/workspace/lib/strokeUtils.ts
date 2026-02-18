@@ -36,6 +36,30 @@ export function setStrokeWidthOnObject(obj: FabricObject, strokeWidth: number): 
   if (hasStroke(obj)) obj.set('strokeWidth', strokeWidth)
 }
 
+/** Get stroke (border) color from a single object or group (first stroke-bearing child). */
+export function getStrokeColorFromObject(obj: FabricObject | null): string | null {
+  if (!obj) return null
+  if (obj.type === 'group' && 'getObjects' in obj) {
+    const children = (obj as { getObjects: () => FabricObject[] }).getObjects()
+    const withStroke = children.find(hasStroke)
+    return withStroke ? (withStroke.get('stroke') as string) ?? null : null
+  }
+  if (!hasStroke(obj)) return null
+  return (obj.get('stroke') as string) ?? null
+}
+
+/** Set stroke (border) color on object or on all stroke-bearing children of a group. */
+export function setStrokeColorOnObject(obj: FabricObject, stroke: string): void {
+  if (obj.type === 'group' && 'getObjects' in obj) {
+    const children = (obj as { getObjects: () => FabricObject[] }).getObjects()
+    children.forEach((child) => {
+      if (hasStroke(child)) child.set('stroke', stroke)
+    })
+    return
+  }
+  if (hasStroke(obj)) obj.set('stroke', stroke)
+}
+
 export const MIN_STROKE_WEIGHT = 1
 export const MAX_STROKE_WEIGHT = 100
 

@@ -4,6 +4,7 @@ import type { FabricCanvasZoomHandle } from './FabricCanvas'
 import type { SelectionStrokeInfo } from './FabricCanvas'
 import { StrokeControl } from './StrokeControl'
 import { FillControl } from './FillControl'
+import { StrokeColorControl } from './StrokeColorControl'
 
 interface WorkspaceToolbarProps {
   selectedTool: ToolType
@@ -134,10 +135,18 @@ export function WorkspaceToolbar({
         {selectionStroke != null && canvasRef && (
           <>
             {selectionStroke.strokeWidth > 0 && (
-              <StrokeControl
-                strokeWidth={selectionStroke.strokeWidth}
-                canvasRef={canvasRef}
-              />
+              <>
+                <StrokeControl
+                  strokeWidth={selectionStroke.strokeWidth}
+                  canvasRef={canvasRef}
+                />
+                {selectionStroke.strokeColor != null && (
+                  <StrokeColorControl
+                    strokeColor={selectionStroke.strokeColor}
+                    canvasRef={canvasRef}
+                  />
+                )}
+              </>
             )}
             {selectionStroke.fill != null && (
               <FillControl
