@@ -25,6 +25,7 @@ export function WorkspacePage({ board, onBack }: WorkspacePageProps) {
   const [cursorPosition, setCursorPosition] = useState<{ x: number; y: number } | null>(null)
   const canvasContainerRef = useRef<HTMLDivElement>(null)
   const canvasZoomRef = useRef<FabricCanvasZoomHandle>(null)
+  const gridRef = useRef<HTMLDivElement>(null)
 
   const { user } = useAuth()
   const userName = user?.displayName ?? user?.email ?? 'Anonymous'
@@ -42,8 +43,19 @@ export function WorkspacePage({ board, onBack }: WorkspacePageProps) {
     [user, updatePresence]
   )
 
+  const GRID_SIZE = 20
   const handleViewportChange = useCallback((vpt: number[]) => {
     setViewportTransform(vpt)
+    // Update grid directly via DOM ref — no React re-render on the hot path
+    const el = gridRef.current
+    if (el) {
+      const zoom = vpt[0] ?? 1
+      const panX = vpt[4] ?? 0
+      const panY = vpt[5] ?? 0
+      const cellPx = GRID_SIZE * zoom
+      el.style.backgroundSize = `${cellPx}px ${cellPx}px`
+      el.style.backgroundPosition = `${panX % cellPx}px ${panY % cellPx}px`
+    }
   }, [])
 
   const handleSelectionChange = useCallback((info: SelectionStrokeInfo | null) => {
@@ -102,11 +114,7 @@ export function WorkspacePage({ board, onBack }: WorkspacePageProps) {
         canvasRef={canvasZoomRef}
       />
       <div ref={canvasContainerRef} style={styles.canvas}>
-        <GridOverlay
-          width={canvasSize.width}
-          height={canvasSize.height}
-          viewportTransform={viewportTransform ?? [1, 0, 0, 1, 0, 0]}
-        />
+        <GridOverlay ref={gridRef} />
         <FabricCanvas
           ref={canvasZoomRef}
           selectedTool={selectedTool}

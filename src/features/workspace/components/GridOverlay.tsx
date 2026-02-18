@@ -1,11 +1,11 @@
+import { forwardRef } from 'react'
+
 /**
- * tldraw-style grid overlay on the canvas. Major lines every gridSize pixels
- * in scene space; transforms with viewport pan/zoom.
+ * tldraw-style grid overlay. Tracks viewport via backgroundSize/backgroundPosition
+ * (no CSS transform) so it never paints outside its bounds and stays in sync
+ * with the Fabric canvas render without a separate compositing layer.
  */
 interface GridOverlayProps {
-  width: number
-  height: number
-  viewportTransform: number[]
   gridSize?: number
 }
 
@@ -14,32 +14,27 @@ function makeGridSvg(size: number): string {
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`
 }
 
-export function GridOverlay({
-  width,
-  height,
-  viewportTransform,
-  gridSize = 20,
-}: GridOverlayProps) {
-  const [a, b, c, d, e, f] = viewportTransform
-  return (
-    <div
-      role="presentation"
-      aria-hidden
-      style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        width,
-        height,
-        pointerEvents: 'none',
-        background: '#fafafa',
-        backgroundImage: makeGridSvg(gridSize),
-        backgroundSize: `${gridSize}px ${gridSize}px`,
-        backgroundRepeat: 'repeat',
-        transform: `matrix(${a}, ${b}, ${c}, ${d}, ${e}, ${f})`,
-        transformOrigin: '0 0',
-        zIndex: 0,
-      }}
-    />
-  )
-}
+export const GridOverlay = forwardRef<HTMLDivElement, GridOverlayProps>(
+  function GridOverlay({ gridSize = 20 }, ref) {
+    const cellPx = `${gridSize}px ${gridSize}px`
+    return (
+      <div
+        ref={ref}
+        role="presentation"
+        aria-hidden
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          pointerEvents: 'none',
+          backgroundImage: makeGridSvg(gridSize),
+          backgroundSize: cellPx,
+          backgroundPosition: '0px 0px',
+          zIndex: 0,
+        }}
+      />
+    )
+  }
+)

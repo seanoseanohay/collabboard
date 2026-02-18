@@ -237,7 +237,7 @@ const FabricCanvasInner = (
       height,
       selection: true,
       skipOffscreen: true, // Viewport culling: skip rendering off-screen objects (500+ perf)
-      backgroundColor: 'transparent',
+      backgroundColor: '#fafafa',
     })
     canvasRef.current = fabricCanvas
 

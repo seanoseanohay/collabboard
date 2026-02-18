@@ -71,6 +71,7 @@ export function LoginPage() {
           <input
             type="email"
             placeholder="Email"
+            data-testid="login-email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
@@ -79,13 +80,14 @@ export function LoginPage() {
           <input
             type="password"
             placeholder="Password"
+            data-testid="login-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
             minLength={6}
             style={styles.input}
           />
-          <button type="submit" disabled={loading} style={styles.submitBtn}>
+          <button type="submit" disabled={loading} style={styles.submitBtn} data-testid="login-submit">
             {mode === 'signin' ? 'Sign in' : 'Sign up'}
           </button>
         </form>
