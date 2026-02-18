@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import type { BoardMeta } from '@/features/boards/api/boardsApi'
 import { useAuth } from '@/features/auth/hooks/useAuth'
-import { FabricCanvas, type FabricCanvasZoomHandle } from './FabricCanvas'
+import { FabricCanvas, type FabricCanvasZoomHandle, type SelectionStrokeInfo } from './FabricCanvas'
 import { ShareModal } from './ShareModal'
 import { WorkspaceToolbar } from './WorkspaceToolbar'
 import { CursorOverlay } from './CursorOverlay'
@@ -18,6 +18,7 @@ export function WorkspacePage({ board, onBack }: WorkspacePageProps) {
   const [viewportTransform, setViewportTransform] = useState<number[] | null>(null)
   const [canvasSize, setCanvasSize] = useState({ width: 1200, height: 800 })
   const [shareOpen, setShareOpen] = useState(false)
+  const [selectionStroke, setSelectionStroke] = useState<SelectionStrokeInfo | null>(null)
   const canvasContainerRef = useRef<HTMLDivElement>(null)
   const canvasZoomRef = useRef<FabricCanvasZoomHandle>(null)
 
@@ -38,6 +39,10 @@ export function WorkspacePage({ board, onBack }: WorkspacePageProps) {
 
   const handleViewportChange = useCallback((vpt: number[]) => {
     setViewportTransform(vpt)
+  }, [])
+
+  const handleSelectionChange = useCallback((info: SelectionStrokeInfo | null) => {
+    setSelectionStroke(info)
   }, [])
 
   useEffect(() => {
@@ -87,6 +92,8 @@ export function WorkspacePage({ board, onBack }: WorkspacePageProps) {
         zoom={viewportTransform?.[0] ?? 1}
         onZoomToFit={() => canvasZoomRef.current?.zoomToFit()}
         onZoomSet={(z) => canvasZoomRef.current?.setZoom(z)}
+        selectionStroke={selectionStroke}
+        canvasRef={canvasZoomRef}
       />
       <div ref={canvasContainerRef} style={styles.canvas}>
         <FabricCanvas
@@ -97,6 +104,7 @@ export function WorkspacePage({ board, onBack }: WorkspacePageProps) {
           userName={userName}
           onPointerMove={user ? handlePointerMove : undefined}
           onViewportChange={handleViewportChange}
+          onSelectionChange={handleSelectionChange}
         />
         <CursorOverlay
           cursors={others}
@@ -114,48 +122,59 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     flexDirection: 'column',
     height: '100vh',
-    background: '#f5f5f5',
+    background: '#fafafa',
   },
   header: {
     flexShrink: 0,
     display: 'flex',
     alignItems: 'center',
-    gap: 16,
-    padding: '12px 24px',
+    gap: 12,
+    padding: '8px 16px',
     background: '#fff',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+    borderBottom: '1px solid #e8e8e8',
+    boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
   },
   backBtn: {
-    padding: '8px 12px',
-    fontSize: 14,
-    border: '1px solid #ddd',
+    display: 'flex',
+    alignItems: 'center',
+    height: 32,
+    padding: '0 12px',
+    fontSize: 13,
+    fontWeight: 500,
+    border: '1px solid #e5e7eb',
     borderRadius: 6,
     background: '#fff',
+    color: '#374151',
     cursor: 'pointer',
   },
   title: {
     margin: 0,
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 600,
-    color: '#1a1a2e',
+    color: '#1e293b',
   },
   shareBtn: {
-    padding: '6px 14px',
-    fontSize: 14,
-    border: '1px solid #e0e0e0',
+    display: 'flex',
+    alignItems: 'center',
+    height: 32,
+    padding: '0 12px',
+    fontSize: 13,
+    fontWeight: 500,
+    border: '1px solid #e5e7eb',
     borderRadius: 6,
     background: '#fff',
+    color: '#374151',
     cursor: 'pointer',
   },
   presence: {
     marginLeft: 'auto',
-    fontSize: 13,
-    color: '#64748b',
+    fontSize: 12,
+    color: '#6b7280',
   },
   presenceNames: {
     marginLeft: 4,
     fontWeight: 500,
-    color: '#475569',
+    color: '#4b5563',
     maxWidth: 240,
     overflow: 'hidden',
     textOverflow: 'ellipsis',

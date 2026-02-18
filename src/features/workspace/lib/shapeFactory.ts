@@ -15,6 +15,8 @@ import type { ToolType } from '../types/tools'
 
 const STROKE = '#1a1a2e'
 const FILL = '#fff'
+/** Default border thickness (nominal at 100% zoom). Sync stores strokeWidth; strokeWeight can be used for zoom-invariant later. */
+export const DEFAULT_STROKE_WEIGHT = 2
 const STICKY_COLORS = ['#fef08a', '#bbf7d0', '#bfdbfe', '#fbcfe8', '#fed7aa']
 
 let stickyColorIndex = 0
@@ -46,7 +48,7 @@ export function createShape(
     originX: 'left' as const,
     originY: 'top' as const,
     stroke: STROKE,
-    strokeWidth: 2,
+    strokeWidth: DEFAULT_STROKE_WEIGHT,
   }
 
   const withId = (obj: FabricObject) => {
@@ -86,6 +88,7 @@ export function createShape(
         ...baseOpts,
         fill: '',
         stroke: STROKE,
+        strokeWidth: DEFAULT_STROKE_WEIGHT,
       }))
     }
     case 'text': {

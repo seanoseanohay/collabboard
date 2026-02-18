@@ -4,7 +4,7 @@
 
 ## Current State
 
-**MVP is complete.** Locking, sync, presence, Hand tool, zoom shortcuts + zoom UI, shape-tool fix, and paginated document load are in place.
+**MVP is complete.** Stroke width control and tldraw-style toolbar are in place. Locking, sync, presence, Hand tool, zoom shortcuts + zoom UI, shape-tool fix, and paginated document load are done.
 
 ### What Was Done (Previous Session)
 1. **Shape tool vs selection** — With any shape tool active, pointer-down always starts drawing (discardActiveObject + draw); never selects. FabricCanvas handleMouseDown.
@@ -20,6 +20,8 @@
 - **Zoom shortcuts** ✅ — +/-, 0, 1
 - **Zoom UI** ✅ — Dropdown in toolbar
 - **Paginated document load** ✅
+- **Stroke width** ✅ — StrokeControl in toolbar when selection has stroke (1/2/4/8px); strokeUtils, FabricCanvas onSelectionChange + setActiveObjectStrokeWidth
+- **Toolbar aesthetic** ✅ — Icon-based tool groups (tldraw-like), header aligned
 
 ## Next Items (suggested)
 
@@ -31,5 +33,7 @@
 
 ## Quick Reference
 - **boardSync.ts:** getObjectsToSync(), pendingMoveIds (Set), object:modified syncs each in selection.
-- **FabricCanvas:** forwardRef with FabricCanvasZoomHandle (setZoom, zoomToFit). Hand tool: isHandDrag → pan. Shape tool: always draw, no !target check.
+- **FabricCanvas:** forwardRef with FabricCanvasZoomHandle (setZoom, zoomToFit, getActiveObject, setActiveObjectStrokeWidth). onSelectionChange(strokeInfo). Hand tool: isHandDrag → pan. Shape tool: always draw.
+- **strokeUtils.ts:** getStrokeWidthFromObject, setStrokeWidthOnObject, STROKE_WEIGHT_OPTIONS [1,2,4,8].
+- **WorkspaceToolbar:** Icon groups (Select|Hand | shapes | Text|Sticky), StrokeControl when selectionStroke set, zoom dropdown.
 - **documentsApi:** subscribeToDocuments fetchInitial uses .range(offset, offset + PAGE_SIZE - 1) in a loop.

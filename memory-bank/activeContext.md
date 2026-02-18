@@ -1,7 +1,7 @@
 # Active Context
 
 ## Current Focus (for next agent)
-**MVP polish done.** ✅ Shape tool fix, Hand tool, zoom shortcuts + zoom UI, paginated document load. Next: Post-MVP (AI, Undo) or two-finger/touch.
+**Stroke width + toolbar aesthetic done.** ✅ Per-object stroke control (1/2/4/8px), tldraw-style toolbar (icon groups, Stroke dropdown when selection has stroke). Next: Post-MVP (AI, Undo) or two-finger/touch.
 
 ### What Was Fixed (2026-02-17)
 1. **Locking never enabled** — Effect ran before auth loaded; `userId`/`userName` were empty. Added `userId`/`userName` to effect deps so sync re-ran when auth ready.
@@ -19,8 +19,16 @@
 1. **Zoom/pan** — Hand tool ✅, shortcuts (+/-, 0 fit, 1 100%) ✅, zoom UI dropdown ✅. Remaining (post-MVP): two-finger drag = pan, pinch = zoom.
 2. ~~**Shape tool vs selection**~~ ✅ — With shape tool active, pointer-down always starts drawing (discardActiveObject + draw); never selects.
 3. ~~**Board loading performance**~~ ✅ — Paginated fetch in documentsApi (50 per batch, order by object_id).
+4. ~~**Stroke width (border thickness)**~~ ✅ — PRD §4. strokeUtils (getStrokeWidthFromObject, setStrokeWidthOnObject), StrokeControl in toolbar when selection has stroke (1/2/4/8px). Sync uses Fabric strokeWidth in payload. FabricCanvas: onSelectionChange, setActiveObjectStrokeWidth on ref.
 
 ## Recent Changes (2026-02-17)
+
+**Stroke width + toolbar aesthetic:**
+- ✅ **Stroke width** — Select any stroke-bearing object; "Stroke" dropdown appears in toolbar (1/2/4/8px). strokeUtils.ts (getStrokeWidthFromObject, setStrokeWidthOnObject), StrokeControl.tsx, FabricCanvas onSelectionChange + setActiveObjectStrokeWidth; sync via object:modified.
+- ✅ **Toolbar redesign** — Icon-based tool groups (Select|Hand | Rect|Circle|Triangle|Line | Text|Sticky), dividers, zoom dropdown right; tldraw-like flat style (32px icon buttons, subtle active state).
+- ✅ **Header** — WorkspacePage header aligned: same border/shadow, 32px buttons, #e5e7eb borders, #374151 text.
+
+## Earlier Recent Changes (2026-02-17)
 
 **Zoom (MVP):**
 - ✅ Very wide zoom range: MIN_ZOOM = 0.0001 (0.01%), MAX_ZOOM = 100 (10000%). Figma-like infinite-canvas zoom. FabricCanvas.tsx.

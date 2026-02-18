@@ -18,7 +18,7 @@ Create a canvas object (rect, circle, triangle, line, text, sticky).
 
 - `boardId`: string
 - `type`: 'rect' | 'circle' | 'triangle' | 'line' | 'text' | 'sticky'
-- `props`: { left, top, width?, height?, fill?, stroke?, text?, fontSize?, ... }
+- `props`: { left, top, width?, height?, fill?, stroke?, strokeWeight?, text?, fontSize?, ... } — `strokeWeight` = nominal border thickness (screen pixels at 100%)
 
 **Returns:** objectId (UUID)
 
@@ -30,7 +30,7 @@ Update object properties. Merges into existing document.
 
 - `boardId`: string
 - `objectId`: string
-- `partialProps`: { fill?, stroke?, strokeWidth?, text?, fontFamily?, fontWeight?, fontStyle?, ... }
+- `partialProps`: { fill?, stroke?, strokeWeight?, strokeWidth?, text?, fontFamily?, fontWeight?, fontStyle?, ... } — `strokeWeight` is nominal (screen pixels at 100%) for zoom-invariant border thickness
 
 ### deleteObjects(boardId, objectIds)
 

@@ -46,11 +46,12 @@
 - AI agent (Supabase Edge Function, Claude)
 - Undo/Redo
 - Rotation (throttled ~50ms)
+- ~~**Per-object stroke width (border thickness)**~~ ✅ — StrokeControl in toolbar when selection has stroke (1/2/4/8px); strokeUtils + FabricCanvas ref; sync via existing object:modified.
 - Revocable invite links, touch handling, 6+ AI commands
 - **AI Client API** — createObject, updateObject, deleteObjects, queryObjects so all app actions are API-callable (enables AI-driven canvas operations). See docs/AI_CLIENT_API.md.
 
 ## Current Status
-**Phase:** MVP complete. Hand tool, zoom shortcuts, zoom UI, shape-tool fix, and paginated document load are in place.
+**Phase:** MVP complete. Stroke width control and tldraw-style toolbar (icon groups, stroke dropdown) are in place.
 **Next:** Post-MVP (AI agent, Undo/Redo); or polish (two-finger/touch pan/zoom, revocable invites).
 
 ## Known Issues
@@ -58,6 +59,8 @@
 - **StrictMode** — Removed from main.tsx (was causing Realtime channel churn). Re-add for prod if desired.
 
 ## Recently Fixed (2026-02-17)
+- ✅ **Stroke width** — strokeUtils, StrokeControl, onSelectionChange, setActiveObjectStrokeWidth; toolbar shows Stroke dropdown when selection has stroke.
+- ✅ **Toolbar + header aesthetic** — Icon tool groups, dividers, tldraw-like styling; header buttons aligned.
 - ✅ **Shape tool vs selection** — With any shape tool active, pointer-down always starts drawing (never selects). FabricCanvas: discardActiveObject + draw start regardless of target.
 - ✅ **Hand tool** — New toolbar tool; left-drag always pans (cursor: grab). No selection when hand active.
 - ✅ **Zoom shortcuts** — +/= zoom in, − zoom out, 0 = fit to content, 1 = 100%. FabricCanvas handleKeyDown.

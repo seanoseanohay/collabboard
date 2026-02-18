@@ -8,11 +8,18 @@ function isEditableText(obj: unknown): obj is { enterEditing: () => void } {
 import type { ToolType } from '../types/tools'
 import { isShapeTool } from '../types/tools'
 import { createShape } from '../lib/shapeFactory'
+import { getStrokeWidthFromObject, setStrokeWidthOnObject } from '../lib/strokeUtils'
 import { setupDocumentSync, setupLockSync, type LockStateCallbackRef } from '../lib/boardSync'
+
+export interface SelectionStrokeInfo {
+  strokeWidth: number
+}
 
 export interface FabricCanvasZoomHandle {
   setZoom: (zoom: number) => void
   zoomToFit: () => void
+  getActiveObject: () => FabricObject | null
+  setActiveObjectStrokeWidth: (strokeWidth: number) => void
 }
 
 interface FabricCanvasProps {
@@ -25,6 +32,7 @@ interface FabricCanvasProps {
   userName?: string
   onPointerMove?: (scenePoint: { x: number; y: number }) => void
   onViewportChange?: (vpt: number[]) => void
+  onSelectionChange?: (info: SelectionStrokeInfo | null) => void
 }
 
 /**
@@ -45,18 +53,21 @@ const FabricCanvasInner = (
     userName,
     onPointerMove,
     onViewportChange,
+    onSelectionChange,
   }: FabricCanvasProps,
   ref: React.Ref<FabricCanvasZoomHandle>
 ) => {
   const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<Canvas | null>(null)
-  const zoomApiRef = useRef<FabricCanvasZoomHandle | null>(null)
+  const zoomApiRef = useRef<Pick<FabricCanvasZoomHandle, 'setZoom' | 'zoomToFit'> | null>(null)
   const toolRef = useRef(selectedTool)
   toolRef.current = selectedTool
   const onPointerMoveRef = useRef(onPointerMove)
   onPointerMoveRef.current = onPointerMove
   const onViewportChangeRef = useRef(onViewportChange)
   onViewportChangeRef.current = onViewportChange
+  const onSelectionChangeRef = useRef(onSelectionChange)
+  onSelectionChangeRef.current = onSelectionChange
   const lockOptsRef = useRef({ userId: userId ?? '', userName: userName ?? 'Anonymous' })
   lockOptsRef.current = { userId: userId ?? '', userName: userName ?? 'Anonymous' }
   const applyLockStateCallbackRef = useRef<LockStateCallbackRef['current']>(null)
@@ -64,6 +75,16 @@ const FabricCanvasInner = (
   useImperativeHandle(ref, () => ({
     setZoom: (z) => zoomApiRef.current?.setZoom(z),
     zoomToFit: () => zoomApiRef.current?.zoomToFit(),
+    getActiveObject: () => canvasRef.current?.getActiveObject() ?? null,
+    setActiveObjectStrokeWidth: (strokeWidth: number) => {
+      const canvas = canvasRef.current
+      if (!canvas) return
+      const active = canvas.getActiveObject()
+      if (!active) return
+      setStrokeWidthOnObject(active, strokeWidth)
+      canvas.fire('object:modified', { target: active })
+      canvas.requestRenderAll()
+    },
   }), [])
 
   useEffect(() => {
@@ -439,10 +460,18 @@ const FabricCanvasInner = (
       }
     }
 
+    const notifySelectionChange = () => {
+      const active = fabricCanvas.getActiveObject()
+      const strokeWidth = active ? getStrokeWidthFromObject(active) : null
+      onSelectionChangeRef.current?.(strokeWidth !== null ? { strokeWidth } : null)
+    }
+
     const handleSelectionCreated = (e: { selected?: FabricObject[] }) => {
       const selected = e.selected
-      if (!selected || selected.length !== 1) return
-      
+      if (!selected || selected.length !== 1) {
+        notifySelectionChange()
+        return
+      }
       const obj = selected[0]
       // If a child of a Group was selected, select the parent Group instead
       if (obj && obj.group) {
@@ -450,6 +479,15 @@ const FabricCanvasInner = (
         fabricCanvas.setActiveObject(obj.group)
         fabricCanvas.requestRenderAll()
       }
+      notifySelectionChange()
+    }
+
+    const handleSelectionUpdated = () => {
+      notifySelectionChange()
+    }
+
+    const handleSelectionCleared = () => {
+      notifySelectionChange()
     }
 
     const handleObjectTransforming = () => {
@@ -458,6 +496,8 @@ const FabricCanvasInner = (
 
     fabricCanvas.on('object:added', handleObjectAdded)
     fabricCanvas.on('selection:created', handleSelectionCreated)
+    fabricCanvas.on('selection:updated', handleSelectionUpdated)
+    fabricCanvas.on('selection:cleared', handleSelectionCleared)
     fabricCanvas.getObjects().forEach((obj) => {
       if (isEditableText(obj) || (obj.type === 'group' && getTextToEdit(obj))) {
         attachTextEditOnDblClick(obj)
@@ -488,6 +528,8 @@ const FabricCanvasInner = (
       cleanupDocSync()
       fabricCanvas.off('object:added', handleObjectAdded)
       fabricCanvas.off('selection:created', handleSelectionCreated)
+      fabricCanvas.off('selection:updated', handleSelectionUpdated)
+      fabricCanvas.off('selection:cleared', handleSelectionCleared)
       fabricCanvas.off('object:moving', handleObjectTransforming)
       fabricCanvas.off('object:scaling', handleObjectTransforming)
       fabricCanvas.off('object:rotating', handleObjectTransforming)

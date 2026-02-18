@@ -92,7 +92,8 @@ Functions)**
 All app actions must be API-callable so AI can drive the canvas.
 
 - **createObject(boardId, type, props)** — Create rect, circle, text, sticky, etc.
-- **updateObject(boardId, objectId, partialProps)** — Patch fill, stroke, font, etc.
+- **updateObject(boardId, objectId, partialProps)** — Patch fill, stroke, stroke
+  weight (border thickness), font, etc.
 - **deleteObjects(boardId, objectIds)** — Single or mass delete
 - **queryObjects(boardId, criteria?)** — Find objects by properties
 
@@ -185,6 +186,9 @@ Rotation excluded from MVP (post-MVP support).
 -   Move
 -   Resize
 -   Change Color
+-   Change stroke width (border thickness) — User can select any object and change
+    its border thickness via UI (e.g. dropdown, slider). Stored as nominal
+    stroke weight (screen pixels at 100%) for zoom-invariant appearance.
 -   Delete
 -   zIndex layering
 -   Inline text editing
