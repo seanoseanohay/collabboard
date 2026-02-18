@@ -211,7 +211,7 @@ const FabricCanvasInner = (
       e.preventDefault()
       // Trackpad: pinch sends ctrl+wheel (zoom); two-finger scroll sends plain wheel (pan).
       if (e.ctrlKey) {
-        const delta = -e.deltaY * 0.003
+        const delta = -e.deltaY * 0.006
         const zoom = fabricCanvas.getZoom()
         const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom * (1 + delta)))
         const pt = new Point(e.offsetX, e.offsetY)
