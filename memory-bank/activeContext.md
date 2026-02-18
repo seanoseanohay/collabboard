@@ -3,7 +3,7 @@
 ## Current Focus (for next agent)
 **Multi-selection move drift: FIXED (2026-02-18).** Root cause was originX/originY vs calcTransformMatrix center mismatch — see systemPatterns for the pattern doc. All three fixes in boardSync.ts. No remaining high-priority bugs.
 
-**Next up:** Post-MVP polish — AI agent (Edge Function), Undo/Redo, touch handling. Revocable invite links deprioritized (do last).
+**Next up:** Post-MVP polish — Undo/Redo, touch handling. Revocable invite links deprioritized (do last). AI agent ✅ done (ai-interpret + AiPromptBar).
 
 ### What Was Fixed (2026-02-17)
 1. **Locking never enabled** — Effect ran before auth loaded; `userId`/`userName` were empty. Added `userId`/`userName` to effect deps so sync re-ran when auth ready.

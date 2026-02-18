@@ -32,8 +32,10 @@
 - **AI Client API docs (Task B)** ✅ — docs/AI_CLIENT_API.md updated: marked "Implemented (client + Edge Function)", import examples, usage examples. Edge Function (supabase/functions/ai-canvas-ops) + frontend wrapper (aiCanvasOpsEdgeApi.ts) + barrel export all verified.
 - **Trackpad pan/zoom** ✅ — Two-finger scroll = pan, pinch = zoom at cursor (FabricCanvas handleWheel: ctrlKey → zoom, else relativePan). Pinch sensitivity 0.006 (deltaY multiplier).
 
+**Done this session:**
+- **AI agent** ✅ — ai-interpret Edge Function (OpenAI gpt-4o-mini), AiPromptBar in workspace, invokeAiInterpret + executeAiCommands. User types natural language ("add a blue rectangle at 100, 100"); client executes via aiClientApi. Requires OPENAI_API_KEY secret. Deploy: `supabase functions deploy ai-interpret`.
+
 **Post-MVP / polish:**
-- AI agent (Edge Function, Claude) — can now use aiClientApi for canvas ops.
 - Undo/Redo, rotation (throttled).
 - Revocable invite links.
 
@@ -54,7 +56,7 @@
 | ~~**A**~~ | ~~**Fix multi-selection move drift**~~ | ~~boardSync.ts, FabricCanvas.tsx~~ | ✅ DONE. Origin-vs-center fix. |
 | ~~**B**~~ | ~~**AI Client API docs**~~ | ~~docs/AI_CLIENT_API.md~~ | ✅ DONE. Docs updated, usage examples, Edge Function + client imports verified. |
 | ~~**C**~~ | ~~**StrictMode for production only**~~ | ~~main.tsx~~ | ✅ DONE. StrictMode wraps app only when import.meta.env.PROD. |
-| **D** | **AI agent (Edge Function)** | supabase/functions/, new invoke from frontend if needed | Post-MVP. Uses aiClientApi. |
+| ~~**D**~~ | ~~**AI agent (Edge Function)**~~ | supabase/functions/ai-interpret, AiPromptBar | ✅ DONE. OpenAI + aiClientApi. |
 | **E** | **Revocable invite links** | supabase/migrations, invite API, ShareModal/BoardListPage | Post-MVP. Low priority — do last. |
 
 **Run one at a time (all touch workspace canvas/sync — same area):**
@@ -77,4 +79,5 @@
 - **Sticky notes:** No placeholder. Create → box completes → edit mode opens (blinking cursor). shapeFactory sticky = [bg, mainText]; FabricCanvas handleMouseUp auto-enters edit after 50ms.
 - **documentsApi:** subscribeToDocuments fetchInitial uses .range(offset, offset + PAGE_SIZE - 1) in a loop.
 - **Lines:** shapeFactory creates lines as Polyline (not Fabric Line). No legacy Line boards to support.
+- **AI agent:** ai-interpret Edge Function (OpenAI gpt-4o-mini). AiPromptBar in WorkspacePage. invokeAiInterpret → executeAiCommands → aiClientApi. OPENAI_API_KEY secret required.
 - **BoardListPage:** Grid of cards (repeat(auto-fill, minmax(220px, 1fr))), gridAutoRows 130, columnGap 16, rowGap 20. Ordered by last_accessed_at. boardsApi: recordBoardAccess, BoardMeta.lastAccessedAt.

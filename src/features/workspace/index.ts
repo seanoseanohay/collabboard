@@ -24,3 +24,6 @@ export {
   edgeDeleteObjects,
   edgeQueryObjects,
 } from './api/aiCanvasOpsEdgeApi'
+
+/** AI interpret — natural language to canvas commands. */
+export { invokeAiInterpret, type AiInterpretResponse, type AiCommand } from './api/aiInterpretApi'

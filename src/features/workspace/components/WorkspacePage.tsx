@@ -4,6 +4,7 @@ import { useAuth } from '@/features/auth/hooks/useAuth'
 import { FabricCanvas, type FabricCanvasZoomHandle, type SelectionStrokeInfo } from './FabricCanvas'
 import { ShareModal } from './ShareModal'
 import { WorkspaceToolbar } from './WorkspaceToolbar'
+import { AiPromptBar } from './AiPromptBar'
 import { CursorOverlay } from './CursorOverlay'
 import { usePresence } from '../hooks/usePresence'
 import type { ToolType } from '../types/tools'
@@ -95,6 +96,7 @@ export function WorkspacePage({ board, onBack }: WorkspacePageProps) {
         selectionStroke={selectionStroke}
         canvasRef={canvasZoomRef}
       />
+      <AiPromptBar boardId={board.id} />
       <div ref={canvasContainerRef} style={styles.canvas}>
         <FabricCanvas
           ref={canvasZoomRef}
