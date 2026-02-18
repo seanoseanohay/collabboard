@@ -62,6 +62,15 @@ export function updateStickyPlaceholderVisibility(group: FabricObject): void {
   pair.placeholder.set('visible', !text.trim())
 }
 
+/** Hide sticky placeholder before entering edit mode so typed text is visible. Call before enterEditing(). */
+export function hideStickyPlaceholderForEditing(obj: FabricObject): void {
+  const grp = (obj as { group?: unknown }).group as FabricObject | undefined
+  if (!grp) return
+  const pair = getStickyTextChildren(grp)
+  if (!pair?.placeholder) return
+  pair.placeholder.set('visible', false)
+}
+
 let stickyColorIndex = 0
 
 function nextStickyColor(): string {

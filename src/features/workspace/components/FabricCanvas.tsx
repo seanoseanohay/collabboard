@@ -15,7 +15,7 @@ import {
   setStrokeColorOnObject,
 } from '../lib/strokeUtils'
 import { getFillFromObject, setFillOnObject } from '../lib/fillUtils'
-import { updateStickyTextFontSize } from '../lib/shapeFactory'
+import { updateStickyTextFontSize, hideStickyPlaceholderForEditing } from '../lib/shapeFactory'
 import {
   setupDocumentSync,
   setupLockSync,
@@ -339,16 +339,11 @@ const FabricCanvasInner = (
       if (!itext.canvas) itext.canvas = fabricCanvas
       // For IText inside a Group, we need to set the text as active, not the group
       fabricCanvas.setActiveObject(obj)
+      // Hide sticky placeholder *before* entering edit so it's gone when the edit UI shows (typed text visible)
+      hideStickyPlaceholderForEditing(obj)
       fabricCanvas.requestRenderAll()
-      // Use setTimeout to ensure the object is fully initialized and active
       setTimeout(() => {
         itext.enterEditing()
-        // Hide sticky placeholder while editing so "Double-click to edit" doesn't show
-        const grp = (obj as { group?: unknown }).group
-        if (grp && typeof grp === 'object' && 'getObjects' in grp) {
-          const ch = (grp as { getObjects: () => FabricObject[] }).getObjects()
-          if (ch.length >= 3 && ch[1]) ch[1].set('visible', false)
-        }
         fabricCanvas.requestRenderAll()
       }, 0)
     }
