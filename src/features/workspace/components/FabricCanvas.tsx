@@ -57,7 +57,8 @@ interface FabricCanvasProps {
 
 /**
  * Fabric.js canvas wrapper with pan/zoom and shape drawing.
- * - Mouse wheel: zoom at cursor
+ * - Trackpad: two-finger scroll = pan, pinch = zoom at cursor
+ * - Mouse wheel: zoom at cursor (pinch on trackpad uses ctrl+wheel)
  * - Pan: middle mouse, Hand tool, or Space+left-drag
  * - Shortcuts: +/− zoom, 0 fit, 1 = 100%
  * - Shape tools: drag to create shape (never select when shape tool active)
@@ -208,11 +209,16 @@ const FabricCanvasInner = (
     const handleWheel = (opt: { e: WheelEvent }) => {
       const e = opt.e
       e.preventDefault()
-      const delta = -e.deltaY * 0.001
-      const zoom = fabricCanvas.getZoom()
-      const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom * (1 + delta)))
-      const pt = new Point(e.offsetX, e.offsetY)
-      fabricCanvas.zoomToPoint(pt, newZoom)
+      // Trackpad: pinch sends ctrl+wheel (zoom); two-finger scroll sends plain wheel (pan).
+      if (e.ctrlKey) {
+        const delta = -e.deltaY * 0.001
+        const zoom = fabricCanvas.getZoom()
+        const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom * (1 + delta)))
+        const pt = new Point(e.offsetX, e.offsetY)
+        fabricCanvas.zoomToPoint(pt, newZoom)
+      } else {
+        fabricCanvas.relativePan(new Point(-e.deltaX, -e.deltaY))
+      }
       fabricCanvas.requestRenderAll()
       notifyViewport()
     }
@@ -319,6 +325,15 @@ const FabricCanvasInner = (
           if (shape) {
             fabricCanvas.add(shape)
             fabricCanvas.setActiveObject(shape)
+            // Sticky: auto-enter edit mode so user can type immediately (blinking cursor)
+            if (tool === 'sticky') {
+              const mainText = shape.type === 'group' && 'getObjects' in shape
+                ? (shape as { getObjects: () => FabricObject[] }).getObjects().find((o) => isEditableText(o))
+                : null
+              if (mainText) {
+                setTimeout(() => tryEnterTextEditing(mainText), 0)
+              }
+            }
           }
         }
         previewObj = null
