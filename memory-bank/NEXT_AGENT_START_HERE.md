@@ -62,8 +62,8 @@
 **Once the user updates the OpenAI key, the AI modal should work end-to-end.**
 
 **Post-MVP / polish:**
-- Undo/Redo, rotation (throttled).
-- Revocable invite links.
+- ~~Undo/Redo~~ ✅ DONE.
+- ~~Revocable invite links~~ — removed from scope.
 
 **Done this session (MeBoard branding — safe parallel items):**
 - **LoginPage rebrand** ✅ — Full pirate theme: "MeBoard" hero, "Ahoy Captain" copy, parchment card, gold Google button ("Join the Crew with Google"), "Enter the Ship" submit, "New to the crew? Sign up free ⚓" toggle, "Why MeBoard?" feature section, testimonial, CTA.
@@ -100,7 +100,7 @@
 | ~~**F**~~ | ~~**Z-order nudge (bring forward / send backward)**~~ | ~~FabricCanvas.tsx, WorkspaceToolbar, boardSync.ts~~ | ✅ DONE. bringForward/sendBackward implemented + toolbar buttons. |
 | ~~**G**~~ | ~~**Rotation throttle + sync**~~ | ~~boardSync.ts~~ | ✅ DONE. object:rotating hooked to emitModifyThrottled. |
 | ~~**H**~~ | ~~**Touch handling (mobile)**~~ | ~~FabricCanvas.tsx~~ | ✅ DONE. Two-finger pan + pinch zoom via native touchstart/touchmove/touchend on canvas element (passive:false). touch-action:none on container. Single-touch (tap/draw/select) routes through Fabric pointer-event mapping unchanged. |
-| **I** | **Undo/Redo** | New feature module, FabricCanvas, boardSync | **NEXT UP.** Post-MVP. History stack + integrate. |
+| ~~**I**~~ | ~~**Undo/Redo**~~ | ~~New feature module, FabricCanvas, boardSync~~ | ✅ DONE. historyManager.ts; Cmd+Z/Shift+Z keyboard shortcuts; undo/redo toolbar buttons; onHistoryChange prop; remoteChangeRef in setupDocumentSync prevents recording remote changes. |
 
 **Rule:** Agents **A–E** can run in parallel with each other. Agents **F–I** each touch `boardSync` and/or `FabricCanvas` — run only one of F–I at a time (or after A is done, to avoid conflicts).
 

@@ -3,7 +3,9 @@
 ## Current Focus (for next agent)
 **Multi-selection move drift: FIXED (2026-02-18).** Root cause was originX/originY vs calcTransformMatrix center mismatch — see systemPatterns for the pattern doc. All three fixes in boardSync.ts. No remaining high-priority bugs.
 
-**Next up:** Post-MVP polish — Undo/Redo. Touch handling ✅ done. Revocable invite links removed from scope. AI agent ✅ done (ai-interpret + AiPromptBar).
+**Current state:** All planned MVP + post-MVP features complete. Touch handling ✅, Undo/Redo ✅, AI agent ✅. Revocable invite links removed from scope.
+
+**Remaining work:** MeBoard branding (docs/MeBoard_BRANDING_SPEC.md) and planned canvas features (docs/PLANNED_CANVAS_FEATURES.md) — both optional polish/stretch.
 
 **Planned: MeBoard branding** — Pirate-themed rebrand (CollabBoard → MeBoard). Full spec in docs/MeBoard_BRANDING_SPEC.md: hero/copy, parchment visuals, treasure map canvas border, pirate presence icons, Pirate Plunder stickers, nav/footer, easter eggs.
 
