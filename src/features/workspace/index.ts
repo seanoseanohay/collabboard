@@ -16,3 +16,11 @@ export {
   type UpdateObjectProps,
   type QueryObjectsCriteria,
 } from './api/aiClientApi'
+
+/** AI canvas ops via Edge Function (server-side agent path). */
+export {
+  edgeCreateObject,
+  edgeUpdateObject,
+  edgeDeleteObjects,
+  edgeQueryObjects,
+} from './api/aiCanvasOpsEdgeApi'

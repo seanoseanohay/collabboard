@@ -1,4 +1,4 @@
-# AI Client API (Planned)
+# AI Client API (Implemented)
 
 ## Overview
 
@@ -61,7 +61,7 @@ Find objects matching optional criteria (e.g. fill = blue).
 
 ## Status
 
-**Implemented (client-only).** Use from workspace feature:
+**Implemented (client + Edge Function).** Use from workspace feature:
 
 ```ts
 import {
@@ -69,6 +69,10 @@ import {
   updateObject,
   deleteObjects,
   queryObjects,
+  edgeCreateObject,
+  edgeUpdateObject,
+  edgeDeleteObjects,
+  edgeQueryObjects,
   type CreateObjectType,
   type CreateObjectProps,
   type UpdateObjectProps,
@@ -76,6 +80,26 @@ import {
 } from '@/features/workspace'
 ```
 
-- `documentsApi`: added `getDocument`, `fetchDocuments` (with optional `type`/`fill` criteria).
-- `aiClientApi.ts`: createObject (uses shapeFactory + writeDocument), updateObject (getDocument + merge + write), deleteObjects, queryObjects.
-- Realtime sync applies changes to all clients; no canvas ref required for API calls.
+- **Client:** `aiClientApi.ts` — createObject (shapeFactory + writeDocument), updateObject, deleteObjects, queryObjects. Realtime sync applies changes to all clients.
+- **Edge Function:** `supabase/functions/ai-canvas-ops` — same operations (createObject, updateObject, deleteObjects, queryObjects) for server-side AI. Invoke from frontend via `edgeCreateObject`, `edgeUpdateObject`, `edgeDeleteObjects`, `edgeQueryObjects`, or call the function directly with `action` + params. Deploy with: `supabase functions deploy ai-canvas-ops`.
+- `documentsApi`: getDocument, fetchDocuments (optional `type`/`fill` criteria).
+
+## Usage Examples
+
+**Create and update an object:**
+
+```ts
+import { createObject, updateObject } from '@/features/workspace'
+
+const id = await createObject(boardId, 'rect', { left: 100, top: 50, width: 80, height: 60, fill: '#3b82f6' })
+await updateObject(boardId, id, { fill: '#10b981', strokeWeight: 2 })
+```
+
+**Query and delete:**
+
+```ts
+import { queryObjects, deleteObjects } from '@/features/workspace'
+
+const blue = await queryObjects(boardId, { fill: '#3b82f6' })
+if (blue.length) await deleteObjects(boardId, blue.map((o) => o.objectId))
+```

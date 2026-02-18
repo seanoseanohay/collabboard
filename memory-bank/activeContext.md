@@ -1,6 +1,8 @@
 # Active Context
 
 ## Current Focus (for next agent)
+**Priority to fix:** Multi-selection move drift — When one user moves a group of objects, other clients see the objects continuously move down and to the right (regardless of drag direction). Move-delta broadcast is in place (boardSync: move_deltas channel, getTargetSceneCenter for sender, scene-coords apply on receiver); bug still reproduces. Treat as high priority until resolved.
+
 **Sticky notes UX:** No placeholder text; on create, box completes and edit mode opens automatically (blinking cursor, ready to type). shapeFactory sticky = [bg, mainText] only; FabricCanvas handleMouseUp auto-enters edit after 50ms + hiddenTextarea.focus(). Next: Post-MVP (AI agent, Undo).
 
 ### What Was Fixed (2026-02-17)
@@ -81,16 +83,13 @@
 15. ~~**Shape tool: no selection when drawing**~~ ✅ — FabricCanvas: shape tool always draws, discardActiveObject on pointer down.
 16. ~~**Board loading performance**~~ ✅ — documentsApi fetchInitial paginated (PAGE_SIZE 50).
 
-## Planned: Multi-selection move sync v2 (correctness + low lag)
+## Multi-selection move sync v2 — implemented but buggy (priority fix)
 
 **Goal:** All items end up in the right spot when moving a selection; other clients see moves with minimal lag.
 
-**Design (documented in PRD § Sync Strategy):**
+**Current state:** Implemented (boardSync: move_deltas channel, broadcast during drag, absolute write on drop, getTargetSceneCenter for sender, scene-coords apply on receiver). **Bug:** Other clients still see objects continuously drift down and to the right regardless of drag direction. Tried fixing by using target scene center instead of children average; still reproducing. **Priority to fix.**
 
-- **During drag:** Broadcast selection-move delta on a dedicated Realtime channel: `{ objectIds, dx, dy }` (optionally dAngle, dScale). Other clients apply the same delta to each object; no document writes during drag.
-- **On drop (object:modified):** Write absolute left/top/angle/scale to documents for each object (source of truth).
-
-Single-object and Fabric Group (sticky) moves unchanged. See PRD "Multi-selection / group move sync (planned)".
+**Design (documented in PRD § Sync Strategy):** During drag broadcast `{ objectIds, dx, dy }`; on drop write absolute to documents. Single-object and Fabric Group (sticky) moves unchanged.
 
 ## Planned: Z-order nudge (bring forward / send backward)
 
@@ -111,5 +110,6 @@ Single-object and Fabric Group (sticky) moves unchanged. See PRD "Multi-selectio
 ## Considerations
 - **FabricCanvas effect split:** Document sync in Effect 1 (deps: width, height, boardId). Lock sync in Effect 2 (deps: boardId, userId, userName). Prevents document subscription teardown when auth loads.
 - **boardSync:** setupDocumentSync + setupLockSync; applyLockStateCallbackRef for re-applying locks after remote updates.
-- **Multi-selection move (planned):** During drag use broadcast deltas (objectIds + dx, dy); on drop write absolute to documents. Ensures correct final positions and low lag. PRD § Sync Strategy.
+- **Multi-selection move:** Implemented (broadcast deltas during drag, absolute on drop; getTargetSceneCenter for sender). Bug: other clients see continuous drift down and right. Priority to fix; see progress.md Known Issues.
 - **Z-order:** bringToFront/sendToBack implemented; bringForward/sendBackward (one step) planned per PRD §4.
+- **Boards page cleanup:** BoardListPage (list of user’s boards). Figma-inspired scope in memory-bank/boards-page-cleanup.md (layout, Workspace consistency, loading/empty, copy link, delete, rename, sort).

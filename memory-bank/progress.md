@@ -56,16 +56,18 @@
 ### Planned (sync + UX polish)
 - **Multi-selection move sync v2** — During drag: broadcast selection-move delta (objectIds + dx, dy) on Realtime channel; other clients apply delta. On drop: write absolute positions to documents. Ensures correct final positions and low lag. PRD § Sync Strategy.
 - **Bring forward / send backward** — One step in z-order (nudge in front of or behind adjacent object). PRD §4 Object Capabilities.
+- ~~**Boards page cleanup**~~ ✅ — Done. Figma-inspired: header, loading skeletons, empty state, card rows, kebab menu (copy link, rename, delete with confirm), sort newest first.
 
 ## Current Status
 **Phase:** MVP complete. zIndex layering (bring to front / send to back), stroke width, toolbar, sync, locking, presence.
 **Next:** Post-MVP (AI agent, Undo/Redo); or polish (revocable invites, etc.).
 
 ## Known Issues
-- **Legacy Line objects (data only)** — Creation is fixed: all new lines use Polyline in shapeFactory.ts (Fabric Line has transform bugs: bounding box moves, path doesn't). Any board documents that were saved *before* this change may still have `type: 'line'` in the DB; when revived via enlivenObjects they become Fabric Line and can show the movement bug. No migration or revival-time conversion (Line → Polyline) exists yet; consider adding one in boardSync applyRemote if legacy boards are a concern.
+- **Multi-selection move drift (PRIORITY)** — When one user moves a group of objects, other clients see the objects continuously move down and to the right, regardless of which direction the user drags. Move-delta broadcast is implemented (boardSync: move_deltas channel, getTargetSceneCenter, scene-coords apply on receiver); fix attempted with target scene center instead of children average; bug still reproduces. High priority to fix.
 - **StrictMode** — Removed from main.tsx (was causing Realtime channel churn in development). In dev, React StrictMode double-invokes effects: the document/lock/presence subscriptions run → cleanup (unsubscribe, removeChannel) → run again. That teardown/re-setup causes "channel churn": you briefly drop the Realtime subscription and re-create it, which can miss position updates from other users or cause reconnection lag when multiple people are moving objects. With StrictMode removed, effects run once in dev so no churn. **Production is unaffected** — StrictMode does not double-invoke in production builds, so re-adding `<React.StrictMode>` for prod is safe and gives StrictMode’s other benefits (e.g. detecting impure render side effects) without any churn.
 
-## Recently Fixed (2026-02-17)
+## Recently Fixed (2026-02-17 / 2026-02-18)
+- ✅ **Boards page cleanup** — Figma-inspired: header aligned with Workspace, loading skeletons, empty state, card-style rows, kebab menu (Copy share link, Rename inline, Delete with confirm). boardsApi: updateBoardTitle, deleteBoard; RLS boards_delete (owner only). useUserBoards returns { boards, loading }.
 - ✅ **Sticky notes UX** — No placeholder; on create, auto-enter edit (50ms delay, tryEnterTextEditing + hiddenTextarea.focus()) so blinking cursor appears. shapeFactory sticky = [bg, mainText] only.
 - ✅ **Stroke width** — strokeUtils, StrokeControl, onSelectionChange, setActiveObjectStrokeWidth; toolbar shows Stroke dropdown when selection has stroke.
 - ✅ **Toolbar + header aesthetic** — Icon tool groups, dividers, tldraw-like styling; header buttons aligned.

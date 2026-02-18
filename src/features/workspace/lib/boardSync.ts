@@ -29,8 +29,24 @@ function payloadWithSceneCoords(
   }
 }
 
-/** Scene position of the event target (single object or ActiveSelection). Used for move-delta so we never use selection-relative (0,0) as base. */
+/** Scene position of the event target (single object or ActiveSelection). Used for move-delta so we never use selection-relative (0,0) as base.
+ * For multi-selection (ActiveSelection), use the centroid of children's scene positions so the delta matches actual movement; the selection's
+ * own transform can be stale or use a different origin during drag, which caused other clients to see continuous drift down/right. */
 function getTargetSceneCenter(target: FabricObject): { x: number; y: number } {
+  if ('getObjects' in target) {
+    const children = (target as { getObjects: () => FabricObject[] }).getObjects().filter((o) => getObjectId(o))
+    if (children.length > 0) {
+      let sx = 0
+      let sy = 0
+      for (const obj of children) {
+        const matrix = obj.calcTransformMatrix()
+        const d = util.qrDecompose(matrix)
+        sx += d.translateX
+        sy += d.translateY
+      }
+      return { x: sx / children.length, y: sy / children.length }
+    }
+  }
   const matrix = target.calcTransformMatrix()
   const d = util.qrDecompose(matrix)
   return { x: d.translateX, y: d.translateY }
@@ -375,6 +391,7 @@ export function setupDocumentSync(
     .on('broadcast', { event: 'move_delta' }, (message) => {
       const p = (message as unknown as { payload: MoveDeltaPayload }).payload
       if (!p || getCurrentUserId?.() === p.userId || isApplyingRemote) return
+      if (p.dx === 0 && p.dy === 0) return
       for (const objectId of p.objectIds) {
         const obj = canvas.getObjects().find((o) => getObjectId(o) === objectId)
         if (obj) {
@@ -417,18 +434,24 @@ export function setupDocumentSync(
     }
     const dx = center.x - lastDeltaCenter.x
     const dy = center.y - lastDeltaCenter.y
-    lastDeltaCenter = center
     const elapsed = now - lastDeltaEmit
     if (elapsed >= DELTA_BROADCAST_MS) {
       lastDeltaEmit = now
-      broadcastMoveDelta(ids, dx, dy)
+      lastDeltaCenter = center
+      if (dx !== 0 || dy !== 0) broadcastMoveDelta(ids, dx, dy)
       return
     }
     if (!deltaThrottleTimer) {
       deltaThrottleTimer = setTimeout(() => {
         deltaThrottleTimer = null
         lastDeltaEmit = Date.now()
-        broadcastMoveDelta(ids, dx, dy)
+        // Use current selection center so we send accumulated delta, not a single-frame delta
+        const active = canvas.getActiveObject()
+        const currentCenter = active ? getTargetSceneCenter(active) : center
+        const totalDx = currentCenter.x - lastDeltaCenter.x
+        const totalDy = currentCenter.y - lastDeltaCenter.y
+        lastDeltaCenter = currentCenter
+        if (totalDx !== 0 || totalDy !== 0) broadcastMoveDelta(ids, totalDx, totalDy)
       }, DELTA_BROADCAST_MS - elapsed)
     }
   }

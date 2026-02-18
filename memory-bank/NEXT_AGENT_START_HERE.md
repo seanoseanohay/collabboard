@@ -36,9 +36,36 @@
 - Undo/Redo, rotation (throttled).
 - Revocable invite links.
 
+**Priority to fix:**
+- **Multi-selection move drift** — When moving a group, other clients see objects continuously move down and to the right (regardless of drag direction). Move-delta broadcast + getTargetSceneCenter in place; bug still reproduces. See progress.md Known Issues, activeContext.
+
 **Planned (documented in PRD + memory bank):**
-- **Multi-selection move sync v2** — During drag: broadcast selection-move delta (`objectIds`, `dx`, `dy`) on Realtime channel; on drop write absolute to documents. Goal: correct positions + low lag. See PRD § Sync Strategy, activeContext, systemPatterns.
+- **Multi-selection move sync v2** — Implemented but buggy (drift down/right); priority fix. Design: during drag broadcast (`objectIds`, `dx`, `dy`); on drop write absolute. See PRD § Sync Strategy, activeContext, systemPatterns.
 - **Bring forward / send backward** — One step in z-order (not only full front/back). PRD §4.
+- ~~**Boards page cleanup**~~ ✅ — Done (Figma-inspired: header, loading, empty, card rows, copy link, delete, rename, sort).
+
+### Parallel agent tasks (no merge conflicts)
+
+**Run these in parallel (different files/areas):**
+
+| Agent | Task | Primary files | Notes |
+|-------|------|----------------|--------|
+| **A** | **Fix multi-selection move drift** | boardSync.ts, FabricCanvas.tsx | High priority. Move-deltas apply logic. |
+| **B** | **AI Client API docs** | docs/AI_CLIENT_API.md only | Mark Implemented, add usage examples. |
+| **C** | **StrictMode for production only** | main.tsx only | Wrap app in React.StrictMode when import.meta.env.PROD. |
+| **D** | **AI agent (Edge Function)** | supabase/functions/, new invoke from frontend if needed | Post-MVP. Uses aiClientApi. |
+| **E** | **Revocable invite links** | supabase/migrations, invite API, ShareModal/BoardListPage | Post-MVP. Schema + RLS + UI to revoke. |
+
+**Run one at a time (all touch workspace canvas/sync — same area):**
+
+| Agent | Task | Primary files | Notes |
+|-------|------|----------------|--------|
+| **F** | **Z-order nudge (bring forward / send backward)** | FabricCanvas.tsx, WorkspaceToolbar, boardSync.ts | PRD §4. One step in z-order. |
+| **G** | **Rotation throttle + sync** | boardSync.ts | object:rotating ~50ms throttle, sync like moving. Post-MVP. |
+| **H** | **Touch handling (mobile)** | FabricCanvas.tsx | Touch/pointer for pan, zoom, draw. |
+| **I** | **Undo/Redo** | New feature module, FabricCanvas, boardSync | Post-MVP. History stack + integrate. |
+
+**Rule:** Agents **A–E** can run in parallel with each other. Agents **F–I** each touch `boardSync` and/or `FabricCanvas` — run only one of F–I at a time (or after A is done, to avoid conflicts).
 
 ## Quick Reference
 - **Zoom range:** 0.001%–10000% (MIN_ZOOM 0.00001, MAX_ZOOM 100). FabricCanvas.tsx.
@@ -48,4 +75,4 @@
 - **WorkspaceToolbar:** Icon groups (Select|Hand | shapes | Text|Sticky), StrokeControl when selectionStroke set, zoom dropdown.
 - **Sticky notes:** No placeholder. Create → box completes → edit mode opens (blinking cursor). shapeFactory sticky = [bg, mainText]; FabricCanvas handleMouseUp auto-enters edit after 50ms.
 - **documentsApi:** subscribeToDocuments fetchInitial uses .range(offset, offset + PAGE_SIZE - 1) in a loop.
-- **Lines:** shapeFactory creates lines as Polyline (not Fabric Line). Legacy boards with type `line` in DB may still revive as Line (movement bug); see progress.md Known Issues.
+- **Lines:** shapeFactory creates lines as Polyline (not Fabric Line). No legacy Line boards to support.

@@ -1,22 +1,45 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { signOutUser } from '@/features/auth/api/authApi'
 import { useAuth } from '@/features/auth/hooks/useAuth'
 import { useUserBoards } from '@/features/boards/hooks/useUserBoards'
-import { createBoard, joinBoard } from '@/features/boards/api/boardsApi'
-import { parseBoardIdFromShareInput } from '@/shared/lib/shareLinks'
+import {
+  createBoard,
+  joinBoard,
+  deleteBoard,
+  updateBoardTitle,
+} from '@/features/boards/api/boardsApi'
+import { parseBoardIdFromShareInput, getShareUrl } from '@/shared/lib/shareLinks'
 import type { BoardMeta } from '@/features/boards/api/boardsApi'
 
 export function BoardListPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const boards = useUserBoards(user?.uid)
+  const { boards, loading } = useUserBoards(user?.uid)
   const [creating, setCreating] = useState(false)
   const [joinInput, setJoinInput] = useState('')
   const [joinError, setJoinError] = useState<string | null>(null)
   const [joining, setJoining] = useState(false)
+  const [menuBoardId, setMenuBoardId] = useState<string | null>(null)
+  const [renameBoardId, setRenameBoardId] = useState<string | null>(null)
+  const [renameValue, setRenameValue] = useState('')
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const [copiedId, setCopiedId] = useState<string | null>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
 
   const userId = user?.uid ?? ''
+
+  useEffect(() => {
+    if (!menuBoardId) return
+    const close = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuBoardId(null)
+      }
+    }
+    document.addEventListener('click', close)
+    return () => document.removeEventListener('click', close)
+  }, [menuBoardId])
 
   const handleCreate = async () => {
     setCreating(true)
@@ -29,6 +52,7 @@ export function BoardListPage() {
   }
 
   const handleSelectBoard = (board: BoardMeta) => {
+    if (renameBoardId) return
     navigate(`/board/${board.id}`)
   }
 
@@ -50,6 +74,51 @@ export function BoardListPage() {
     }
   }
 
+  const handleCopyLink = (e: React.MouseEvent, boardId: string) => {
+    e.stopPropagation()
+    setMenuBoardId(null)
+    const url = getShareUrl(boardId)
+    void navigator.clipboard.writeText(url).then(() => {
+      setCopiedId(boardId)
+      setTimeout(() => setCopiedId(null), 2000)
+    })
+  }
+
+  const handleRenameClick = (e: React.MouseEvent, board: BoardMeta) => {
+    e.stopPropagation()
+    setMenuBoardId(null)
+    setRenameBoardId(board.id)
+    setRenameValue(board.title)
+  }
+
+  const handleRenameSubmit = (boardId: string) => {
+    const trimmed = renameValue.trim()
+    if (!trimmed || !userId) {
+      setRenameBoardId(null)
+      return
+    }
+    void updateBoardTitle(boardId, userId, trimmed).then(() => {
+      setRenameBoardId(null)
+    })
+  }
+
+  const handleDeleteClick = (e: React.MouseEvent, boardId: string) => {
+    e.stopPropagation()
+    setMenuBoardId(null)
+    setDeleteConfirmId(boardId)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteConfirmId) return
+    setDeleting(true)
+    try {
+      await deleteBoard(deleteConfirmId)
+      setDeleteConfirmId(null)
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   return (
     <div style={styles.container}>
       <header style={styles.header}>
@@ -59,7 +128,7 @@ export function BoardListPage() {
           <button
             type="button"
             onClick={() => signOutUser()}
-            style={styles.btn}
+            style={styles.headerBtn}
           >
             Sign out
           </button>
@@ -98,27 +167,143 @@ export function BoardListPage() {
           </div>
           {joinError && <p style={styles.joinError}>{joinError}</p>}
         </div>
-        {boards.length === 0 ? (
-          <p style={styles.empty}>No boards yet. Create one to get started.</p>
+
+        {loading ? (
+          <ul style={styles.list}>
+            {[1, 2, 3, 4].map((i) => (
+              <li key={i} style={styles.skeletonItem}>
+                <div style={styles.skeletonCard} />
+              </li>
+            ))}
+          </ul>
+        ) : boards.length === 0 ? (
+          <div style={styles.emptyWrap}>
+            <p style={styles.empty}>No boards yet. Create one to get started.</p>
+            <button
+              type="button"
+              onClick={handleCreate}
+              disabled={creating}
+              style={styles.emptyCreateBtn}
+            >
+              + New Board
+            </button>
+          </div>
         ) : (
           <ul style={styles.list}>
             {boards.map((board) => (
               <li key={board.id} style={styles.item}>
-                <button
-                  type="button"
+                <div
+                  role="button"
+                  tabIndex={0}
                   onClick={() => handleSelectBoard(board)}
-                  style={styles.boardBtn}
+                  onKeyDown={(e) =>
+                    e.key === 'Enter' && handleSelectBoard(board)
+                  }
+                  style={styles.boardCard}
                 >
-                  <span style={styles.boardTitle}>{board.title}</span>
-                  <span style={styles.boardDate}>
-                    {formatDate(board.createdAt)}
-                  </span>
-                </button>
+                  <div style={styles.boardCardMain}>
+                    {renameBoardId === board.id ? (
+                      <input
+                        type="text"
+                        value={renameValue}
+                        onChange={(e) => setRenameValue(e.target.value)}
+                        onBlur={() => handleRenameSubmit(board.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.currentTarget.blur()
+                          }
+                          if (e.key === 'Escape') {
+                            setRenameBoardId(null)
+                            setRenameValue(board.title)
+                          }
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        style={styles.renameInput}
+                        autoFocus
+                        aria-label="Rename board"
+                      />
+                    ) : (
+                      <span style={styles.boardTitle}>{board.title}</span>
+                    )}
+                    <span style={styles.boardDate}>
+                      {formatDate(board.createdAt)}
+                    </span>
+                  </div>
+                  <div style={styles.actionsWrap} ref={menuBoardId === board.id ? menuRef : undefined}>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setMenuBoardId(menuBoardId === board.id ? null : board.id)
+                      }}
+                      style={styles.kebabBtn}
+                      aria-label="Board actions"
+                      aria-expanded={menuBoardId === board.id}
+                    >
+                      ⋮
+                    </button>
+                    {menuBoardId === board.id && (
+                      <div style={styles.menu}>
+                        <button
+                          type="button"
+                          style={styles.menuItem}
+                          onClick={(e) => handleCopyLink(e, board.id)}
+                        >
+                          {copiedId === board.id ? 'Copied!' : 'Copy share link'}
+                        </button>
+                        <button
+                          type="button"
+                          style={styles.menuItem}
+                          onClick={(e) => handleRenameClick(e, board)}
+                        >
+                          Rename
+                        </button>
+                        <button
+                          type="button"
+                          style={{ ...styles.menuItem, ...styles.menuItemDanger }}
+                          onClick={(e) => handleDeleteClick(e, board.id)}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </li>
             ))}
           </ul>
         )}
       </main>
+
+      {deleteConfirmId && (
+        <div style={styles.modalBackdrop} role="dialog" aria-modal="true" aria-labelledby="delete-title">
+          <div style={styles.modal}>
+            <h2 id="delete-title" style={styles.modalTitle}>
+              Delete this board?
+            </h2>
+            <p style={styles.modalBody}>
+              This can&apos;t be undone.
+            </p>
+            <div style={styles.modalActions}>
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmId(null)}
+                style={styles.cancelBtn}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteConfirm}
+                disabled={deleting}
+                style={styles.deleteBtn}
+              >
+                {deleting ? 'Deleting…' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -137,37 +322,43 @@ function formatDate(ts: number): string {
 const styles: Record<string, React.CSSProperties> = {
   container: {
     minHeight: '100vh',
-    background: '#f5f5f5',
+    background: '#f9fafb',
   },
   header: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: '16px 24px',
+    padding: '8px 16px',
     background: '#fff',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+    borderBottom: '1px solid #e5e7eb',
+    boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
   },
   title: {
     margin: 0,
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: 600,
-    color: '#1a1a2e',
+    color: '#1e293b',
   },
   userRow: {
     display: 'flex',
     alignItems: 'center',
-    gap: 16,
+    gap: 12,
   },
   email: {
-    fontSize: 14,
-    color: '#666',
+    fontSize: 13,
+    color: '#6b7280',
   },
-  btn: {
-    padding: '8px 16px',
-    fontSize: 14,
-    border: '1px solid #ddd',
+  headerBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    height: 32,
+    padding: '0 12px',
+    fontSize: 13,
+    fontWeight: 500,
+    border: '1px solid #e5e7eb',
     borderRadius: 6,
     background: '#fff',
+    color: '#374151',
     cursor: 'pointer',
   },
   main: {
@@ -176,7 +367,7 @@ const styles: Record<string, React.CSSProperties> = {
     margin: '0 auto',
   },
   toolbar: {
-    marginBottom: 16,
+    marginBottom: 20,
     display: 'flex',
     flexDirection: 'column',
     gap: 12,
@@ -189,17 +380,19 @@ const styles: Record<string, React.CSSProperties> = {
     flex: 1,
     padding: '10px 14px',
     fontSize: 14,
-    border: '1px solid #e0e0e0',
+    border: '1px solid #e5e7eb',
     borderRadius: 8,
+    background: '#fff',
+    color: '#374151',
   },
   joinBtn: {
     padding: '10px 20px',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: 500,
-    border: '1px solid #16213e',
+    border: '1px solid #e5e7eb',
     borderRadius: 8,
     background: '#fff',
-    color: '#16213e',
+    color: '#374151',
     cursor: 'pointer',
   },
   joinError: {
@@ -208,18 +401,14 @@ const styles: Record<string, React.CSSProperties> = {
     color: '#b91c1c',
   },
   createBtn: {
-    padding: '10px 20px',
+    padding: '12px 24px',
     fontSize: 15,
     fontWeight: 500,
     border: 'none',
     borderRadius: 8,
-    background: '#16213e',
+    background: '#374151',
     color: '#fff',
     cursor: 'pointer',
-  },
-  empty: {
-    color: '#999',
-    fontSize: 16,
   },
   list: {
     listStyle: 'none',
@@ -227,27 +416,171 @@ const styles: Record<string, React.CSSProperties> = {
     padding: 0,
   },
   item: {
-    marginBottom: 8,
+    marginBottom: 10,
   },
-  boardBtn: {
-    width: '100%',
+  skeletonItem: {
+    marginBottom: 10,
+  },
+  skeletonCard: {
+    height: 56,
+    borderRadius: 8,
+    background: '#e5e7eb',
+  },
+  emptyWrap: {
+    textAlign: 'center',
+    padding: '48px 24px',
+  },
+  empty: {
+    color: '#6b7280',
+    fontSize: 16,
+    marginBottom: 16,
+  },
+  emptyCreateBtn: {
+    padding: '12px 24px',
+    fontSize: 15,
+    fontWeight: 500,
+    border: 'none',
+    borderRadius: 8,
+    background: '#374151',
+    color: '#fff',
+    cursor: 'pointer',
+  },
+  boardCard: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '16px 20px',
+    background: '#fff',
+    border: '1px solid #e5e7eb',
+    borderRadius: 8,
+    boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+    cursor: 'pointer',
+  },
+  boardCardMain: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: '16px 20px',
-    background: '#fff',
-    border: '1px solid #e0e0e0',
-    borderRadius: 8,
-    cursor: 'pointer',
-    textAlign: 'left',
-    fontSize: 16,
+    flex: 1,
+    minWidth: 0,
   },
   boardTitle: {
     fontWeight: 500,
-    color: '#1a1a2e',
+    color: '#374151',
+    fontSize: 15,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    marginRight: 12,
+  },
+  renameInput: {
+    flex: 1,
+    marginRight: 12,
+    padding: '4px 8px',
+    fontSize: 15,
+    border: '1px solid #e5e7eb',
+    borderRadius: 6,
+    outline: 'none',
+    minWidth: 0,
   },
   boardDate: {
     fontSize: 13,
-    color: '#999',
+    color: '#9ca3af',
+    flexShrink: 0,
+  },
+  actionsWrap: {
+    position: 'relative',
+    flexShrink: 0,
+  },
+  kebabBtn: {
+    width: 32,
+    height: 32,
+    padding: 0,
+    border: 'none',
+    borderRadius: 6,
+    background: 'transparent',
+    color: '#6b7280',
+    fontSize: 18,
+    lineHeight: 1,
+    cursor: 'pointer',
+  },
+  menu: {
+    position: 'absolute',
+    top: '100%',
+    right: 0,
+    marginTop: 4,
+    minWidth: 160,
+    padding: 4,
+    background: '#fff',
+    border: '1px solid #e5e7eb',
+    borderRadius: 8,
+    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+    zIndex: 10,
+  },
+  menuItem: {
+    display: 'block',
+    width: '100%',
+    padding: '8px 12px',
+    textAlign: 'left',
+    fontSize: 13,
+    border: 'none',
+    borderRadius: 6,
+    background: 'transparent',
+    color: '#374151',
+    cursor: 'pointer',
+  },
+  menuItemDanger: {
+    color: '#b91c1c',
+  },
+  modalBackdrop: {
+    position: 'fixed',
+    inset: 0,
+    background: 'rgba(0,0,0,0.4)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 100,
+  },
+  modal: {
+    background: '#fff',
+    borderRadius: 8,
+    padding: 24,
+    maxWidth: 360,
+    boxShadow: '0 4px 24px rgba(0,0,0,0.15)',
+  },
+  modalTitle: {
+    margin: 0,
+    fontSize: 18,
+    fontWeight: 600,
+    color: '#374151',
+  },
+  modalBody: {
+    margin: '12px 0 20px',
+    fontSize: 14,
+    color: '#6b7280',
+  },
+  modalActions: {
+    display: 'flex',
+    justifyContent: 'flex-end',
+    gap: 8,
+  },
+  cancelBtn: {
+    padding: '8px 16px',
+    fontSize: 13,
+    fontWeight: 500,
+    border: '1px solid #e5e7eb',
+    borderRadius: 6,
+    background: '#fff',
+    color: '#374151',
+    cursor: 'pointer',
+  },
+  deleteBtn: {
+    padding: '8px 16px',
+    fontSize: 13,
+    fontWeight: 500,
+    border: 'none',
+    borderRadius: 6,
+    background: '#b91c1c',
+    color: '#fff',
+    cursor: 'pointer',
   },
 }

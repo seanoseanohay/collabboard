@@ -33,6 +33,32 @@ export async function createBoard(
   return board.id
 }
 
+export async function updateBoardTitle(
+  boardId: string,
+  userId: string,
+  title: string
+): Promise<void> {
+  const supabase = getSupabaseClient()
+  const { error: boardErr } = await supabase
+    .from('boards')
+    .update({ title })
+    .eq('id', boardId)
+
+  if (boardErr) throw new Error(boardErr.message)
+
+  await supabase
+    .from('user_boards')
+    .update({ title })
+    .eq('user_id', userId)
+    .eq('board_id', boardId)
+}
+
+export async function deleteBoard(boardId: string): Promise<void> {
+  const supabase = getSupabaseClient()
+  const { error } = await supabase.from('boards').delete().eq('id', boardId)
+  if (error) throw new Error(error.message)
+}
+
 export async function joinBoard(
   boardId: string,
   userId: string
