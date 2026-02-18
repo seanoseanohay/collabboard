@@ -36,4 +36,4 @@ export function setStrokeWidthOnObject(obj: FabricObject, strokeWidth: number): 
   if (hasStroke(obj)) obj.set('strokeWidth', strokeWidth)
 }
 
-export const STROKE_WEIGHT_OPTIONS = [1, 2, 4, 8] as const
+export const STROKE_WEIGHT_OPTIONS = [1, 2, 4, 8, 16, 32] as const
