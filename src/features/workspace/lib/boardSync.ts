@@ -35,7 +35,6 @@ function getSceneCenter(objects: FabricObject[]): { x: number; y: number } {
   let sx = 0
   let sy = 0
   for (const obj of objects) {
-    const group = (obj as { group?: unknown }).group
     const matrix = obj.calcTransformMatrix()
     const d = util.qrDecompose(matrix)
     sx += d.translateX
@@ -381,7 +380,7 @@ export function setupDocumentSync(
 
   moveChannel
     .on('broadcast', { event: 'move_delta' }, (message) => {
-      const p = (message as { payload: MoveDeltaPayload }).payload
+      const p = (message as unknown as { payload: MoveDeltaPayload }).payload
       if (!p || getCurrentUserId?.() === p.userId || isApplyingRemote) return
       for (const objectId of p.objectIds) {
         const obj = canvas.getObjects().find((o) => getObjectId(o) === objectId)
