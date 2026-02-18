@@ -442,14 +442,15 @@ export function setupDocumentSync(
       return
     }
     if (!deltaThrottleTimer) {
+      const baseCenter = lastDeltaCenter
       deltaThrottleTimer = setTimeout(() => {
         deltaThrottleTimer = null
         lastDeltaEmit = Date.now()
         // Use current selection center so we send accumulated delta, not a single-frame delta
         const active = canvas.getActiveObject()
         const currentCenter = active ? getTargetSceneCenter(active) : center
-        const totalDx = currentCenter.x - lastDeltaCenter.x
-        const totalDy = currentCenter.y - lastDeltaCenter.y
+        const totalDx = currentCenter.x - baseCenter.x
+        const totalDy = currentCenter.y - baseCenter.y
         lastDeltaCenter = currentCenter
         if (totalDx !== 0 || totalDy !== 0) broadcastMoveDelta(ids, totalDx, totalDy)
       }, DELTA_BROADCAST_MS - elapsed)
