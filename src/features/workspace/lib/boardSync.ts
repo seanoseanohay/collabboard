@@ -489,8 +489,13 @@ export function setupDocumentSync(
     }
     lastDeltaCenter = null
     if (e.target) {
-      const toSync = getObjectsToSync(e.target)
-      toSync.forEach((o) => emitModify(o))
+      const target = e.target
+      // Defer writing so we read positions after Fabric has committed the drop (selection exit / final coords).
+      // Otherwise we can read stale coords and other clients jump to the wrong place on release.
+      const toSync = getObjectsToSync(target)
+      setTimeout(() => {
+        toSync.forEach((o) => emitModify(o))
+      }, 0)
     }
   })
   canvas.on('object:removed', (e) => {
