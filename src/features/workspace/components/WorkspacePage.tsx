@@ -6,6 +6,8 @@ import { ShareModal } from './ShareModal'
 import { WorkspaceToolbar } from './WorkspaceToolbar'
 import { AiPromptBar } from './AiPromptBar'
 import { CursorOverlay } from './CursorOverlay'
+import { CursorPositionReadout } from './CursorPositionReadout'
+import { GridOverlay } from './GridOverlay'
 import { usePresence } from '../hooks/usePresence'
 import type { ToolType } from '../types/tools'
 
@@ -20,6 +22,7 @@ export function WorkspacePage({ board, onBack }: WorkspacePageProps) {
   const [canvasSize, setCanvasSize] = useState({ width: 1200, height: 800 })
   const [shareOpen, setShareOpen] = useState(false)
   const [selectionStroke, setSelectionStroke] = useState<SelectionStrokeInfo | null>(null)
+  const [cursorPosition, setCursorPosition] = useState<{ x: number; y: number } | null>(null)
   const canvasContainerRef = useRef<HTMLDivElement>(null)
   const canvasZoomRef = useRef<FabricCanvasZoomHandle>(null)
 
@@ -33,9 +36,10 @@ export function WorkspacePage({ board, onBack }: WorkspacePageProps) {
 
   const handlePointerMove = useCallback(
     (scenePoint: { x: number; y: number }) => {
-      updatePresence(scenePoint.x, scenePoint.y)
+      setCursorPosition(scenePoint)
+      if (user) updatePresence(scenePoint.x, scenePoint.y)
     },
-    [updatePresence]
+    [user, updatePresence]
   )
 
   const handleViewportChange = useCallback((vpt: number[]) => {
@@ -66,6 +70,7 @@ export function WorkspacePage({ board, onBack }: WorkspacePageProps) {
           ← Boards
         </button>
         <h1 style={styles.title}>{board.title}</h1>
+        <AiPromptBar boardId={board.id} />
         <button
           type="button"
           onClick={() => setShareOpen(true)}
@@ -96,15 +101,19 @@ export function WorkspacePage({ board, onBack }: WorkspacePageProps) {
         selectionStroke={selectionStroke}
         canvasRef={canvasZoomRef}
       />
-      <AiPromptBar boardId={board.id} />
       <div ref={canvasContainerRef} style={styles.canvas}>
+        <GridOverlay
+          width={canvasSize.width}
+          height={canvasSize.height}
+          viewportTransform={viewportTransform ?? [1, 0, 0, 1, 0, 0]}
+        />
         <FabricCanvas
           ref={canvasZoomRef}
           selectedTool={selectedTool}
           boardId={board.id}
           userId={user?.uid}
           userName={userName}
-          onPointerMove={user ? handlePointerMove : undefined}
+          onPointerMove={handlePointerMove}
           onViewportChange={handleViewportChange}
           onSelectionChange={handleSelectionChange}
         />
@@ -114,6 +123,9 @@ export function WorkspacePage({ board, onBack }: WorkspacePageProps) {
           width={canvasSize.width}
           height={canvasSize.height}
         />
+        {cursorPosition && (
+          <CursorPositionReadout x={cursorPosition.x} y={cursorPosition.y} />
+        )}
       </div>
     </div>
   )

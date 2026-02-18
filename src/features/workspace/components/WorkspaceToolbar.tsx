@@ -28,9 +28,27 @@ const TOOLS: { id: ToolType; label: string }[] = [
 ]
 
 const ZOOM_PRESETS = [0.25, 0.5, 1, 2, 4]
+const ZOOM_SLIDER_MIN = 0.25
+const ZOOM_SLIDER_MAX = 4
 
 function zoomToLabel(z: number): string {
   return `${Math.round(z * 100)}%`
+}
+
+/** Map zoom (0.25–4) to slider value (0–100) using log scale */
+function zoomToSliderValue(zoom: number): number {
+  const clamped = Math.min(ZOOM_SLIDER_MAX, Math.max(ZOOM_SLIDER_MIN, zoom))
+  const logMin = Math.log(ZOOM_SLIDER_MIN)
+  const logMax = Math.log(ZOOM_SLIDER_MAX)
+  return 100 * ((Math.log(clamped) - logMin) / (logMax - logMin))
+}
+
+/** Map slider value (0–100) to zoom */
+function sliderValueToZoom(value: number): number {
+  const t = value / 100
+  const logMin = Math.log(ZOOM_SLIDER_MIN)
+  const logMax = Math.log(ZOOM_SLIDER_MAX)
+  return Math.exp(logMin + t * (logMax - logMin))
 }
 
 const ToolIcons: Record<ToolType, React.ReactNode> = {
@@ -198,7 +216,18 @@ export function WorkspaceToolbar({
             </div>
           </>
         )}
-        <div style={styles.zoomWrap}>
+        <div style={styles.zoomControls}>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            value={zoomToSliderValue(zoom)}
+            onChange={(e) => onZoomSet?.(sliderValueToZoom(Number(e.target.value)))}
+            style={styles.zoomSlider}
+            title="Zoom"
+            aria-label="Zoom level"
+          />
+          <div style={styles.zoomWrap}>
           <button
             ref={zoomButtonRef}
             type="button"
@@ -237,6 +266,7 @@ export function WorkspaceToolbar({
               )}
             </div>
           )}
+          </div>
         </div>
       </div>
     </div>
@@ -311,6 +341,16 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     gap: 8,
     marginLeft: 'auto',
+  },
+  zoomControls: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+  },
+  zoomSlider: {
+    width: 80,
+    height: 6,
+    accentColor: '#6366f1',
   },
   zoomWrap: {
     position: 'relative',

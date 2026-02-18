@@ -237,6 +237,7 @@ const FabricCanvasInner = (
       height,
       selection: true,
       skipOffscreen: true, // Viewport culling: skip rendering off-screen objects (500+ perf)
+      backgroundColor: 'transparent',
     })
     canvasRef.current = fabricCanvas
 
@@ -754,8 +755,10 @@ const styles: Record<string, React.CSSProperties> = {
     width: '100%',
     height: '100%',
     minHeight: 0,
-    background: '#fafafa',
+    background: 'transparent',
     cursor: 'default',
+    position: 'relative',
+    zIndex: 1,
   },
 }
 

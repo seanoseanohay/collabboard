@@ -18,10 +18,19 @@
 
 ## Next Steps
 
-1. **Zoom/pan** — Hand tool ✅, shortcuts (+/-, 0 fit, 1 100%) ✅, zoom UI dropdown ✅, trackpad two-finger pan + pinch zoom ✅ (FabricCanvas handleWheel; pinch sensitivity 0.006).
-2. ~~**Shape tool vs selection**~~ ✅ — With shape tool active, pointer-down always starts drawing (discardActiveObject + draw); never selects.
-3. ~~**Board loading performance**~~ ✅ — Paginated fetch in documentsApi (50 per batch, order by object_id).
-4. ~~**Stroke width (border thickness)**~~ ✅ — PRD §4. strokeUtils (getStrokeWidthFromObject, setStrokeWidthOnObject), StrokeControl in toolbar when selection has stroke (1/2/4/8px). Sync uses Fabric strokeWidth in payload. FabricCanvas: onSelectionChange, setActiveObjectStrokeWidth on ref.
+1. **Zoom/pan** — Hand tool ✅, shortcuts (+/-, 0 fit, 1 100%) ✅, zoom UI dropdown ✅, **zoom slider** ✅ (log scale 25%–400%), trackpad two-finger pan + pinch zoom ✅ (FabricCanvas handleWheel; pinch sensitivity 0.006).
+2. **Canvas grid** — tldraw-style grid overlay ✅ (20px cells, transforms with viewport). GridOverlay.tsx; FabricCanvas transparent background; GridOverlay behind canvas.
+3. **Cursor position readout** — tldraw-style ✅ (bottom-left, x/y scene coords). CursorPositionReadout.tsx; onPointerMove always fired for readout (and presence when user).
+4. ~~**Shape tool vs selection**~~ ✅ — With shape tool active, pointer-down always starts drawing (discardActiveObject + draw); never selects.
+5. ~~**Board loading performance**~~ ✅ — Paginated fetch in documentsApi (50 per batch, order by object_id).
+6. ~~**Stroke width (border thickness)**~~ ✅ — PRD §4. strokeUtils (getStrokeWidthFromObject, setStrokeWidthOnObject), StrokeControl in toolbar when selection has stroke (1/2/4/8px). Sync uses Fabric strokeWidth in payload. FabricCanvas: onSelectionChange, setActiveObjectStrokeWidth on ref.
+
+## Recent Changes (2026-02-18)
+
+**Canvas UX polish:**
+- ✅ **Grid overlay** — tldraw-style grid (20px cells). GridOverlay.tsx behind FabricCanvas. Canvas background transparent; grid provides #fafafa + SVG pattern. Transform syncs with viewport.
+- ✅ **Cursor position readout** — Bottom-left x/y in scene coords. CursorPositionReadout.tsx. onPointerMove fires always (not just when logged in); used for readout + presence.
+- ✅ **Zoom slider** — Range input 25%–400%, log scale (zoomToSliderValue, sliderValueToZoom). WorkspaceToolbar. In addition to dropdown.
 
 ## Recent Changes (2026-02-17)
 

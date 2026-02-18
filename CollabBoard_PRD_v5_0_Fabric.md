@@ -153,8 +153,10 @@ MAX_ZOOM = 100 (10000%).
 - **Infinite pan** — No hard bounds on viewport pan.
 - **Shortcuts** — Space+drag = temporary pan (any tool); +/- = zoom in/out;
   0 = fit to screen; 1 = 100%.
-- **Zoom UI** — Production list only: zoom dropdown/slider (e.g. 50%/100%/200%,
-  Fit, Fill) in UI.
+- **Zoom UI** — Zoom dropdown (25%/50%/100%/200%/400%, Fit) + zoom slider
+  (25%–400%, log scale). Implemented.
+- **Canvas grid** — tldraw-style grid overlay (20px cells). Implemented.
+- **Cursor position** — Scene coords readout (x, y) bottom-left. Implemented.
 
 ### Implementation Priority
 
