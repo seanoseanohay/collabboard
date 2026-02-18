@@ -43,11 +43,13 @@ Deno.serve(async (req: Request) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!
     const authHeader = req.headers.get('Authorization') ?? ''
+    const token = authHeader.replace('Bearer ', '')
     const supabase = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
     })
 
-    const { data: { user } } = await supabase.auth.getUser()
+    // Must pass token explicitly — Edge Functions have no session storage
+    const { data: { user } } = await supabase.auth.getUser(token)
     if (!user) {
       return new Response(JSON.stringify({ error: 'Must be signed in.' }), {
         status: 401,

@@ -23,6 +23,7 @@ export function WorkspacePage({ board, onBack }: WorkspacePageProps) {
   const [shareOpen, setShareOpen] = useState(false)
   const [selectionStroke, setSelectionStroke] = useState<SelectionStrokeInfo | null>(null)
   const [cursorPosition, setCursorPosition] = useState<{ x: number; y: number } | null>(null)
+  const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false })
   const canvasContainerRef = useRef<HTMLDivElement>(null)
   const canvasZoomRef = useRef<FabricCanvasZoomHandle>(null)
   const gridRef = useRef<HTMLDivElement>(null)
@@ -60,6 +61,10 @@ export function WorkspacePage({ board, onBack }: WorkspacePageProps) {
 
   const handleSelectionChange = useCallback((info: SelectionStrokeInfo | null) => {
     setSelectionStroke(info)
+  }, [])
+
+  const handleHistoryChange = useCallback((canUndo: boolean, canRedo: boolean) => {
+    setHistoryState({ canUndo, canRedo })
   }, [])
 
   useEffect(() => {
@@ -112,6 +117,10 @@ export function WorkspacePage({ board, onBack }: WorkspacePageProps) {
         onZoomSet={(z) => canvasZoomRef.current?.setZoom(z)}
         selectionStroke={selectionStroke}
         canvasRef={canvasZoomRef}
+        canUndo={historyState.canUndo}
+        canRedo={historyState.canRedo}
+        onUndo={() => canvasZoomRef.current?.undo()}
+        onRedo={() => canvasZoomRef.current?.redo()}
       />
       <div ref={canvasContainerRef} style={styles.canvas}>
         <GridOverlay ref={gridRef} />
@@ -124,6 +133,7 @@ export function WorkspacePage({ board, onBack }: WorkspacePageProps) {
           onPointerMove={handlePointerMove}
           onViewportChange={handleViewportChange}
           onSelectionChange={handleSelectionChange}
+          onHistoryChange={handleHistoryChange}
         />
         <CursorOverlay
           cursors={others}

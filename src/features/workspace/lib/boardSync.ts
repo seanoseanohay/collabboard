@@ -158,12 +158,14 @@ export function applyLockState(
  * Sets up document sync only. Never depends on auth.
  * Call applyLockStateCallbackRef.current?.() after remote updates if lock sync is active.
  * getCurrentUserId: optional; used to ignore our own move-delta broadcasts and avoid applying them locally.
+ * remoteChangeRef: optional mutable ref toggled true while canvas is mutated by remote events — lets history manager skip recording.
  */
 export function setupDocumentSync(
   canvas: Canvas,
   boardId: string,
   applyLockStateCallbackRef: LockStateCallbackRef,
-  getCurrentUserId?: () => string
+  getCurrentUserId?: () => string,
+  remoteChangeRef?: { current: boolean }
 ): () => void {
   let isApplyingRemote = false
 
@@ -195,46 +197,69 @@ export function setupDocumentSync(
   }
 
   const applyRemote = async (objectId: string, data: Record<string, unknown>) => {
-    const clean = stripSyncFields(data)
-    const existing = canvas.getObjects().find((o) => getObjectId(o) === objectId)
-    if (existing) {
-      // Skip objects that are in our active selection (multi-select). The sender's own
-      // document writes echo back via postgres_changes; applying scene-space left/top to
-      // a group-relative child would corrupt its position. Locking ensures only we write
-      // to these objects while selected.
-      const active = canvas.getActiveObject()
-      if (existing.group && existing.group === active) return
-      if (existing.type === 'group') {
+    if (remoteChangeRef) remoteChangeRef.current = true
+    try {
+      const clean = stripSyncFields(data)
+      const existing = canvas.getObjects().find((o) => getObjectId(o) === objectId)
+      if (existing) {
+        // Skip objects that are in our active selection (multi-select). The sender's own
+        // document writes echo back via postgres_changes; applying scene-space left/top to
+        // a group-relative child would corrupt its position. Locking ensures only we write
+        // to these objects while selected.
+        const active = canvas.getActiveObject()
+        if (existing.group && existing.group === active) return
+        if (existing.type === 'group') {
+          try {
+            const objData = { ...clean, data: { id: objectId } }
+            const [revived] = await util.enlivenObjects<FabricObject>([objData])
+            if (revived) {
+              existing.set({
+                left: revived.left,
+                top: revived.top,
+                angle: revived.angle,
+                scaleX: revived.scaleX,
+                scaleY: revived.scaleY,
+                flipX: revived.flipX,
+                flipY: revived.flipY,
+              })
+              existing.setCoords()
+              if ('getObjects' in existing && 'getObjects' in revived) {
+                const existingChildren = (existing as { getObjects: () => FabricObject[] }).getObjects()
+                const revivedChildren = (revived as { getObjects: () => FabricObject[] }).getObjects()
+                const existingTexts = existingChildren.filter((c) => c.type === 'i-text')
+                const revivedTexts = revivedChildren.filter((c) => c.type === 'i-text')
+                if (existingTexts.length && revivedTexts.length) {
+                  existingTexts[existingTexts.length - 1].set(
+                    'text',
+                    (revivedTexts[revivedTexts.length - 1].get('text') as string) ?? ''
+                  )
+                }
+              }
+              applyZIndex(existing, clean)
+              updateStickyTextFontSize(existing)
+              updateStickyPlaceholderVisibility(existing)
+              ensureGroupChildrenNotSelectable(existing)
+              ensureTextEditable(existing)
+              applyLockStateCallbackRef.current?.()
+              sortCanvasByZIndex(canvas)
+              canvas.requestRenderAll()
+            }
+          } catch {
+            /* ignore */
+          }
+          return
+        }
         try {
           const objData = { ...clean, data: { id: objectId } }
           const [revived] = await util.enlivenObjects<FabricObject>([objData])
           if (revived) {
-            existing.set({
-              left: revived.left,
-              top: revived.top,
-              angle: revived.angle,
-              scaleX: revived.scaleX,
-              scaleY: revived.scaleY,
-              flipX: revived.flipX,
-              flipY: revived.flipY,
-            })
+            const serialized = revived.toObject(['data']) as Record<string, unknown>
+            delete serialized.data
+            delete serialized.type
+            delete (serialized as { layoutManager?: unknown }).layoutManager
+            existing.set(serialized)
             existing.setCoords()
-            if ('getObjects' in existing && 'getObjects' in revived) {
-              const existingChildren = (existing as { getObjects: () => FabricObject[] }).getObjects()
-              const revivedChildren = (revived as { getObjects: () => FabricObject[] }).getObjects()
-              const existingTexts = existingChildren.filter((c) => c.type === 'i-text')
-              const revivedTexts = revivedChildren.filter((c) => c.type === 'i-text')
-              if (existingTexts.length && revivedTexts.length) {
-                existingTexts[existingTexts.length - 1].set(
-                  'text',
-                  (revivedTexts[revivedTexts.length - 1].get('text') as string) ?? ''
-                )
-              }
-            }
             applyZIndex(existing, clean)
-            updateStickyTextFontSize(existing)
-            updateStickyPlaceholderVisibility(existing)
-            ensureGroupChildrenNotSelectable(existing)
             ensureTextEditable(existing)
             applyLockStateCallbackRef.current?.()
             sortCanvasByZIndex(canvas)
@@ -249,45 +274,27 @@ export function setupDocumentSync(
         const objData = { ...clean, data: { id: objectId } }
         const [revived] = await util.enlivenObjects<FabricObject>([objData])
         if (revived) {
-          const serialized = revived.toObject(['data']) as Record<string, unknown>
-          delete serialized.data
-          delete serialized.type
-          delete (serialized as { layoutManager?: unknown }).layoutManager
-          existing.set(serialized)
-          existing.setCoords()
-          applyZIndex(existing, clean)
-          ensureTextEditable(existing)
+          revived.set('data', { id: objectId })
+          applyZIndex(revived, clean)
+          if (revived.type === 'group') {
+            updateStickyTextFontSize(revived)
+            updateStickyPlaceholderVisibility(revived)
+          }
+          ensureGroupChildrenNotSelectable(revived)
+          ensureTextEditable(revived)
+          isApplyingRemote = true
+          canvas.add(revived)
+          revived.setCoords()
           applyLockStateCallbackRef.current?.()
           sortCanvasByZIndex(canvas)
           canvas.requestRenderAll()
+          isApplyingRemote = false
         }
       } catch {
         /* ignore */
       }
-      return
-    }
-    try {
-      const objData = { ...clean, data: { id: objectId } }
-      const [revived] = await util.enlivenObjects<FabricObject>([objData])
-      if (revived) {
-        revived.set('data', { id: objectId })
-        applyZIndex(revived, clean)
-        if (revived.type === 'group') {
-          updateStickyTextFontSize(revived)
-          updateStickyPlaceholderVisibility(revived)
-        }
-        ensureGroupChildrenNotSelectable(revived)
-        ensureTextEditable(revived)
-        isApplyingRemote = true
-        canvas.add(revived)
-        revived.setCoords()
-        applyLockStateCallbackRef.current?.()
-        sortCanvasByZIndex(canvas)
-        canvas.requestRenderAll()
-        isApplyingRemote = false
-      }
-    } catch {
-      /* ignore */
+    } finally {
+      if (remoteChangeRef) remoteChangeRef.current = false
     }
   }
 
@@ -295,9 +302,11 @@ export function setupDocumentSync(
     const obj = canvas.getObjects().find((o) => getObjectId(o) === objectId)
     if (obj) {
       isApplyingRemote = true
+      if (remoteChangeRef) remoteChangeRef.current = true
       canvas.remove(obj)
       canvas.requestRenderAll()
       isApplyingRemote = false
+      if (remoteChangeRef) remoteChangeRef.current = false
     }
   }
 

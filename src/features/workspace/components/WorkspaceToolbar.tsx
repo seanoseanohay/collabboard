@@ -14,6 +14,10 @@ interface WorkspaceToolbarProps {
   onZoomSet?: (zoom: number) => void
   selectionStroke?: SelectionStrokeInfo | null
   canvasRef?: React.RefObject<FabricCanvasZoomHandle | null>
+  canUndo?: boolean
+  canRedo?: boolean
+  onUndo?: () => void
+  onRedo?: () => void
 }
 
 const TOOLS: { id: ToolType; label: string }[] = [
@@ -108,6 +112,10 @@ export function WorkspaceToolbar({
   onZoomSet,
   selectionStroke,
   canvasRef,
+  canUndo = false,
+  canRedo = false,
+  onUndo,
+  onRedo,
 }: WorkspaceToolbarProps) {
   const [zoomOpen, setZoomOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -152,6 +160,33 @@ export function WorkspaceToolbar({
             {i < toolGroups.length - 1 && <div style={styles.divider} />}
           </div>
         ))}
+        <div style={styles.divider} />
+        <div style={styles.toolGroup}>
+          <button
+            type="button"
+            style={{ ...styles.toolBtn, ...(canUndo ? {} : styles.toolBtnDisabled) }}
+            onClick={onUndo}
+            disabled={!canUndo}
+            title="Undo (⌘Z)"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 14 4 9l5-5" />
+              <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            style={{ ...styles.toolBtn, ...(canRedo ? {} : styles.toolBtnDisabled) }}
+            onClick={onRedo}
+            disabled={!canRedo}
+            title="Redo (⌘⇧Z)"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="m15 14 5-5-5-5" />
+              <path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       <div style={styles.right}>
@@ -316,6 +351,10 @@ const styles: Record<string, React.CSSProperties> = {
     background: '#f1f5f9',
     color: '#1e293b',
     boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.1)',
+  },
+  toolBtnDisabled: {
+    opacity: 0.35,
+    cursor: 'default',
   },
   layerGroup: {
     display: 'flex',

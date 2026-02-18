@@ -1,5 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
 import { Canvas, Point, type FabricObject } from 'fabric'
+import { createHistoryManager, type HistoryManager } from '../lib/historyManager'
 
 /** IText has enterEditing; FabricText does not. Check by method presence. */
 function isEditableText(obj: unknown): obj is { enterEditing: () => void } {
@@ -43,6 +44,8 @@ export interface FabricCanvasZoomHandle {
   sendToBack: () => void
   bringForward: () => void
   sendBackward: () => void
+  undo: () => void
+  redo: () => void
 }
 
 interface FabricCanvasProps {
@@ -56,6 +59,7 @@ interface FabricCanvasProps {
   onPointerMove?: (scenePoint: { x: number; y: number }) => void
   onViewportChange?: (vpt: number[]) => void
   onSelectionChange?: (info: SelectionStrokeInfo | null) => void
+  onHistoryChange?: (canUndo: boolean, canRedo: boolean) => void
 }
 
 /**
@@ -78,6 +82,7 @@ const FabricCanvasInner = (
     onPointerMove,
     onViewportChange,
     onSelectionChange,
+    onHistoryChange,
   }: FabricCanvasProps,
   ref: React.Ref<FabricCanvasZoomHandle>
 ) => {
@@ -92,9 +97,24 @@ const FabricCanvasInner = (
   onViewportChangeRef.current = onViewportChange
   const onSelectionChangeRef = useRef(onSelectionChange)
   onSelectionChangeRef.current = onSelectionChange
+  const onHistoryChangeRef = useRef(onHistoryChange)
+  onHistoryChangeRef.current = onHistoryChange
   const lockOptsRef = useRef({ userId: userId ?? '', userName: userName ?? 'Anonymous' })
   lockOptsRef.current = { userId: userId ?? '', userName: userName ?? 'Anonymous' }
   const applyLockStateCallbackRef = useRef<LockStateCallbackRef['current']>(null)
+  // History manager + remote-change flag (shared across useEffect and useImperativeHandle via refs)
+  const historyRef = useRef<HistoryManager | null>(null)
+  const preModifySnapshotsRef = useRef<Map<string, Record<string, unknown>>>(new Map())
+  const isRemoteChangeRef = useRef(false)
+
+  // Capture before-state for an object into preModifySnapshotsRef if not already captured.
+  // Called before any property change that will fire object:modified.
+  const captureBeforeForHistory = (obj: FabricObject) => {
+    const history = historyRef.current
+    const id = getObjectId(obj)
+    if (!history || !id || preModifySnapshotsRef.current.has(id)) return
+    preModifySnapshotsRef.current.set(id, history.snapshot(obj))
+  }
 
   useImperativeHandle(ref, () => ({
     setZoom: (z) => zoomApiRef.current?.setZoom(z),
@@ -105,6 +125,7 @@ const FabricCanvasInner = (
       if (!canvas) return
       const active = canvas.getActiveObject()
       if (!active) return
+      captureBeforeForHistory(active)
       setStrokeWidthOnObject(active, strokeWidth)
       canvas.fire('object:modified', { target: active })
       canvas.requestRenderAll()
@@ -114,6 +135,7 @@ const FabricCanvasInner = (
       if (!canvas) return
       const active = canvas.getActiveObject()
       if (!active) return
+      captureBeforeForHistory(active)
       setFillOnObject(active, fill)
       canvas.fire('object:modified', { target: active })
       canvas.requestRenderAll()
@@ -123,10 +145,13 @@ const FabricCanvasInner = (
       if (!canvas) return
       const active = canvas.getActiveObject()
       if (!active) return
+      captureBeforeForHistory(active)
       setStrokeColorOnObject(active, stroke)
       canvas.fire('object:modified', { target: active })
       canvas.requestRenderAll()
     },
+    undo: () => void historyRef.current?.undo(),
+    redo: () => void historyRef.current?.redo(),
     bringToFront: () => {
       const canvas = canvasRef.current
       if (!canvas) return
@@ -240,6 +265,21 @@ const FabricCanvasInner = (
       backgroundColor: '#fafafa',
     })
     canvasRef.current = fabricCanvas
+
+    // History manager — tracks local add/remove/modify; skips remote changes via isRemoteChangeRef
+    const history = createHistoryManager(fabricCanvas, (canUndo, canRedo) => {
+      onHistoryChangeRef.current?.(canUndo, canRedo)
+    })
+    historyRef.current = history
+
+    // Resolve target to syncable objects (mirrors boardSync getObjectsToSync)
+    const getObjectsToHistorize = (target: FabricObject): FabricObject[] => {
+      if (getObjectId(target)) return [target]
+      if ('getObjects' in target) {
+        return (target as { getObjects: () => FabricObject[] }).getObjects().filter((o) => !!getObjectId(o))
+      }
+      return []
+    }
 
     let isPanning = false
     let isDrawing = false
@@ -413,6 +453,55 @@ const FabricCanvasInner = (
 
     const handleWindowMouseUp = () => handleMouseUp()
 
+    // --- Touch: two-finger pan + pinch zoom ---
+    // Single-finger touch routes through Fabric's pointer-event mapping (mouse:down/move/up).
+    // Two-finger gestures are intercepted here before pointer synthesis confuses Fabric.
+    let pinchState: { dist: number; zoom: number; centroid: { x: number; y: number } } | null = null
+
+    const getViewportTouchPositions = (e: TouchEvent) =>
+      Array.from(e.touches).map((t) => {
+        const rect = canvasEl.getBoundingClientRect()
+        return { x: t.clientX - rect.left, y: t.clientY - rect.top }
+      })
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 2) return
+      e.preventDefault() // block browser scroll/zoom and pointer-event synthesis for 2-touch
+      const pts = getViewportTouchPositions(e)
+      const dx = pts[1]!.x - pts[0]!.x
+      const dy = pts[1]!.y - pts[0]!.y
+      pinchState = {
+        dist: Math.sqrt(dx * dx + dy * dy),
+        zoom: fabricCanvas.getZoom(),
+        centroid: { x: (pts[0]!.x + pts[1]!.x) / 2, y: (pts[0]!.y + pts[1]!.y) / 2 },
+      }
+    }
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length !== 2 || !pinchState) return
+      e.preventDefault()
+      const pts = getViewportTouchPositions(e)
+      const dx = pts[1]!.x - pts[0]!.x
+      const dy = pts[1]!.y - pts[0]!.y
+      const dist = Math.sqrt(dx * dx + dy * dy)
+      const centroid = { x: (pts[0]!.x + pts[1]!.x) / 2, y: (pts[0]!.y + pts[1]!.y) / 2 }
+      // Zoom at pinch midpoint
+      const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, pinchState.zoom * (dist / pinchState.dist)))
+      fabricCanvas.zoomToPoint(new Point(centroid.x, centroid.y), newZoom)
+      // Pan by centroid delta
+      fabricCanvas.relativePan(new Point(centroid.x - pinchState.centroid.x, centroid.y - pinchState.centroid.y))
+      pinchState = { dist, zoom: fabricCanvas.getZoom(), centroid }
+      fabricCanvas.requestRenderAll()
+      notifyViewport()
+    }
+
+    const handleTouchEnd = () => { pinchState = null }
+
+    canvasEl.addEventListener('touchstart', handleTouchStart, { passive: false })
+    canvasEl.addEventListener('touchmove', handleTouchMove, { passive: false })
+    canvasEl.addEventListener('touchend', handleTouchEnd)
+    canvasEl.addEventListener('touchcancel', handleTouchEnd)
+
     const tryEnterTextEditing = (obj: FabricObject) => {
       if (!isEditableText(obj)) return
       const itext = obj as FabricObject & { enterEditing: () => void; hiddenTextarea?: HTMLTextAreaElement; canvas?: unknown }
@@ -539,10 +628,24 @@ const FabricCanvasInner = (
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
-      
+
       const active = fabricCanvas.getActiveObject()
       if (isEditingText(active)) return
-      
+
+      const isMod = e.metaKey || e.ctrlKey
+
+      // Undo/Redo: Cmd/Ctrl+Z, Cmd/Ctrl+Shift+Z, Ctrl+Y
+      if (isMod && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault()
+        void history.undo()
+        return
+      }
+      if ((isMod && e.key === 'z' && e.shiftKey) || (e.ctrlKey && e.key === 'y')) {
+        e.preventDefault()
+        void history.redo()
+        return
+      }
+
       if (e.key === ' ') {
         spacePressed = true
         fabricCanvas.selection = false
@@ -551,6 +654,12 @@ const FabricCanvasInner = (
       if (e.key === 'Delete' || e.key === 'Backspace') {
         if (active) {
           e.preventDefault()
+          // Capture snapshot(s) before removal so undo can re-add
+          const objs = getObjectsToHistorize(active)
+          objs.forEach((obj) => {
+            const id = getObjectId(obj)
+            if (id) history.pushRemove(id, history.snapshot(obj))
+          })
           fabricCanvas.remove(active)
           fabricCanvas.discardActiveObject()
           fabricCanvas.requestRenderAll()
@@ -597,7 +706,8 @@ const FabricCanvasInner = (
             fabricCanvas,
             boardId,
             applyLockStateCallbackRef,
-            () => lockOptsRef.current.userId
+            () => lockOptsRef.current.userId,
+            isRemoteChangeRef
           )
         : () => {}
 
@@ -722,6 +832,73 @@ const FabricCanvasInner = (
     fabricCanvas.on('mouse:dblclick', handleDblClick)
     window.addEventListener('mouseup', handleWindowMouseUp)
 
+    // --- History: record local add / modify / remove (skip remote changes) ---
+
+    // Capture before-state on first moving/scaling/rotating frame so we have a baseline for object:modified
+    const handleMoveForHistory = (e: { target?: FabricObject }) => {
+      if (!e.target || isRemoteChangeRef.current || history.isPaused()) return
+      getObjectsToHistorize(e.target).forEach((obj) => {
+        const id = getObjectId(obj)
+        if (id && !preModifySnapshotsRef.current.has(id)) {
+          preModifySnapshotsRef.current.set(id, history.snapshot(obj))
+        }
+      })
+    }
+
+    // On mouse:up after a transform, object:modified fires — push modify with before/after
+    const handleModifiedForHistory = (e: { target?: FabricObject }) => {
+      if (!e.target || isRemoteChangeRef.current || history.isPaused()) return
+      getObjectsToHistorize(e.target).forEach((obj) => {
+        const id = getObjectId(obj)
+        if (!id) return
+        const before = preModifySnapshotsRef.current.get(id)
+        if (!before) return
+        history.pushModify(id, before, history.snapshot(obj))
+      })
+      preModifySnapshotsRef.current.clear()
+    }
+
+    // Track adds (skip remote, preview objects without ID, and undo/redo re-adds)
+    const handleAddedForHistory = (e: { target?: FabricObject }) => {
+      const obj = e.target
+      if (!obj || isRemoteChangeRef.current || history.isPaused()) return
+      history.pushAdd(obj)
+    }
+
+    // Clear stale before-snapshots when selection drops
+    const handleSelectionClearedForHistory = () => {
+      preModifySnapshotsRef.current.clear()
+    }
+
+    // Text editing history: capture before on enter, push modify on exit
+    let textBeforeSnapshot: { objectId: string; snapshot: Record<string, unknown> } | null = null
+    const handleTextEditingEntered = (e: { target?: FabricObject }) => {
+      const textObj = e.target
+      if (!textObj || isRemoteChangeRef.current) return
+      const parent = (textObj as unknown as { group?: FabricObject }).group || textObj
+      const id = getObjectId(parent)
+      if (!id) return
+      textBeforeSnapshot = { objectId: id, snapshot: history.snapshot(parent) }
+    }
+    const handleTextEditingExited = (e: { target?: FabricObject }) => {
+      const textObj = e.target
+      if (!textObj || !textBeforeSnapshot || history.isPaused()) return
+      const parent = (textObj as unknown as { group?: FabricObject }).group || textObj
+      const id = getObjectId(parent)
+      if (!id || id !== textBeforeSnapshot.objectId) return
+      history.pushModify(id, textBeforeSnapshot.snapshot, history.snapshot(parent))
+      textBeforeSnapshot = null
+    }
+
+    fabricCanvas.on('object:moving', handleMoveForHistory)
+    fabricCanvas.on('object:scaling', handleMoveForHistory)
+    fabricCanvas.on('object:rotating', handleMoveForHistory)
+    fabricCanvas.on('object:modified', handleModifiedForHistory)
+    fabricCanvas.on('object:added', handleAddedForHistory)
+    fabricCanvas.on('selection:cleared', handleSelectionClearedForHistory)
+    fabricCanvas.on('text:editing:entered', handleTextEditingEntered)
+    fabricCanvas.on('text:editing:exited', handleTextEditingExited)
+
     const resizeObserver = new ResizeObserver((entries) => {
       const entry = entries[0]
       if (!entry) return
@@ -732,6 +909,8 @@ const FabricCanvasInner = (
 
     return () => {
       zoomApiRef.current = null
+      historyRef.current = null
+      history.clear()
       cleanupDocSync()
       fabricCanvas.off('before:render', drawGrid)
       fabricCanvas.off('object:modified', handleObjectModified)
@@ -751,6 +930,18 @@ const FabricCanvasInner = (
       fabricCanvas.off('mouse:up', handleMouseUpForText)
       fabricCanvas.off('mouse:dblclick', handleDblClick)
       window.removeEventListener('mouseup', handleWindowMouseUp)
+      fabricCanvas.off('object:moving', handleMoveForHistory)
+      fabricCanvas.off('object:scaling', handleMoveForHistory)
+      fabricCanvas.off('object:rotating', handleMoveForHistory)
+      fabricCanvas.off('object:modified', handleModifiedForHistory)
+      fabricCanvas.off('object:added', handleAddedForHistory)
+      fabricCanvas.off('selection:cleared', handleSelectionClearedForHistory)
+      fabricCanvas.off('text:editing:entered', handleTextEditingEntered)
+      fabricCanvas.off('text:editing:exited', handleTextEditingExited)
+      canvasEl.removeEventListener('touchstart', handleTouchStart)
+      canvasEl.removeEventListener('touchmove', handleTouchMove)
+      canvasEl.removeEventListener('touchend', handleTouchEnd)
+      canvasEl.removeEventListener('touchcancel', handleTouchEnd)
       resizeObserver.disconnect()
       fabricCanvas.dispose()
       el.removeChild(canvasEl)
@@ -794,6 +985,7 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'default',
     position: 'relative',
     zIndex: 1,
+    touchAction: 'none', // let JS own all touch gestures; prevents browser scroll/zoom conflicts
   },
 }
 

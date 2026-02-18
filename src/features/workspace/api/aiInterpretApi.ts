@@ -4,7 +4,6 @@
  */
 
 import { getSupabaseClient } from '@/shared/lib/supabase/config'
-import { env } from '@/shared/config/env'
 
 const FUNCTION_NAME = 'ai-interpret'
 
@@ -20,32 +19,24 @@ export type AiCommand =
 
 export async function invokeAiInterpret(boardId: string, prompt: string): Promise<AiInterpretResponse> {
   const supabase = getSupabaseClient()
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session?.access_token) {
-    throw new Error('You must be signed in to use AI.')
-  }
 
-  const res = await fetch(`${env.supabaseUrl}/functions/v1/${FUNCTION_NAME}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${session.access_token}`,
-      apikey: env.supabaseAnonKey,
-    },
-    body: JSON.stringify({ boardId, prompt }),
-  })
+  const { data, error } = await supabase.functions.invoke<AiInterpretResponse & { error?: string }>(
+    FUNCTION_NAME,
+    { body: { boardId, prompt } }
+  )
 
-  const data = (await res.json()) as AiInterpretResponse & { error?: string }
-  if (!res.ok) {
-    if (res.status === 401) {
-      throw new Error('Not authorized. Sign in again, or deploy: supabase functions deploy ai-interpret')
+  if (error) {
+    // FunctionsHttpError carries the HTTP status; extract message from body if possible
+    const msg = (error as { message?: string; context?: { json?: () => Promise<{ error?: string }> } }).message ?? String(error)
+    if (msg.includes('401') || msg.toLowerCase().includes('unauthorized') || msg.toLowerCase().includes('not authorized')) {
+      throw new Error('Not authorized — make sure you are signed in and the function is deployed.')
     }
-    throw new Error(data?.error ?? `AI interpret failed (${res.status})`)
+    throw new Error(msg)
   }
 
-  if (!Array.isArray(data.commands)) {
+  if (!data || !Array.isArray(data.commands)) {
     throw new Error('Invalid AI response: missing commands array')
   }
 
-  return data
+  return data as AiInterpretResponse
 }

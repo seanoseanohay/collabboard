@@ -46,11 +46,22 @@
 - ~~**zIndex layering (MVP §4)**~~ ✅ — Bring to front / send to back. boardSync: getObjectZIndex/setObjectZIndex, sortCanvasByZIndex; zIndex in emitAdd/emitModify/applyRemote; FabricCanvas bringToFront/sendToBack; toolbar layer buttons when selection.
 
 ### Post-MVP
-- ~~**AI agent**~~ ✅ — ai-interpret Edge Function (OpenAI gpt-4o-mini), AiPromptBar, invokeAiInterpret + executeAiCommands. Natural language → createObject/updateObject/deleteObjects via aiClientApi. OPENAI_API_KEY secret. Deploy: `supabase functions deploy ai-interpret`.
+- ~~**AI agent**~~ ✅ (code done, awaiting OpenAI key fix) — ai-interpret Edge Function (OpenAI gpt-4o-mini), AiPromptBar, invokeAiInterpret + executeAiCommands. Natural language → createObject/updateObject/deleteObjects via aiClientApi. OPENAI_API_KEY secret. Deploy: `supabase functions deploy ai-interpret --no-verify-jwt`. **🔴 User must update OpenAI key in Supabase secrets — restricted key is missing `model.request` scope (Model capabilities permission).**
 - Undo/Redo
+- **MeBoard branding** — Phase 1 ✅ done (safe parallel items); Phase 2 deferred until Undo/Redo merges. Spec: docs/MeBoard_BRANDING_SPEC.md.
+  - ✅ LoginPage rebrand — hero copy ("MeBoard", "Ahoy Captain"), parchment card, gold Google button ("Join the Crew with Google"), "Enter the Ship" submit, "New to the crew?" toggle, "Why MeBoard?" section, testimonial, CTA
+  - ✅ NavBar + Footer — `src/shared/components/NavBar.tsx` + `Footer.tsx`; rendered in LoginPage
+  - ✅ index.html — "MeBoard – Pirate-Themed Collaborative Whiteboard"; OG tags; anchor emoji favicon
+  - ✅ App.tsx loading — "Hoisting the sails…" with ⚓ icon on navy gradient
+  - ✅ Pirate cursor icons — CursorOverlay: emoji badge (⚓🦜🧭☠️🔱) hash-assigned per userId; color dot badge in corner
+  - 🔜 Map border overlay + toggle (WorkspacePage/WorkspaceToolbar) — after Undo/Redo
+  - 🔜 Pirate Plunder stickers (FabricCanvas, shapeFactory, toolbar) — after Undo/Redo
+- **Planned canvas features** — docs/PLANNED_CANVAS_FEATURES.md: Object grouping, Free draw, Lasso selection, Multi-scale map vision. See doc for implementation notes and effort estimates.
 - ~~Rotation (Task G)~~ ✅ — object:rotating hooked to emitModifyThrottled in boardSync.ts; rotation syncs live
 - ~~**Per-object stroke width (border thickness)**~~ ✅ — StrokeControl in toolbar when selection has stroke (1/2/4/8px); strokeUtils + FabricCanvas ref; sync via existing object:modified.
-- Revocable invite links, touch handling, 6+ AI commands
+- ~~Touch handling~~ ✅ — Two-finger pan + pinch zoom via native touch events on canvas element; touch-action:none on container; single-touch via Fabric pointer-event mapping.
+- Undo/Redo (next up)
+- 6+ AI commands
 - ~~**AI Client API**~~ ✅ — createObject, updateObject, deleteObjects, queryObjects in workspace/api/aiClientApi.ts; documentsApi: getDocument, fetchDocuments(criteria); exported from @/features/workspace. See docs/AI_CLIENT_API.md.
 - ~~**AI Client API docs (Task B)**~~ ✅ — docs/AI_CLIENT_API.md updated: marked "Implemented (client + Edge Function)", import examples, usage examples. Edge Function (supabase/functions/ai-canvas-ops/index.ts) + frontend wrapper (aiCanvasOpsEdgeApi.ts) + barrel export all in place.
 
@@ -61,7 +72,13 @@
 
 ## Current Status
 **Phase:** MVP complete. zIndex layering (bring to front / send to back), stroke width, toolbar, sync, locking, presence.
-**Next:** Post-MVP (AI agent, Undo/Redo); or polish (revocable invites, etc.).
+**Next:** Fix OpenAI key permissions (user action) → AI agent fully working. Then: Undo/Redo, or polish (revocable invites, etc.).
+
+## 🔴 Blocking Issue: AI Agent OpenAI Key Permissions
+The AI agent function is deployed and auth is working, but the OpenAI API key stored in Supabase secrets is missing the `model.request` scope.
+- **Error:** `"Missing scopes: model.request. Check that you have the correct role..."`
+- **Fix:** User must edit their OpenAI restricted API key → enable "Model capabilities" → update value in Supabase Project Settings → Edge Functions → Secrets → `OPENAI_API_KEY`
+- No code changes needed, no redeployment needed — just update the secret value.
 
 ## Known Issues
 - ~~**Multi-selection move drift**~~ ✅ FIXED — See Recently Fixed below.

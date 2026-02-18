@@ -3,7 +3,11 @@
 ## Current Focus (for next agent)
 **Multi-selection move drift: FIXED (2026-02-18).** Root cause was originX/originY vs calcTransformMatrix center mismatch — see systemPatterns for the pattern doc. All three fixes in boardSync.ts. No remaining high-priority bugs.
 
-**Next up:** Post-MVP polish — Undo/Redo, touch handling. Revocable invite links deprioritized (do last). AI agent ✅ done (ai-interpret + AiPromptBar).
+**Next up:** Post-MVP polish — Undo/Redo. Touch handling ✅ done. Revocable invite links removed from scope. AI agent ✅ done (ai-interpret + AiPromptBar).
+
+**Planned: MeBoard branding** — Pirate-themed rebrand (CollabBoard → MeBoard). Full spec in docs/MeBoard_BRANDING_SPEC.md: hero/copy, parchment visuals, treasure map canvas border, pirate presence icons, Pirate Plunder stickers, nav/footer, easter eggs.
+
+**Planned canvas features** — See docs/PLANNED_CANVAS_FEATURES.md: Object grouping (Group/Ungroup), Free draw (pencil), Lasso selection, Multi-scale map vision (with MeBoard border).
 
 ### What Was Fixed (2026-02-17)
 1. **Locking never enabled** — Effect ran before auth loaded; `userId`/`userName` were empty. Added `userId`/`userName` to effect deps so sync re-ran when auth ready.

@@ -3,6 +3,8 @@
 ## Why This Exists
 CollabBoard is a real-time collaborative whiteboard that enables multiple users to work on an infinite canvas together, with an AI agent that can assist with board operations. It's designed for Gauntlet AI G4 Week 1 as a 7-day sprint deliverable.
 
+**Planned rebrand: MeBoard** — Pirate-themed branding with treasure map canvas, nautical visuals, and pirate stickers. See docs/MeBoard_BRANDING_SPEC.md.
+
 ## Problems It Solves
 - Real-time whiteboard collaboration with low latency
 - Conflict-free concurrent editing via locking and server timestamps

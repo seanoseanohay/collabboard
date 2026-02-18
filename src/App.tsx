@@ -9,8 +9,9 @@ function App() {
 
   if (loading) {
     return (
-      <div style={loadingStyles}>
-        <p>Loading…</p>
+      <div style={loadingStyles.container}>
+        <span style={loadingStyles.ship}>⚓</span>
+        <p style={loadingStyles.text}>Hoisting the sails…</p>
       </div>
     )
   }
@@ -30,12 +31,24 @@ function App() {
 
 export default App
 
-const loadingStyles: React.CSSProperties = {
-  minHeight: '100vh',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  background: '#1a1a2e',
-  color: '#fff',
-  fontSize: 18,
+const loadingStyles = {
+  container: {
+    minHeight: '100vh',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: 'linear-gradient(160deg, #0d1117 0%, #1a1a2e 100%)',
+    gap: 12,
+  } as React.CSSProperties,
+  ship: {
+    fontSize: 40,
+    animation: 'none',
+  } as React.CSSProperties,
+  text: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 16,
+    margin: 0,
+    fontStyle: 'italic',
+  } as React.CSSProperties,
 }

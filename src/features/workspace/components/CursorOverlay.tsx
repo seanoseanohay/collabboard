@@ -1,6 +1,7 @@
 /**
- * Overlay showing other users' cursors with name labels.
+ * Overlay showing other users' cursors with pirate icon badges and name labels.
  * Transforms scene (world) coords to screen coords via viewport.
+ * Pirate icon is deterministically assigned per userId via hash.
  */
 
 import type { PresenceEntry } from '../api/presenceApi'
@@ -10,6 +11,16 @@ interface CursorOverlayProps {
   viewportTransform: number[] | null
   width: number
   height: number
+}
+
+const PIRATE_ICONS = ['⚓', '🦜', '🧭', '☠️', '🔱']
+
+function getPirateIcon(userId: string): string {
+  let hash = 0
+  for (let i = 0; i < userId.length; i++) {
+    hash = (hash * 31 + userId.charCodeAt(i)) | 0
+  }
+  return PIRATE_ICONS[Math.abs(hash) % PIRATE_ICONS.length]
 }
 
 function sceneToScreen(
@@ -41,6 +52,7 @@ export function CursorOverlay({
         const inView =
           x >= -20 && x <= width + 20 && y >= -20 && y <= height + 20
         if (!inView) return null
+        const icon = getPirateIcon(c.userId)
         return (
           <div
             key={c.userId}
@@ -51,7 +63,15 @@ export function CursorOverlay({
               ['--cursor-color' as string]: c.color,
             }}
           >
-            <div style={styles.dot} />
+            <div style={styles.iconBadge}>
+              <span style={styles.pirateIcon}>{icon}</span>
+              <div
+                style={{
+                  ...styles.colorDot,
+                  background: c.color,
+                }}
+              />
+            </div>
             <div style={styles.label}>{c.name}</div>
           </div>
         )
@@ -68,28 +88,41 @@ const styles: Record<string, React.CSSProperties> = {
   },
   cursor: {
     position: 'absolute',
-    transform: 'translate(-4px, -4px)',
+    transform: 'translate(-8px, -8px)',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
   },
-  dot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    background: 'var(--cursor-color, #6366f1)',
-    border: '2px solid white',
+  iconBadge: {
+    position: 'relative',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pirateIcon: {
+    fontSize: 18,
+    lineHeight: 1,
+    filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.35))',
+  },
+  colorDot: {
+    position: 'absolute',
+    bottom: -1,
+    right: -3,
+    width: 8,
+    height: 8,
+    borderRadius: '50%',
+    border: '1.5px solid white',
     boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
   },
   label: {
-    marginTop: 2,
+    marginTop: 3,
     padding: '2px 6px',
     fontSize: 11,
-    fontWeight: 500,
+    fontWeight: 600,
     color: '#1a1a2e',
     background: 'white',
     borderRadius: 4,
-    boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
     whiteSpace: 'nowrap',
     maxWidth: 120,
     overflow: 'hidden',
