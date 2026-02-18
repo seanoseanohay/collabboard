@@ -27,15 +27,20 @@ const TOOLS: { id: ToolType; label: string }[] = [
   { id: 'sticky', label: 'Sticky note' },
 ]
 
-const ZOOM_PRESETS = [0.25, 0.5, 1, 2, 4]
-const ZOOM_SLIDER_MIN = 0.25
-const ZOOM_SLIDER_MAX = 4
+const ZOOM_PRESETS = [0.00001, 0.001, 0.01, 0.25, 0.5, 1, 2, 4, 10, 100]
+const ZOOM_SLIDER_MIN = 0.00001  // 0.001%
+const ZOOM_SLIDER_MAX = 100      // 10000%
 
 function zoomToLabel(z: number): string {
-  return `${Math.round(z * 100)}%`
+  const pct = z * 100
+  if (pct >= 100) return `${Math.round(pct)}%`
+  if (pct >= 10)  return `${Math.round(pct)}%`
+  if (pct >= 1)   return `${pct.toFixed(1)}%`
+  if (pct >= 0.1) return `${pct.toFixed(2)}%`
+  return `${pct.toFixed(3)}%`
 }
 
-/** Map zoom (0.25–4) to slider value (0–100) using log scale */
+/** Map zoom (full range) to slider value (0–100) using log scale */
 function zoomToSliderValue(zoom: number): number {
   const clamped = Math.min(ZOOM_SLIDER_MAX, Math.max(ZOOM_SLIDER_MIN, zoom))
   const logMin = Math.log(ZOOM_SLIDER_MIN)
