@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import type { BoardMeta } from '@/features/boards/api/boardsApi'
 import { useAuth } from '@/features/auth/hooks/useAuth'
-import { FabricCanvas } from './FabricCanvas'
+import { FabricCanvas, type FabricCanvasZoomHandle } from './FabricCanvas'
 import { ShareModal } from './ShareModal'
 import { WorkspaceToolbar } from './WorkspaceToolbar'
 import { CursorOverlay } from './CursorOverlay'
@@ -19,6 +19,7 @@ export function WorkspacePage({ board, onBack }: WorkspacePageProps) {
   const [canvasSize, setCanvasSize] = useState({ width: 1200, height: 800 })
   const [shareOpen, setShareOpen] = useState(false)
   const canvasContainerRef = useRef<HTMLDivElement>(null)
+  const canvasZoomRef = useRef<FabricCanvasZoomHandle>(null)
 
   const { user } = useAuth()
   const userName = user?.displayName ?? user?.email ?? 'Anonymous'
@@ -80,9 +81,16 @@ export function WorkspacePage({ board, onBack }: WorkspacePageProps) {
           </span>
         )}
       </header>
-      <WorkspaceToolbar selectedTool={selectedTool} onToolChange={setSelectedTool} />
+      <WorkspaceToolbar
+        selectedTool={selectedTool}
+        onToolChange={setSelectedTool}
+        zoom={viewportTransform?.[0] ?? 1}
+        onZoomToFit={() => canvasZoomRef.current?.zoomToFit()}
+        onZoomSet={(z) => canvasZoomRef.current?.setZoom(z)}
+      />
       <div ref={canvasContainerRef} style={styles.canvas}>
         <FabricCanvas
+          ref={canvasZoomRef}
           selectedTool={selectedTool}
           boardId={board.id}
           userId={user?.uid}

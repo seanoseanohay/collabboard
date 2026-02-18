@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
 import { Canvas, Point, type FabricObject } from 'fabric'
 
 /** IText has enterEditing; FabricText does not. Check by method presence. */
@@ -9,6 +9,11 @@ import type { ToolType } from '../types/tools'
 import { isShapeTool } from '../types/tools'
 import { createShape } from '../lib/shapeFactory'
 import { setupDocumentSync, setupLockSync, type LockStateCallbackRef } from '../lib/boardSync'
+
+export interface FabricCanvasZoomHandle {
+  setZoom: (zoom: number) => void
+  zoomToFit: () => void
+}
 
 interface FabricCanvasProps {
   width?: number
@@ -25,23 +30,27 @@ interface FabricCanvasProps {
 /**
  * Fabric.js canvas wrapper with pan/zoom and shape drawing.
  * - Mouse wheel: zoom at cursor
- * - Pan: middle mouse or Space+left-drag (enables box-select on left-drag empty)
- * - Select tool: single-click object, drag empty = marquee box-select
- * - Shape tools: drag to create rect/circle/triangle/line/text/sticky
+ * - Pan: middle mouse, Hand tool, or Space+left-drag
+ * - Shortcuts: +/− zoom, 0 fit, 1 = 100%
+ * - Shape tools: drag to create shape (never select when shape tool active)
  */
-export function FabricCanvas({
-  width = 1200,
-  height = 800,
-  className,
-  selectedTool = 'select',
-  boardId,
-  userId,
-  userName,
-  onPointerMove,
-  onViewportChange,
-}: FabricCanvasProps) {
+const FabricCanvasInner = (
+  {
+    width = 1200,
+    height = 800,
+    className,
+    selectedTool = 'select',
+    boardId,
+    userId,
+    userName,
+    onPointerMove,
+    onViewportChange,
+  }: FabricCanvasProps,
+  ref: React.Ref<FabricCanvasZoomHandle>
+) => {
   const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<Canvas | null>(null)
+  const zoomApiRef = useRef<FabricCanvasZoomHandle | null>(null)
   const toolRef = useRef(selectedTool)
   toolRef.current = selectedTool
   const onPointerMoveRef = useRef(onPointerMove)
@@ -51,6 +60,11 @@ export function FabricCanvas({
   const lockOptsRef = useRef({ userId: userId ?? '', userName: userName ?? 'Anonymous' })
   lockOptsRef.current = { userId: userId ?? '', userName: userName ?? 'Anonymous' }
   const applyLockStateCallbackRef = useRef<LockStateCallbackRef['current']>(null)
+
+  useImperativeHandle(ref, () => ({
+    setZoom: (z) => zoomApiRef.current?.setZoom(z),
+    zoomToFit: () => zoomApiRef.current?.zoomToFit(),
+  }), [])
 
   useEffect(() => {
     const el = containerRef.current
@@ -123,9 +137,11 @@ export function FabricCanvas({
       const tool = toolRef.current
       objectWasTransformed = false  // Reset at start of each mouse interaction
 
-      if (isShapeTool(tool) && 'button' in ev && ev.button === 0 && !target) {
+      // With a shape tool active, pointer-down always starts drawing (never selects).
+      if (isShapeTool(tool) && 'button' in ev && ev.button === 0) {
         const sp = getScenePoint(opt)
         if (sp) {
+          fabricCanvas.discardActiveObject()
           isDrawing = true
           drawStart = sp
           const shape = createShape(tool, sp.x, sp.y, sp.x, sp.y, { assignId: false })
@@ -141,9 +157,14 @@ export function FabricCanvas({
 
       const isMiddle = 'button' in ev && ev.button === 1
       const isSpaceLeftOnEmpty = 'button' in ev && ev.button === 0 && !target && spacePressed
+      const isHandDrag = tool === 'hand' && 'button' in ev && ev.button === 0
       if ((isMiddle || isSpaceLeftOnEmpty) && tool === 'select') {
         isPanning = true
         lastPointer = { x: ev.clientX, y: ev.clientY }
+      } else if (isHandDrag) {
+        isPanning = true
+        lastPointer = { x: ev.clientX, y: ev.clientY }
+        fabricCanvas.discardActiveObject()
       }
     }
 
@@ -290,6 +311,57 @@ export function FabricCanvas({
         ('getObjects' in (active as object) &&
           (active as { getObjects: () => unknown[] }).getObjects().some(hasEditingText)))
 
+    const zoomStep = 1.25
+    const center = new Point(width / 2, height / 2)
+    const applyZoom = (newZoom: number) => {
+      const clamped = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, newZoom))
+      fabricCanvas.zoomToPoint(center, clamped)
+      fabricCanvas.requestRenderAll()
+      notifyViewport()
+    }
+    const zoomToFit = () => {
+      const objs = fabricCanvas.getObjects()
+      if (objs.length === 0) {
+        fabricCanvas.setZoom(1)
+        if (fabricCanvas.viewportTransform) {
+          fabricCanvas.viewportTransform[0] = 1
+          fabricCanvas.viewportTransform[3] = 1
+          fabricCanvas.viewportTransform[4] = 0
+          fabricCanvas.viewportTransform[5] = 0
+        }
+        fabricCanvas.requestRenderAll()
+        notifyViewport()
+        return
+      }
+      const bounds = objs.reduce(
+        (acc, obj) => {
+          const b = (obj as { getBoundingRect: (absolute?: boolean) => { left: number; top: number; width: number; height: number } }).getBoundingRect(true)
+          return {
+            minX: Math.min(acc.minX, b.left),
+            minY: Math.min(acc.minY, b.top),
+            maxX: Math.max(acc.maxX, b.left + b.width),
+            maxY: Math.max(acc.maxY, b.top + b.height),
+          }
+        },
+        { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity }
+      )
+      const padding = 40
+      const contentW = bounds.maxX - bounds.minX + padding * 2
+      const contentH = bounds.maxY - bounds.minY + padding * 2
+      const zoomX = width / contentW
+      const zoomY = height / contentH
+      const fitZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Math.min(zoomX, zoomY)))
+      const cx = (bounds.minX + bounds.maxX) / 2
+      const cy = (bounds.minY + bounds.maxY) / 2
+      const vpt = fabricCanvas.viewportTransform ?? [1, 0, 0, 1, 0, 0]
+      vpt[0] = fitZoom
+      vpt[3] = fitZoom
+      vpt[4] = width / 2 - cx * fitZoom
+      vpt[5] = height / 2 - cy * fitZoom
+      fabricCanvas.requestRenderAll()
+      notifyViewport()
+    }
+
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
@@ -310,6 +382,20 @@ export function FabricCanvas({
           fabricCanvas.requestRenderAll()
         }
       }
+      // Zoom shortcuts: +/= in, - out, 0 fit, 1 = 100%
+      if (e.key === '=' || e.key === '+') {
+        e.preventDefault()
+        applyZoom(fabricCanvas.getZoom() * zoomStep)
+      } else if (e.key === '-') {
+        e.preventDefault()
+        applyZoom(fabricCanvas.getZoom() / zoomStep)
+      } else if (e.key === '0') {
+        e.preventDefault()
+        zoomToFit()
+      } else if (e.key === '1' && !e.shiftKey) {
+        e.preventDefault()
+        applyZoom(1)
+      }
     }
     const handleKeyUp = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement
@@ -327,6 +413,8 @@ export function FabricCanvas({
     }
     document.addEventListener('keydown', handleKeyDown)
     document.addEventListener('keyup', handleKeyUp)
+
+    zoomApiRef.current = { setZoom: applyZoom, zoomToFit }
 
     // Document sync only - never torn down when auth changes
     const cleanupDocSync =
@@ -396,6 +484,7 @@ export function FabricCanvas({
     resizeObserver.observe(el)
 
     return () => {
+      zoomApiRef.current = null
       cleanupDocSync()
       fabricCanvas.off('object:added', handleObjectAdded)
       fabricCanvas.off('selection:created', handleSelectionCreated)
@@ -439,7 +528,16 @@ export function FabricCanvas({
     return cleanupLockSync
   }, [boardId, userId, userName])
 
-  return <div ref={containerRef} className={className} style={styles.container} />
+  return (
+    <div
+      ref={containerRef}
+      className={className}
+      style={{
+        ...styles.container,
+        cursor: selectedTool === 'hand' ? 'grab' : undefined,
+      }}
+    />
+  )
 }
 
 const styles: Record<string, React.CSSProperties> = {
@@ -451,3 +549,5 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'default',
   },
 }
+
+export const FabricCanvas = forwardRef(FabricCanvasInner)

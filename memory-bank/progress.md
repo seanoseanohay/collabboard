@@ -47,18 +47,22 @@
 - Undo/Redo
 - Rotation (throttled ~50ms)
 - Revocable invite links, touch handling, 6+ AI commands
+- **AI Client API** — createObject, updateObject, deleteObjects, queryObjects so all app actions are API-callable (enables AI-driven canvas operations). See docs/AI_CLIENT_API.md.
 
 ## Current Status
-**Phase:** MVP near complete. Very wide zoom (0.01%–10000%) in place for MVP. Locking and document sync working.
-**Next:** Hand tool / two-finger pan / shortcuts (zoom/pan); shape-tool vs selection; or board loading performance.
+**Phase:** MVP complete. Hand tool, zoom shortcuts, zoom UI, shape-tool fix, and paginated document load are in place.
+**Next:** Post-MVP (AI agent, Undo/Redo); or polish (two-finger/touch pan/zoom, revocable invites).
 
 ## Known Issues
-- **Shape tool vs selection** — When a shape tool is active (circle, rect, triangle, etc.), drawing inside an existing object (e.g. after zooming in) selects that object instead of creating a new shape. Selection should only occur when the select tool is active; with any shape tool, pointer down/drag should create the new shape, not select. Fix in FabricCanvas: when `selectedTool !== 'select'`, prevent selection (e.g. discard active object on draw start, or make objects non-selectable during shape-tool interaction). Do soon.
-- **Board loading performance** — Fetches ALL objects upfront. Slow on boards with 50+ objects. Consider lazy loading or pagination.
 - **Legacy Line objects** — Old Fabric Line objects have movement bug. New lines use Polyline.
 - **StrictMode** — Removed from main.tsx (was causing Realtime channel churn). Re-add for prod if desired.
 
 ## Recently Fixed (2026-02-17)
+- ✅ **Shape tool vs selection** — With any shape tool active, pointer-down always starts drawing (never selects). FabricCanvas: discardActiveObject + draw start regardless of target.
+- ✅ **Hand tool** — New toolbar tool; left-drag always pans (cursor: grab). No selection when hand active.
+- ✅ **Zoom shortcuts** — +/= zoom in, − zoom out, 0 = fit to content, 1 = 100%. FabricCanvas handleKeyDown.
+- ✅ **Zoom UI** — Toolbar zoom dropdown (25%, 50%, 100%, 200%, 400%, Fit). FabricCanvas ref exposes setZoom/zoomToFit; WorkspacePage wires ref + viewport zoom.
+- ✅ **Board loading** — Paginated initial fetch (documentsApi): PAGE_SIZE 50, order by object_id, range(); first batch applied immediately, rest in sequence so UI stays responsive.
 - ✅ Zoom (MVP) — Very wide zoom range 0.01%–10000% (MIN_ZOOM 0.0001, MAX_ZOOM 100); FabricCanvas. Figma-like infinite canvas.
 - ✅ Multi-selection move sync (scene coords) — Objects in selection were synced with group-relative coords → others saw them disappear during move and in wrong place on drop. Now payloadWithSceneCoords() uses qrDecompose(calcTransformMatrix()) so we sync absolute left/top/angle/scale.
 - ✅ Multi-selection move sync — Moving multiple selected objects (circle + triangle) now syncs; boardSync getObjectsToSync + pendingMoveIds

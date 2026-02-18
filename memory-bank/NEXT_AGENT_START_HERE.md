@@ -4,31 +4,32 @@
 
 ## Current State
 
-**Locking, document sync, Google Auth, presence awareness, multi-selection move sync, and very wide zoom (MVP) are working.** ✅
+**MVP is complete.** Locking, sync, presence, Hand tool, zoom shortcuts + zoom UI, shape-tool fix, and paginated document load are in place.
 
 ### What Was Done (Previous Session)
-1. **Zoom (MVP)** — Very wide zoom range: MIN_ZOOM = 0.0001 (0.01%), MAX_ZOOM = 100 (10000%). FabricCanvas.tsx. PRD §2.1 and memory bank updated.
-2. **Multi-selection move sync** — boardSync getObjectsToSync + pendingMoveIds + payloadWithSceneCoords for scene coordinates.
+1. **Shape tool vs selection** — With any shape tool active, pointer-down always starts drawing (discardActiveObject + draw); never selects. FabricCanvas handleMouseDown.
+2. **Hand tool** — New tool in WorkspaceToolbar; left-drag pans (cursor grab); FabricCanvas isHandDrag branch.
+3. **Zoom shortcuts** — +/= in, − out, 0 fit to content, 1 = 100%. applyZoom/zoomToFit in FabricCanvas; handleKeyDown.
+4. **Zoom UI** — Toolbar zoom dropdown (25%–400% + Fit). FabricCanvas ref (FabricCanvasZoomHandle) exposes setZoom/zoomToFit; WorkspacePage passes zoom from viewport and ref to toolbar.
+5. **Board loading** — documentsApi fetchInitial paginated: PAGE_SIZE 50, order by object_id, range(); batches applied in sequence so first 50 appear quickly.
 
 ### Completed
-- Google Auth ✅
-- Presence awareness ✅ — Names in header
-- Multi-selection move sync ✅
-- **Very wide zoom (MVP)** ✅ — 0.01%–10000%+
+- Google Auth, presence awareness, multi-selection move sync, very wide zoom ✅
+- **Shape tool fix** ✅ — Draw never selects when shape tool active
+- **Hand tool** ✅
+- **Zoom shortcuts** ✅ — +/-, 0, 1
+- **Zoom UI** ✅ — Dropdown in toolbar
+- **Paginated document load** ✅
 
 ## Next Items (suggested)
 
-**Zoom/pan (Figma-like) — planned, not yet implemented:**
-- Hand tool — toolbar; left-drag always pans, never moves object.
-- Two-finger drag = pan, pinch / Ctrl+wheel = zoom.
-- Infinite pan (no hard bounds).
-- Shortcuts: Space+drag, +/-, 0 (fit), 1 (100%).
-- Zoom UI (dropdown/slider) — production list only.
-
-**Other:**
-- **Shape tool vs selection** — With shape tool active, drawing inside existing object should create shape not select. Fix: FabricCanvas when `selectedTool !== 'select'` prevent selection.
-- **Board loading performance** — Lazy load for 50+ objects.
+**Post-MVP / polish:**
+- Two-finger drag = pan, pinch = zoom (touch).
+- AI agent (Edge Function, Claude).
+- Undo/Redo, rotation (throttled).
+- Revocable invite links.
 
 ## Quick Reference
 - **boardSync.ts:** getObjectsToSync(), pendingMoveIds (Set), object:modified syncs each in selection.
-- **Fabric:** ActiveSelection has getObjects() but no data.id; we sync each child.
+- **FabricCanvas:** forwardRef with FabricCanvasZoomHandle (setZoom, zoomToFit). Hand tool: isHandDrag → pan. Shape tool: always draw, no !target check.
+- **documentsApi:** subscribeToDocuments fetchInitial uses .range(offset, offset + PAGE_SIZE - 1) in a loop.

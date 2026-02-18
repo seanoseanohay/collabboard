@@ -56,4 +56,4 @@ Bulletproof multiplayer sync + reliable AI agent in a 7-day sprint. Project comp
 ## Scope Boundaries
 - **In scope (MVP):** Shapes (rect, circle, triangle, line), sticky notes, standalone text; create/move/resize/color/delete/zIndex; viewport culling; Fabric.js canvas; **minimal board sharing** (share link or join-by-ID)
 - **Out of scope (MVP):** Rotation, guest access, **revocable** invites, AI agent, Undo/Redo
-- **Post-MVP:** AI agent, Undo/Redo, Rotation
+- **Post-MVP:** AI agent, Undo/Redo, Rotation, AI Client API (createObject, updateObject, deleteObjects, queryObjects)

@@ -29,7 +29,8 @@ code, mitigated by viewport culling and delta-only strategy.
 - Transforms (move, resize; rotate post-MVP)\
 - Delete\
 - Multiplayer cursors + presence\
-- Visual style: Clean, flat (tldraw-like)
+- Visual style: Clean, flat (tldraw-like)\
+- **API-first (Post-MVP):** All canvas and board actions executable via documented client-side API; enables AI assistants to perform same operations as UI. See §0.3 AI Client API.
 
 **Sync / Backend / Persistence --- Firebase Realtime Database (RTDB)**\
 - Delta-only object patches\
@@ -83,6 +84,19 @@ Functions)**
 -   Jest + React Testing Library
 -   ESLint + Prettier + Husky
 -   AI-first development (Cursor + Claude) with human review
+
+------------------------------------------------------------------------
+
+## 0.3 AI Client API (Post-MVP)
+
+All app actions must be API-callable so AI can drive the canvas.
+
+- **createObject(boardId, type, props)** — Create rect, circle, text, sticky, etc.
+- **updateObject(boardId, objectId, partialProps)** — Patch fill, stroke, font, etc.
+- **deleteObjects(boardId, objectIds)** — Single or mass delete
+- **queryObjects(boardId, criteria?)** — Find objects by properties
+
+UI and AI share this API. Document Fabric payload schema for server-side AI (Edge Function) if needed.
 
 ------------------------------------------------------------------------
 
@@ -252,6 +266,8 @@ rejected if lock held
 
 ## 7. AI Board Agent (Post-MVP)
 
+**Client API prerequisite:** AI commands (create, update, delete, query) route through the AI Client API layer. See §0.3.
+
 ### Entry Point
 
 All AI commands routed through Firebase Cloud Function (HTTP/callable)
@@ -351,6 +367,7 @@ for server-side serialization.
 
 ### Production Complete When
 
+-   AI Client API implemented (createObject, updateObject, deleteObjects, queryObjects)
 -   6+ reliable AI commands (including multi-step templates)
 -   Performance targets met
 -   Object rotation fully supported (UI + programmatic + synced)

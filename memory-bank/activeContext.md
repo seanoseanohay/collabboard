@@ -1,7 +1,7 @@
 # Active Context
 
 ## Current Focus (for next agent)
-**Wide zoom (MVP) done.** ✅ Next: Hand tool, two-finger pan, shortcuts, or shape-tool vs selection fix.
+**MVP polish done.** ✅ Shape tool fix, Hand tool, zoom shortcuts + zoom UI, paginated document load. Next: Post-MVP (AI, Undo) or two-finger/touch.
 
 ### What Was Fixed (2026-02-17)
 1. **Locking never enabled** — Effect ran before auth loaded; `userId`/`userName` were empty. Added `userId`/`userName` to effect deps so sync re-ran when auth ready.
@@ -16,9 +16,9 @@
 
 ## Next Steps
 
-1. **Zoom/pan (Figma-like)** — Very wide zoom (0.01%–10000%+) ✅ MVP done. Remaining: Hand tool (left-drag always pan, never move object); two-finger drag = pan, pinch = zoom; infinite pan; shortcuts (Space, +/-, 0, 1). Zoom UI (dropdown/slider) on production list only.
-2. **Shape tool vs selection (priority)** — When a shape tool is active, pointer should create shape not select. Fix: when `selectedTool !== 'select'`, prevent selection; draw path creates shape (FabricCanvas).
-3. **Board loading performance** — Fetches ALL objects upfront. Slow on 50+ objects. Lazy load or pagination.
+1. **Zoom/pan** — Hand tool ✅, shortcuts (+/-, 0 fit, 1 100%) ✅, zoom UI dropdown ✅. Remaining (post-MVP): two-finger drag = pan, pinch = zoom.
+2. ~~**Shape tool vs selection**~~ ✅ — With shape tool active, pointer-down always starts drawing (discardActiveObject + draw); never selects.
+3. ~~**Board loading performance**~~ ✅ — Paginated fetch in documentsApi (50 per batch, order by object_id).
 
 ## Recent Changes (2026-02-17)
 
@@ -62,9 +62,17 @@
 11. ~~**Google Auth**~~ ✅ — Complete (user can log in with Google)
 12. ~~**Presence awareness — "Who's on board"**~~ ✅ — Names list in header ("X others viewing — Alice, Bob"); working as wanted (not perfect).
 13. ~~**Multi-selection move sync**~~ ✅ — boardSync getObjectsToSync + pendingMoveIds; object:modified syncs each in selection.
-14. **Zoom/pan** — Very wide zoom ✅ MVP. Hand tool, two-finger pan, shortcuts, zoom UI (prod list) — planned.
-15. **Shape tool: no selection when drawing** — When shape tool is on, draw not select (do soon).
-16. **Board loading performance** — Lazy load for 50+ objects (Known Issue)
+14. **Zoom/pan** — Very wide zoom ✅, Hand tool ✅, shortcuts (+/-, 0, 1) ✅, zoom UI ✅. Two-finger/touch — post-MVP.
+15. ~~**Shape tool: no selection when drawing**~~ ✅ — FabricCanvas: shape tool always draws, discardActiveObject on pointer down.
+16. ~~**Board loading performance**~~ ✅ — documentsApi fetchInitial paginated (PAGE_SIZE 50).
+
+## Planned: AI Client API (Post-MVP)
+
+**Goal:** All app actions (create objects, update props, delete, query) should be doable via a client-side API so AI (Cursor, Claude, in-app agent) can perform the same operations as the UI.
+
+**Scope:** createObject, updateObject, deleteObjects, queryObjects. UI and AI share this API. See docs/AI_CLIENT_API.md.
+
+**Effort estimate:** ~1–2 days (client-only); ~2–3 days with server Edge Function + query.
 
 ## Active Decisions
 - PRD v5.0: Fabric.js for licensing; viewport culling for perf; AI + Undo post-MVP

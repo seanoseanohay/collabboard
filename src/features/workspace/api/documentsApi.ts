@@ -48,15 +48,28 @@ export function subscribeToDocuments(
 ): () => void {
   const supabase = getSupabaseClient()
 
+  const PAGE_SIZE = 50
+
   const fetchInitial = async () => {
-    const { data } = await supabase
-      .from('documents')
-      .select('object_id, data')
-      .eq('board_id', boardId)
-    for (const row of data ?? []) {
-      if (row?.object_id && row.data) {
-        callbacks.onAdded(row.object_id, row.data as Record<string, unknown>)
+    let offset = 0
+    let hasMore = true
+    while (hasMore) {
+      const { data } = await supabase
+        .from('documents')
+        .select('object_id, data')
+        .eq('board_id', boardId)
+        .order('object_id', { ascending: true })
+        .range(offset, offset + PAGE_SIZE - 1)
+      const rows = data ?? []
+      for (const row of rows) {
+        if (row?.object_id && row.data) {
+          callbacks.onAdded(row.object_id, row.data as Record<string, unknown>)
+        }
       }
+      hasMore = rows.length === PAGE_SIZE
+      offset += PAGE_SIZE
+      // Yield to UI after first batch so canvas appears responsive
+      if (hasMore) await new Promise((r) => setTimeout(r, 0))
     }
   }
 
