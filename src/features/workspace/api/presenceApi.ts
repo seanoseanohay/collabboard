@@ -1,5 +1,7 @@
 /**
- * Supabase presence for multiplayer cursors.
+ * Supabase Realtime Presence for multiplayer cursors.
+ * Uses the Presence API (WebSocket) instead of postgres_changes — no DB round-trip,
+ * so cursor updates have minimal latency. Designed for collaborative cursors.
  */
 
 import { getSupabaseClient } from '@/shared/lib/supabase/config'
@@ -16,99 +18,89 @@ export interface PresenceEntry extends PresencePayload {
   userId: string
 }
 
-export function writePresence(
+/** Presence state shape from Supabase; key is the presence key (userId). */
+interface PresenceState {
+  [key: string]: Array<PresencePayload & { userId?: string }>
+}
+
+function presenceStateToEntries(state: PresenceState): PresenceEntry[] {
+  const entries: PresenceEntry[] = []
+  for (const [key, payloads] of Object.entries(state)) {
+    const p = payloads?.[0]
+    if (p && key) {
+      entries.push({
+        userId: key,
+        x: p.x ?? 0,
+        y: p.y ?? 0,
+        name: p.name ?? 'Anonymous',
+        color: p.color ?? '#6366f1',
+        lastActive: p.lastActive ?? 0,
+      })
+    }
+  }
+  return entries
+}
+
+export interface PresenceChannelHandle {
+  /** Update our cursor position. Call on pointer move (throttled by the hook). */
+  track: (payload: PresencePayload) => void
+  /** Unsubscribe and stop tracking. Call on unmount. */
+  unsubscribe: () => void
+}
+
+/**
+ * Subscribe to presence and start tracking. Uses Supabase Realtime Presence (WebSocket),
+ * not postgres_changes — cursor updates bypass the database for low latency.
+ *
+ * @param boardId - Board/channel ID
+ * @param userId - Our user ID (used as presence key so we have one slot per user)
+ * @param initialPayload - Initial cursor state (name, color)
+ * @param onPresence - Callback when presence state changes
+ */
+export function setupPresenceChannel(
   boardId: string,
   userId: string,
-  payload: PresencePayload
-): void {
-  const supabase = getSupabaseClient()
-  supabase
-    .from('presence')
-    .upsert(
-      {
-        board_id: boardId,
-        user_id: userId,
-        x: payload.x,
-        y: payload.y,
-        name: payload.name,
-        color: payload.color,
-        last_active: payload.lastActive,
-      },
-      { onConflict: 'board_id,user_id' }
-    )
-    .then(() => {})
-}
-
-function rowToEntry(r: { user_id: string; x?: number; y?: number; name?: string; color?: string; last_active?: number }): PresenceEntry {
-  return {
-    userId: r.user_id,
-    x: r.x ?? 0,
-    y: r.y ?? 0,
-    name: r.name ?? 'Anonymous',
-    color: r.color ?? '#6366f1',
-    lastActive: r.last_active ?? 0,
-  }
-}
-
-export function subscribeToPresence(
-  boardId: string,
+  initialPayload: Omit<PresencePayload, 'x' | 'y' | 'lastActive'>,
   onPresence: (entries: PresenceEntry[]) => void
-): () => void {
+): PresenceChannelHandle {
   const supabase = getSupabaseClient()
-  const cache = new Map<string, PresenceEntry>()
 
-  const emit = () => onPresence(Array.from(cache.values()))
+  const channel = supabase.channel(`presence:${boardId}`, {
+    config: { presence: { key: userId } },
+  })
 
-  const fetch = async () => {
-    const { data } = await supabase
-      .from('presence')
-      .select('user_id, x, y, name, color, last_active')
-      .eq('board_id', boardId)
+  channel
+    .on('presence', { event: 'sync' }, () => {
+      const state = channel.presenceState<PresencePayload & { userId?: string }>()
+      onPresence(presenceStateToEntries(state as PresenceState))
+    })
+    .on('presence', { event: 'join' }, () => {
+      const state = channel.presenceState<PresencePayload & { userId?: string }>()
+      onPresence(presenceStateToEntries(state as PresenceState))
+    })
+    .on('presence', { event: 'leave' }, () => {
+      const state = channel.presenceState<PresencePayload & { userId?: string }>()
+      onPresence(presenceStateToEntries(state as PresenceState))
+    })
+    .subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') {
+        await channel.track({
+          ...initialPayload,
+          x: 0,
+          y: 0,
+          lastActive: Date.now(),
+        })
+      }
+    })
 
-    cache.clear()
-    for (const r of data ?? []) {
-      if (r?.user_id) cache.set(r.user_id, rowToEntry(r))
-    }
-    emit()
+  const track = (payload: PresencePayload) => {
+    void channel.track(payload)
   }
 
-  fetch()
-
-  const channel = supabase
-    .channel(`presence:${boardId}`)
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'presence', filter: `board_id=eq.${boardId}` },
-      (payload) => {
-        if (payload.eventType === 'DELETE' && payload.old) {
-          const old = payload.old as { user_id?: string }
-          if (old.user_id) {
-            cache.delete(old.user_id)
-            emit()
-          }
-        } else if (payload.new) {
-          const row = payload.new as { user_id: string; x?: number; y?: number; name?: string; color?: string; last_active?: number }
-          if (row.user_id) {
-            cache.set(row.user_id, rowToEntry(row))
-            emit()
-          }
-        }
-      }
-    )
-    .subscribe()
-
-  return () => {
+  const unsubscribe = () => {
+    void channel.untrack()
     supabase.removeChannel(channel)
   }
-}
 
-/** Returns cleanup that removes our presence row (call on unmount). */
-export function setupPresenceDisconnect(
-  boardId: string,
-  userId: string
-): () => void {
-  return () => {
-    const supabase = getSupabaseClient()
-    supabase.from('presence').delete().eq('board_id', boardId).eq('user_id', userId).then(() => {})
-  }
+  return { track, unsubscribe }
 }

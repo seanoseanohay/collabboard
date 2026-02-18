@@ -1,12 +1,11 @@
 /**
- * Presence hook: subscribe to others' cursors, debounce our own updates.
+ * Presence hook: subscribe to others' cursors via Realtime Presence (WebSocket).
+ * Uses throttle (not debounce) so cursor positions update smoothly during movement.
  */
 
 import { useEffect, useRef, useCallback, useState } from 'react'
 import {
-  subscribeToPresence,
-  writePresence,
-  setupPresenceDisconnect,
+  setupPresenceChannel,
   type PresenceEntry,
 } from '../api/presenceApi'
 
@@ -25,7 +24,8 @@ function hashToColor(userId: string): string {
   return PRESENCE_COLORS[idx]
 }
 
-const DEBOUNCE_MS = 50
+/** Throttle interval for cursor updates (ms). ~30fps for smooth movement. */
+const THROTTLE_MS = 33
 
 export interface UsePresenceOptions {
   boardId: string
@@ -39,12 +39,17 @@ export function usePresence({ boardId, userId, userName }: UsePresenceOptions): 
 } {
   const [others, setOthers] = useState<PresenceEntry[]>([])
   const colorRef = useRef(hashToColor(userId))
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastRef = useRef<{ x: number; y: number } | null>(null)
+  const lastSendRef = useRef(0)
+  const scheduledRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const channelRef = useRef<ReturnType<typeof setupPresenceChannel> | null>(null)
 
   const updatePresence = useCallback(
     (x: number, y: number) => {
       if (!boardId || !userId) return
+      const handle = channelRef.current
+      if (!handle) return
+
       const payload = {
         x,
         y,
@@ -53,27 +58,53 @@ export function usePresence({ boardId, userId, userName }: UsePresenceOptions): 
         lastActive: Date.now(),
       }
       lastRef.current = { x, y }
-      if (debounceRef.current) clearTimeout(debounceRef.current)
-      debounceRef.current = setTimeout(() => {
-        debounceRef.current = null
-        writePresence(boardId, userId, payload)
-      }, DEBOUNCE_MS)
+
+      const now = Date.now()
+      const elapsed = now - lastSendRef.current
+
+      if (elapsed >= THROTTLE_MS || lastSendRef.current === 0) {
+        lastSendRef.current = now
+        handle.track(payload)
+      } else if (!scheduledRef.current) {
+        scheduledRef.current = setTimeout(() => {
+          scheduledRef.current = null
+          lastSendRef.current = Date.now()
+          handle.track({
+            ...payload,
+            x: lastRef.current?.x ?? x,
+            y: lastRef.current?.y ?? y,
+          })
+        }, THROTTLE_MS - elapsed)
+      }
     },
     [boardId, userId, userName]
   )
 
   useEffect(() => {
     if (!boardId || !userId) return () => {}
-    const clearPresence = setupPresenceDisconnect(boardId, userId)
-    const unsub = subscribeToPresence(boardId, (entries) => {
-      setOthers(entries.filter((e) => e.userId !== userId))
-    })
+
+    const handle = setupPresenceChannel(
+      boardId,
+      userId,
+      {
+        name: userName,
+        color: colorRef.current,
+      },
+      (entries) => {
+        setOthers(entries.filter((e) => e.userId !== userId))
+      }
+    )
+    channelRef.current = handle
+
     return () => {
-      unsub()
-      clearPresence()
-      if (debounceRef.current) clearTimeout(debounceRef.current)
+      channelRef.current = null
+      if (scheduledRef.current) {
+        clearTimeout(scheduledRef.current)
+        scheduledRef.current = null
+      }
+      handle.unsubscribe()
     }
-  }, [boardId, userId])
+  }, [boardId, userId, userName])
 
   return { others, updatePresence }
 }
