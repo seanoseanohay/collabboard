@@ -166,22 +166,9 @@ export function createShape(
         originX: 'left',
         originY: 'top',
       })
-      // Text scales with sticky size so it stays readable at any zoom/size
+      // Text scales with sticky size so it stays readable at any zoom/size. No placeholder text - just empty, cursor on create.
       const fontSize = stickyFontSizeFromSize(width, height)
       const padding = 8
-      // Placeholder: shown when main text is empty (like form input placeholder)
-      const placeholderText = new IText('Double-click to edit', {
-        left: padding,
-        top: padding,
-        fontSize,
-        fill: '#9ca3af',
-        originX: 'left',
-        originY: 'top',
-        selectable: false,
-        evented: false,
-        editable: false,
-      })
-      // Main (editable) text - empty by default
       const mainText = new IText('', {
         left: padding,
         top: padding,
@@ -191,8 +178,7 @@ export function createShape(
         originY: 'top',
         editable: true,
       })
-      // Create group: [bg, placeholder, mainText] - placeholder visibility updated by updateStickyPlaceholderVisibility
-      const group = new Group([bg, placeholderText, mainText], {
+      const group = new Group([bg, mainText], {
         left,
         top,
         originX: 'left',
