@@ -414,6 +414,7 @@ const styles: Record<string, React.CSSProperties> = {
   grid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+    gridAutoRows: 160,
     gap: 16,
     listStyle: 'none',
     margin: 0,
@@ -421,6 +422,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   gridItem: {
     minWidth: 0,
+    minHeight: 0,
   },
   skeletonCard: {
     aspectRatio: '4/3',
@@ -451,7 +453,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     flexDirection: 'column',
     height: '100%',
-    minHeight: 140,
+    minHeight: 0,
     padding: 16,
     background: '#fff',
     border: '1px solid #e5e7eb',
