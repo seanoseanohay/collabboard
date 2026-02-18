@@ -201,5 +201,6 @@ const styles: Record<string, React.CSSProperties> = {
     minHeight: 0,
     width: '100%',
     position: 'relative',
+    overflow: 'hidden',
   },
 }
