@@ -22,6 +22,7 @@ import {
   getObjectId,
   getObjectZIndex,
   setObjectZIndex,
+  sortCanvasByZIndex,
   type LockStateCallbackRef,
 } from '../lib/boardSync'
 
@@ -40,6 +41,8 @@ export interface FabricCanvasZoomHandle {
   setActiveObjectStrokeColor: (stroke: string) => void
   bringToFront: () => void
   sendToBack: () => void
+  bringForward: () => void
+  sendBackward: () => void
 }
 
 interface FabricCanvasProps {
@@ -155,6 +158,66 @@ const FabricCanvasInner = (
         setObjectZIndex(obj, z)
         canvas.sendObjectToBack(obj)
       })
+      canvas.fire('object:modified', { target: active })
+      canvas.requestRenderAll()
+    },
+    bringForward: () => {
+      const canvas = canvasRef.current
+      if (!canvas) return
+      const active = canvas.getActiveObject()
+      if (!active) return
+      const objects = 'getObjects' in active ? (active as { getObjects: () => FabricObject[] }).getObjects().filter((o) => getObjectId(o)) : [active]
+      if (objects.length === 0) return
+      const all = canvas.getObjects().slice().sort((a, b) => getObjectZIndex(a) - getObjectZIndex(b))
+      const maxZ = all.length > 0 ? getObjectZIndex(all[all.length - 1]!) : 0
+      const currentZ = Math.max(...objects.map((o) => getObjectZIndex(o)))
+      if (currentZ >= maxZ) {
+        objects.forEach((obj, i) => {
+          setObjectZIndex(obj, maxZ + 1 + i)
+          canvas.bringObjectToFront(obj)
+        })
+      } else {
+        const nextIdx = all.findIndex((o) => getObjectZIndex(o) > currentZ)
+        if (nextIdx === -1) return
+        const nextZ = getObjectZIndex(all[nextIdx]!)
+        objects.forEach((obj, i) => {
+          setObjectZIndex(obj, nextZ + 1 + i)
+          canvas.bringObjectToFront(obj)
+        })
+      }
+      sortCanvasByZIndex(canvas)
+      canvas.fire('object:modified', { target: active })
+      canvas.requestRenderAll()
+    },
+    sendBackward: () => {
+      const canvas = canvasRef.current
+      if (!canvas) return
+      const active = canvas.getActiveObject()
+      if (!active) return
+      const objects = 'getObjects' in active ? (active as { getObjects: () => FabricObject[] }).getObjects().filter((o) => getObjectId(o)) : [active]
+      if (objects.length === 0) return
+      const all = canvas.getObjects().slice().sort((a, b) => getObjectZIndex(a) - getObjectZIndex(b))
+      const minZ = all.length > 0 ? getObjectZIndex(all[0]!) : 0
+      const currentZ = Math.min(...objects.map((o) => getObjectZIndex(o)))
+      if (currentZ <= minZ) {
+        objects.forEach((obj, i) => {
+          const z = Math.max(0, minZ - objects.length + i)
+          setObjectZIndex(obj, z)
+          canvas.sendObjectToBack(obj)
+        })
+      } else {
+        const prevIdx = all.findIndex((o) => getObjectZIndex(o) >= currentZ) - 1
+        if (prevIdx < 0) return
+        const prevObj = all[prevIdx]!
+        const prevZ = getObjectZIndex(prevObj)
+        setObjectZIndex(prevObj, currentZ)
+        canvas.bringObjectToFront(prevObj)
+        objects.forEach((obj, i) => {
+          setObjectZIndex(obj, prevZ + i)
+          canvas.sendObjectToBack(obj)
+        })
+      }
+      sortCanvasByZIndex(canvas)
       canvas.fire('object:modified', { target: active })
       canvas.requestRenderAll()
     },
@@ -526,10 +589,15 @@ const FabricCanvasInner = (
 
     zoomApiRef.current = { setZoom: applyZoom, zoomToFit }
 
-    // Document sync only - never torn down when auth changes
+    // Document sync only - never torn down when auth changes; pass getCurrentUserId so move-delta broadcast ignores our own messages
     const cleanupDocSync =
       boardId
-        ? setupDocumentSync(fabricCanvas, boardId, applyLockStateCallbackRef)
+        ? setupDocumentSync(
+            fabricCanvas,
+            boardId,
+            applyLockStateCallbackRef,
+            () => lockOptsRef.current.userId
+          )
         : () => {}
 
     const attachTextEditOnDblClick = (obj: FabricObject) => {

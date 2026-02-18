@@ -73,6 +73,15 @@ Functions)**
 -   zIndex management: transactional increment / block reservation via
     transaction on `metadata.nextZIndex`
 
+### Multi-selection / group move sync (planned)
+
+To ensure **all items end up in the right spot** when moving a selection and **minimal lag** for other clients:
+
+- **During drag:** Do not rely on throttled document writes for live updates. Broadcast a **selection-move delta** on a dedicated Realtime channel: `{ objectIds: string[], dx, dy }` (optionally `dAngle`, `dScale`). Other clients apply the same delta to each object locally (e.g. `left += dx`, `top += dy`). No document writes during drag → low latency.
+- **On drop (object:modified):** Write **absolute** `left`, `top`, `angle`, `scaleX`, `scaleY` to the documents table for each object (one update per object). This is the persisted source of truth and corrects any drift; late joiners load from documents.
+
+Single-object moves and Fabric Groups (e.g. sticky notes) continue to sync via existing document updates. Bring forward / send backward (one step in z-order) remain post-MVP polish.
+
 ------------------------------------------------------------------------
 
 ## 0.2 Development Practices & Coding Standards
@@ -140,7 +149,7 @@ MAX_ZOOM = 100 (10000%).
 - **Hand tool** — Toolbar tool; when selected, left-drag always pans (never
   selects or moves objects). Select tool keeps current behavior (move/select,
   Space+drag to pan).
-- **Trackpad** — Two-finger drag = pan; pinch / Ctrl+wheel = zoom (Figma-like).
+- **Trackpad** — Two-finger drag = pan; pinch / Ctrl+wheel = zoom (Figma-like). Implemented; pinch sensitivity tuned (deltaY × 0.006).
 - **Infinite pan** — No hard bounds on viewport pan.
 - **Shortcuts** — Space+drag = temporary pan (any tool); +/- = zoom in/out;
   0 = fit to screen; 1 = 100%.
@@ -190,7 +199,8 @@ Rotation excluded from MVP (post-MVP support).
     its border thickness via UI (e.g. dropdown, slider). Stored as nominal
     stroke weight (screen pixels at 100%) for zoom-invariant appearance.
 -   Delete
--   zIndex layering
+-   zIndex layering (bring to front / send to back)
+-   **Bring forward / send backward (planned)** — One step in z-order (nudge in front of or behind adjacent object), in addition to full bring-to-front / send-to-back
 -   Inline text editing
 
 ### Post-MVP

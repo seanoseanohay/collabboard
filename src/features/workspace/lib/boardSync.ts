@@ -28,6 +28,29 @@ function payloadWithSceneCoords(
     skewY: d.skewY,
   }
 }
+
+/** Scene center (average of scene left/top) for a set of objects. Used for move-delta broadcast. */
+function getSceneCenter(objects: FabricObject[]): { x: number; y: number } {
+  if (objects.length === 0) return { x: 0, y: 0 }
+  let sx = 0
+  let sy = 0
+  for (const obj of objects) {
+    const group = (obj as { group?: unknown }).group
+    const matrix = obj.calcTransformMatrix()
+    const d = util.qrDecompose(matrix)
+    sx += d.translateX
+    sy += d.translateY
+  }
+  return { x: sx / objects.length, y: sy / objects.length }
+}
+
+export type MoveDeltaPayload = {
+  userId: string
+  objectIds: string[]
+  dx: number
+  dy: number
+}
+import { getSupabaseClient } from '@/shared/lib/supabase/config'
 import {
   subscribeToDocuments,
   writeDocument,
@@ -129,11 +152,13 @@ export function applyLockState(
 /**
  * Sets up document sync only. Never depends on auth.
  * Call applyLockStateCallbackRef.current?.() after remote updates if lock sync is active.
+ * getCurrentUserId: optional; used to ignore our own move-delta broadcasts and avoid applying them locally.
  */
 export function setupDocumentSync(
   canvas: Canvas,
   boardId: string,
-  applyLockStateCallbackRef: LockStateCallbackRef
+  applyLockStateCallbackRef: LockStateCallbackRef,
+  getCurrentUserId?: () => string
 ): () => void {
   let isApplyingRemote = false
 
@@ -345,11 +370,75 @@ export function setupDocumentSync(
     onRemoved: removeRemote,
   })
 
+  // Move-delta broadcast: during drag we send (dx, dy) so other clients apply same vector (low lag, correct relative positions). On drop we write absolute to documents.
+  const supabase = getSupabaseClient()
+  const moveChannel = supabase.channel(`move_deltas:${boardId}`)
+  const DELTA_BROADCAST_MS = 50
+  let lastDeltaCenter: { x: number; y: number } | null = null
+  let deltaThrottleTimer: ReturnType<typeof setTimeout> | null = null
+  let lastDeltaEmit = 0
+
+  moveChannel
+    .on('broadcast', { event: 'move_delta' }, (message) => {
+      const p = (message as { payload: MoveDeltaPayload }).payload
+      if (!p || getCurrentUserId?.() === p.userId || isApplyingRemote) return
+      for (const objectId of p.objectIds) {
+        const obj = canvas.getObjects().find((o) => getObjectId(o) === objectId)
+        if (obj) {
+          const left = (obj.get('left') as number) ?? 0
+          const top = (obj.get('top') as number) ?? 0
+          obj.set({ left: left + p.dx, top: top + p.dy })
+          obj.setCoords()
+        }
+      }
+      canvas.requestRenderAll()
+    })
+    .subscribe()
+
+  const broadcastMoveDelta = (objectIds: string[], dx: number, dy: number) => {
+    const uid = getCurrentUserId?.()
+    if (!uid) return
+    moveChannel.send({
+      type: 'broadcast',
+      event: 'move_delta',
+      payload: { userId: uid, objectIds, dx, dy },
+    })
+  }
+
+  const emitMoveDeltaThrottled = (target: FabricObject) => {
+    const toSync = getObjectsToSync(target)
+    if (toSync.length === 0) return
+    const ids = toSync.map((o) => getObjectId(o)).filter((id): id is string => !!id)
+    if (ids.length === 0) return
+    const center = getSceneCenter(toSync)
+    const now = Date.now()
+    if (lastDeltaCenter === null) {
+      lastDeltaCenter = center
+      return
+    }
+    const dx = center.x - lastDeltaCenter.x
+    const dy = center.y - lastDeltaCenter.y
+    lastDeltaCenter = center
+    const elapsed = now - lastDeltaEmit
+    if (elapsed >= DELTA_BROADCAST_MS) {
+      lastDeltaEmit = now
+      broadcastMoveDelta(ids, dx, dy)
+      return
+    }
+    if (!deltaThrottleTimer) {
+      deltaThrottleTimer = setTimeout(() => {
+        deltaThrottleTimer = null
+        lastDeltaEmit = Date.now()
+        broadcastMoveDelta(ids, dx, dy)
+      }, DELTA_BROADCAST_MS - elapsed)
+    }
+  }
+
   canvas.on('object:added', (e) => {
     if (e.target) emitAdd(e.target)
   })
   canvas.on('object:moving', (e) => {
-    if (e.target) emitModifyThrottled(e.target)
+    if (e.target) emitMoveDeltaThrottled(e.target)
   })
   canvas.on('object:scaling', (e) => {
     if (e.target) emitModifyThrottled(e.target)
@@ -371,6 +460,11 @@ export function setupDocumentSync(
       clearTimeout(moveThrottleTimer)
       moveThrottleTimer = null
     }
+    if (deltaThrottleTimer) {
+      clearTimeout(deltaThrottleTimer)
+      deltaThrottleTimer = null
+    }
+    lastDeltaCenter = null
     if (e.target) {
       const toSync = getObjectsToSync(e.target)
       toSync.forEach((o) => emitModify(o))
@@ -382,7 +476,9 @@ export function setupDocumentSync(
 
   return () => {
     unsub()
+    supabase.removeChannel(moveChannel)
     if (moveThrottleTimer) clearTimeout(moveThrottleTimer)
+    if (deltaThrottleTimer) clearTimeout(deltaThrottleTimer)
     canvas.off('object:added')
     canvas.off('object:moving')
     canvas.off('object:scaling')

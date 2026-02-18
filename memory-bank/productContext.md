@@ -16,7 +16,7 @@ CollabBoard is a real-time collaborative whiteboard that enables multiple users 
 2. **Board List** — See owned/accessible boards
 3. **Create/Select Board** — Start new or open existing
 4. **Workspace** — Infinite canvas with:
-   - Pan, zoom (very wide range 0.001%–10000%+, Figma-like); create shapes (rect, circle, triangle, line)
+   - Pan, zoom (very wide range 0.001%–10000%+, Figma-like); trackpad: two-finger scroll = pan, pinch = zoom (tuned sensitivity); create shapes (rect, circle, triangle, line)
    - Sticky notes and standalone text
    - Move, resize, change color, delete
    - See other users' cursors, presence, and edits in real time
@@ -29,6 +29,7 @@ CollabBoard is a real-time collaborative whiteboard that enables multiple users 
 - Last-write-wins with server timestamps
 - Optimistic UI + reconciliation
 - Graceful reconnect and refresh persistence
+- **Planned:** Multi-selection moves — during drag broadcast deltas (objectIds + dx, dy) for low lag; on drop write absolute positions to documents so all items end up in the right spot (PRD § Sync Strategy).
 
 ### AI Agent Behavior (Post-MVP)
 - All commands through Supabase Edge Function (serialized per board)
@@ -40,4 +41,4 @@ CollabBoard is a real-time collaborative whiteboard that enables multiple users 
 - 60 FPS during pan/zoom/manipulation
 - 500+ objects without degradation
 - Stable under 50 kbps network throttling
-- Intuitive: shapes, sticky notes, text feel natural
+- Intuitive: shapes, sticky notes, text feel natural. Sticky notes open for typing as soon as you finish drawing (blinking cursor, no placeholder text).

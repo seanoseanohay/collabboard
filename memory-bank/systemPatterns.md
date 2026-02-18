@@ -24,8 +24,11 @@
 - Supabase upsert/insert for atomic updates
 - Server timestamps for ordering
 - Client-side UUID v4 for object IDs (`crypto.randomUUID()`)
-- **Groups (sticky notes):** Serialize with `toObject(['data', 'objects'])` to include children; update by setting properties separately (not remove/replace)
+- **Lines:** Created as Fabric Polyline (not Line); shapeFactory comment: Line has transform bugs (bounding box moves, path doesn't). Legacy DB rows with type `line` may still revive as Line; see progress.md Known Issues.
+- **Groups (sticky notes):** Structure `[bg, mainText]` (no placeholder text). Serialize with `toObject(['data', 'objects'])` to include children; update by setting properties separately (not remove/replace). On create, FabricCanvas auto-enters edit mode after 50ms so blinking cursor appears (tryEnterTextEditing + hiddenTextarea.focus()). Text scales with sticky size (updateStickyTextFontSize).
 - zIndex: transactional increment / block reservation (post-MVP)
+- **Multi-selection move (planned):** During drag broadcast selection-move delta on Realtime channel (`objectIds`, `dx`, `dy`; optionally `dAngle`, `dScale`); receivers apply delta locally (no document writes). On drop (`object:modified`) write absolute left/top/angle/scale to documents per object. Goal: correct positions + low lag. PRD § Sync Strategy.
+- **Z-order:** bringToFront/sendToBack in place; bringForward/sendBackward (one step) planned. PRD §4.
 
 ## Locking (High Risk)
 - **Client:** Disable interaction on locked objects; show lock badge/overlay

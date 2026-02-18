@@ -21,6 +21,7 @@
 - **Zoom UI** ✅ — Dropdown in toolbar
 - **Paginated document load** ✅
 - **Stroke width** ✅ — StrokeControl in toolbar when selection has stroke (1/2/4/8px); strokeUtils, FabricCanvas onSelectionChange + setActiveObjectStrokeWidth
+- **Sticky notes** ✅ — No placeholder text; on create, edit mode opens automatically (blinking cursor). shapeFactory: [bg, mainText]; handleMouseUp → setTimeout(50) → tryEnterTextEditing(mainText); hiddenTextarea?.focus().
 - **Toolbar aesthetic** ✅ — Icon-based tool groups (tldraw-like), header aligned
 - **Zoom range** ✅ — 0.001%–10000% (MIN_ZOOM 0.00001, MAX_ZOOM 100); stroke in design units (automatic)
 
@@ -28,17 +29,23 @@
 
 **Done this session:**
 - **AI Client API** ✅ — createObject, updateObject, deleteObjects, queryObjects; getDocument/fetchDocuments in documentsApi; exported from @/features/workspace.
+- **Trackpad pan/zoom** ✅ — Two-finger scroll = pan, pinch = zoom at cursor (FabricCanvas handleWheel: ctrlKey → zoom, else relativePan). Pinch sensitivity 0.006 (deltaY multiplier).
 
 **Post-MVP / polish:**
-- Two-finger drag = pan, pinch = zoom (touch).
 - AI agent (Edge Function, Claude) — can now use aiClientApi for canvas ops.
 - Undo/Redo, rotation (throttled).
 - Revocable invite links.
 
+**Planned (documented in PRD + memory bank):**
+- **Multi-selection move sync v2** — During drag: broadcast selection-move delta (`objectIds`, `dx`, `dy`) on Realtime channel; on drop write absolute to documents. Goal: correct positions + low lag. See PRD § Sync Strategy, activeContext, systemPatterns.
+- **Bring forward / send backward** — One step in z-order (not only full front/back). PRD §4.
+
 ## Quick Reference
 - **Zoom range:** 0.001%–10000% (MIN_ZOOM 0.00001, MAX_ZOOM 100). FabricCanvas.tsx.
 - **boardSync.ts:** getObjectsToSync(), pendingMoveIds (Set), object:modified syncs each in selection.
-- **FabricCanvas:** forwardRef with FabricCanvasZoomHandle (setZoom, zoomToFit, getActiveObject, setActiveObjectStrokeWidth). onSelectionChange(strokeInfo). Hand tool: isHandDrag → pan. Shape tool: always draw. Stroke in design units (scales with zoom automatically).
+- **FabricCanvas:** forwardRef with FabricCanvasZoomHandle (setZoom, zoomToFit, getActiveObject, setActiveObjectStrokeWidth). onSelectionChange(strokeInfo). Hand tool: isHandDrag → pan. Shape tool: always draw. Stroke in design units (scales with zoom automatically). **Trackpad:** two-finger scroll = pan (relativePan), pinch = zoom at cursor (ctrlKey branch; sensitivity 0.006).
 - **strokeUtils.ts:** getStrokeWidthFromObject, setStrokeWidthOnObject, MIN/MAX_STROKE_WEIGHT (1–100), clampStrokeWeight(); StrokeControl uses number input.
 - **WorkspaceToolbar:** Icon groups (Select|Hand | shapes | Text|Sticky), StrokeControl when selectionStroke set, zoom dropdown.
+- **Sticky notes:** No placeholder. Create → box completes → edit mode opens (blinking cursor). shapeFactory sticky = [bg, mainText]; FabricCanvas handleMouseUp auto-enters edit after 50ms.
 - **documentsApi:** subscribeToDocuments fetchInitial uses .range(offset, offset + PAGE_SIZE - 1) in a loop.
+- **Lines:** shapeFactory creates lines as Polyline (not Fabric Line). Legacy boards with type `line` in DB may still revive as Line (movement bug); see progress.md Known Issues.
