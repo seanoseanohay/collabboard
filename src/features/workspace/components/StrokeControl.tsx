@@ -1,6 +1,6 @@
-import { useRef, useEffect, useState } from 'react'
+import { useState, useCallback } from 'react'
 import type { FabricCanvasZoomHandle } from './FabricCanvas'
-import { STROKE_WEIGHT_OPTIONS } from '../lib/strokeUtils'
+import { clampStrokeWeight, MIN_STROKE_WEIGHT, MAX_STROKE_WEIGHT } from '../lib/strokeUtils'
 
 interface StrokeControlProps {
   strokeWidth: number
@@ -9,63 +9,69 @@ interface StrokeControlProps {
 }
 
 export function StrokeControl({ strokeWidth, canvasRef, disabled }: StrokeControlProps) {
-  const [open, setOpen] = useState(false)
-  const menuRef = useRef<HTMLDivElement>(null)
-  const buttonRef = useRef<HTMLButtonElement>(null)
+  const [inputValue, setInputValue] = useState(String(strokeWidth))
+  const [isFocused, setIsFocused] = useState(false)
 
-  useEffect(() => {
-    if (!open) return
-    const close = (e: MouseEvent) => {
-      const target = e.target as Node
-      if (menuRef.current?.contains(target) || buttonRef.current?.contains(target)) return
-      setOpen(false)
+  const applyValue = useCallback(
+    (raw: string) => {
+      const n = parseInt(raw, 10)
+      if (!Number.isFinite(n)) {
+        setInputValue(String(strokeWidth))
+        return
+      }
+      const clamped = clampStrokeWeight(n)
+      setInputValue(String(clamped))
+      canvasRef.current?.setActiveObjectStrokeWidth(clamped)
+    },
+    [strokeWidth, canvasRef]
+  )
+
+  const handleBlur = () => {
+    setIsFocused(false)
+    applyValue(inputValue)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.currentTarget.blur()
     }
-    document.addEventListener('click', close, true)
-    return () => document.removeEventListener('click', close, true)
-  }, [open])
+  }
+
+  const handleFocus = () => {
+    setInputValue(String(strokeWidth))
+    setIsFocused(true)
+  }
 
   return (
     <div style={styles.wrap}>
-      <button
-        ref={buttonRef}
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        style={styles.btn}
-        title="Border thickness"
+      <span style={styles.label}>Stroke</span>
+      <input
+        type="number"
+        min={MIN_STROKE_WEIGHT}
+        max={MAX_STROKE_WEIGHT}
+        value={isFocused ? inputValue : strokeWidth}
+        onChange={(e) => {
+          setInputValue(e.target.value)
+          if (!isFocused) setIsFocused(true)
+        }}
+        onFocus={handleFocus}
+        onBlur={() => {
+          handleBlur()
+          setIsFocused(false)
+        }}
+        onKeyDown={handleKeyDown}
         disabled={disabled}
-      >
-        <span style={styles.label}>Stroke</span>
-        <span style={styles.value}>{strokeWidth}px</span>
-      </button>
-      {open && (
-        <div ref={menuRef} style={styles.menu}>
-          {STROKE_WEIGHT_OPTIONS.map((w) => (
-            <button
-              key={w}
-              type="button"
-              style={{
-                ...styles.item,
-                ...(strokeWidth === w ? styles.itemActive : {}),
-              }}
-              onClick={() => {
-                canvasRef.current?.setActiveObjectStrokeWidth(w)
-                setOpen(false)
-              }}
-            >
-              {w}px
-            </button>
-          ))}
-        </div>
-      )}
+        style={styles.input}
+        title={`Border thickness (${MIN_STROKE_WEIGHT}–${MAX_STROKE_WEIGHT}px)`}
+        aria-label="Stroke width in pixels"
+      />
+      <span style={styles.unit}>px</span>
     </div>
   )
 }
 
 const styles: Record<string, React.CSSProperties> = {
   wrap: {
-    position: 'relative',
-  },
-  btn: {
     display: 'flex',
     alignItems: 'center',
     gap: 6,
@@ -76,40 +82,23 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 6,
     background: '#fff',
     color: '#374151',
-    cursor: 'pointer',
   },
   label: {
     color: '#6b7280',
   },
-  value: {
+  input: {
+    width: 44,
+    padding: '4px 6px',
+    fontSize: 12,
     fontWeight: 500,
-  },
-  menu: {
-    position: 'absolute',
-    top: '100%',
-    left: 0,
-    marginTop: 4,
-    background: '#fff',
-    border: '1px solid #e5e7eb',
-    borderRadius: 8,
-    boxShadow: '0 4px 14px rgba(0,0,0,0.1)',
-    padding: 4,
-    minWidth: 72,
-    zIndex: 20,
-  },
-  item: {
-    display: 'block',
-    width: '100%',
-    padding: '6px 12px',
-    fontSize: 13,
     border: 'none',
-    borderRadius: 6,
+    borderRadius: 4,
     background: 'transparent',
-    cursor: 'pointer',
-    textAlign: 'left',
+    color: '#374151',
+    outline: 'none',
   },
-  itemActive: {
-    background: '#f1f5f9',
-    fontWeight: 500,
+  unit: {
+    color: '#6b7280',
+    fontSize: 11,
   },
 }

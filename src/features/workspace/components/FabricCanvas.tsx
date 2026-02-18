@@ -9,10 +9,20 @@ import type { ToolType } from '../types/tools'
 import { isShapeTool } from '../types/tools'
 import { createShape } from '../lib/shapeFactory'
 import { getStrokeWidthFromObject, setStrokeWidthOnObject } from '../lib/strokeUtils'
-import { setupDocumentSync, setupLockSync, type LockStateCallbackRef } from '../lib/boardSync'
+import { getFillFromObject, setFillOnObject } from '../lib/fillUtils'
+import { updateStickyTextFontSize } from '../lib/shapeFactory'
+import {
+  setupDocumentSync,
+  setupLockSync,
+  getObjectId,
+  getObjectZIndex,
+  setObjectZIndex,
+  type LockStateCallbackRef,
+} from '../lib/boardSync'
 
 export interface SelectionStrokeInfo {
   strokeWidth: number
+  fill: string | null
 }
 
 export interface FabricCanvasZoomHandle {
@@ -20,6 +30,9 @@ export interface FabricCanvasZoomHandle {
   zoomToFit: () => void
   getActiveObject: () => FabricObject | null
   setActiveObjectStrokeWidth: (strokeWidth: number) => void
+  setActiveObjectFill: (fill: string) => void
+  bringToFront: () => void
+  sendToBack: () => void
 }
 
 interface FabricCanvasProps {
@@ -85,6 +98,49 @@ const FabricCanvasInner = (
       canvas.fire('object:modified', { target: active })
       canvas.requestRenderAll()
     },
+    setActiveObjectFill: (fill: string) => {
+      const canvas = canvasRef.current
+      if (!canvas) return
+      const active = canvas.getActiveObject()
+      if (!active) return
+      setFillOnObject(active, fill)
+      canvas.fire('object:modified', { target: active })
+      canvas.requestRenderAll()
+    },
+    bringToFront: () => {
+      const canvas = canvasRef.current
+      if (!canvas) return
+      const active = canvas.getActiveObject()
+      if (!active) return
+      const objects = 'getObjects' in active ? (active as { getObjects: () => FabricObject[] }).getObjects().filter((o) => getObjectId(o)) : [active]
+      if (objects.length === 0) return
+      const all = canvas.getObjects()
+      const maxZ = all.reduce((m, o) => Math.max(m, getObjectZIndex(o)), 0)
+      objects.forEach((obj, i) => {
+        const z = maxZ + 1 + i
+        setObjectZIndex(obj, z)
+        canvas.bringObjectToFront(obj)
+      })
+      canvas.fire('object:modified', { target: active })
+      canvas.requestRenderAll()
+    },
+    sendToBack: () => {
+      const canvas = canvasRef.current
+      if (!canvas) return
+      const active = canvas.getActiveObject()
+      if (!active) return
+      const objects = 'getObjects' in active ? (active as { getObjects: () => FabricObject[] }).getObjects().filter((o) => getObjectId(o)) : [active]
+      if (objects.length === 0) return
+      const all = canvas.getObjects()
+      const minZ = all.reduce((m, o) => Math.min(m, getObjectZIndex(o)), Number.MAX_SAFE_INTEGER)
+      objects.forEach((obj, i) => {
+        const z = Math.max(0, minZ - objects.length + i)
+        setObjectZIndex(obj, z)
+        canvas.sendObjectToBack(obj)
+      })
+      canvas.fire('object:modified', { target: active })
+      canvas.requestRenderAll()
+    },
   }), [])
 
   useEffect(() => {
@@ -112,8 +168,8 @@ const FabricCanvasInner = (
     let drawEnd: { x: number; y: number } | null = null
     let previewObj: FabricObject | null = null
     let objectWasTransformed = false  // Track if object was rotated/scaled/moved
-    const MIN_ZOOM = 0.0001  // 0.01% - very wide zoom out (MVP infinite canvas)
-    const MAX_ZOOM = 100    // 10000% - very wide zoom in (Figma-like)
+    const MIN_ZOOM = 0.00001  // 0.001% - zoom out to 1/1000th percent
+    const MAX_ZOOM = 100      // 10000% - zoom in to 10,000%
 
     const getScenePoint = (opt: {
       scenePoint?: { x: number; y: number }
@@ -462,8 +518,14 @@ const FabricCanvasInner = (
 
     const notifySelectionChange = () => {
       const active = fabricCanvas.getActiveObject()
-      const strokeWidth = active ? getStrokeWidthFromObject(active) : null
-      onSelectionChangeRef.current?.(strokeWidth !== null ? { strokeWidth } : null)
+      onSelectionChangeRef.current?.(
+        active
+          ? {
+              strokeWidth: getStrokeWidthFromObject(active) ?? 0,
+              fill: getFillFromObject(active),
+            }
+          : null
+      )
     }
 
     const handleSelectionCreated = (e: { selected?: FabricObject[] }) => {
@@ -494,7 +556,15 @@ const FabricCanvasInner = (
       objectWasTransformed = true
     }
 
+    const handleObjectModified = (e: { target?: FabricObject }) => {
+      const target = e.target
+      if (target?.type === 'group' && 'getObjects' in target) {
+        updateStickyTextFontSize(target)
+      }
+    }
+
     fabricCanvas.on('object:added', handleObjectAdded)
+    fabricCanvas.on('object:modified', handleObjectModified)
     fabricCanvas.on('selection:created', handleSelectionCreated)
     fabricCanvas.on('selection:updated', handleSelectionUpdated)
     fabricCanvas.on('selection:cleared', handleSelectionCleared)
@@ -526,6 +596,7 @@ const FabricCanvasInner = (
     return () => {
       zoomApiRef.current = null
       cleanupDocSync()
+      fabricCanvas.off('object:modified', handleObjectModified)
       fabricCanvas.off('object:added', handleObjectAdded)
       fabricCanvas.off('selection:created', handleSelectionCreated)
       fabricCanvas.off('selection:updated', handleSelectionUpdated)

@@ -38,6 +38,55 @@ export async function deleteDocument(
   if (error) throw error
 }
 
+/** Fetch a single document by board and object id. Returns null if not found. */
+export async function getDocument(
+  boardId: string,
+  objectId: string
+): Promise<Record<string, unknown> | null> {
+  const supabase = getSupabaseClient()
+  const { data, error } = await supabase
+    .from('documents')
+    .select('data')
+    .eq('board_id', boardId)
+    .eq('object_id', objectId)
+    .maybeSingle()
+  if (error) throw error
+  return (data?.data as Record<string, unknown>) ?? null
+}
+
+export type DocumentQueryCriteria = {
+  type?: string
+  fill?: string
+}
+
+const QUERY_PAGE_SIZE = 500
+
+/** Fetch documents for a board with optional criteria. For AI/client query use. */
+export async function fetchDocuments(
+  boardId: string,
+  criteria?: DocumentQueryCriteria
+): Promise<{ objectId: string; data: Record<string, unknown> }[]> {
+  const supabase = getSupabaseClient()
+  let query = supabase
+    .from('documents')
+    .select('object_id, data')
+    .eq('board_id', boardId)
+    .order('object_id', { ascending: true })
+    .limit(QUERY_PAGE_SIZE)
+  if (criteria?.type) {
+    query = query.eq('data->>type', criteria.type)
+  }
+  if (criteria?.fill) {
+    query = query.eq('data->>fill', criteria.fill)
+  }
+  const { data, error } = await query
+  if (error) throw error
+  const rows = data ?? []
+  return rows
+    .filter((row): row is { object_id: string; data: Record<string, unknown> } => !!row?.object_id && !!row.data)
+    .map((row) => ({ objectId: row.object_id, data: row.data }))
+}
+
 export function subscribeToDocuments(
   boardId: string,
   callbacks: {

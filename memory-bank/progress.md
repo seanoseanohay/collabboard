@@ -17,7 +17,7 @@
 - **Authentication** — Supabase Auth (Google + Email), LoginPage, useAuth, BoardListPage
 - **Board list & CRUD** — createBoard, useUserBoards, BoardListPage, WorkspacePage
 - **Deployment** — Vercel, vercel.json (COOP header), auth debounce
-- **Workspace** — Fabric.js canvas (FabricCanvas) with pan/zoom; zoom range 0.01%–10000% (MVP)
+- **Workspace** — Fabric.js canvas (FabricCanvas) with pan/zoom; zoom range 0.001%–10000% (MVP)
 - **Sync** — Live document sync; real-time position updates (object:moving/scaling/rotating, 80ms throttle)
 - **Presence & cursors** — Working in multi-user
 - **Locking** — Fully working: acquire on selection, release on deselection; objects locked by others are non-selectable; position updates sync while locking active
@@ -42,16 +42,18 @@
 13. ~~AI Agent~~ — Post-MVP
 14. ~~Deployment~~ ✅
 
+- ~~**zIndex layering (MVP §4)**~~ ✅ — Bring to front / send to back. boardSync: getObjectZIndex/setObjectZIndex, sortCanvasByZIndex; zIndex in emitAdd/emitModify/applyRemote; FabricCanvas bringToFront/sendToBack; toolbar layer buttons when selection.
+
 ### Post-MVP
 - AI agent (Supabase Edge Function, Claude)
 - Undo/Redo
 - Rotation (throttled ~50ms)
 - ~~**Per-object stroke width (border thickness)**~~ ✅ — StrokeControl in toolbar when selection has stroke (1/2/4/8px); strokeUtils + FabricCanvas ref; sync via existing object:modified.
 - Revocable invite links, touch handling, 6+ AI commands
-- **AI Client API** — createObject, updateObject, deleteObjects, queryObjects so all app actions are API-callable (enables AI-driven canvas operations). See docs/AI_CLIENT_API.md.
+- ~~**AI Client API**~~ ✅ — createObject, updateObject, deleteObjects, queryObjects in workspace/api/aiClientApi.ts; documentsApi: getDocument, fetchDocuments(criteria); exported from @/features/workspace. See docs/AI_CLIENT_API.md.
 
 ## Current Status
-**Phase:** MVP complete. Stroke width control and tldraw-style toolbar (icon groups, stroke dropdown) are in place.
+**Phase:** MVP complete. zIndex layering (bring to front / send to back), stroke width, toolbar, sync, locking, presence.
 **Next:** Post-MVP (AI agent, Undo/Redo); or polish (two-finger/touch pan/zoom, revocable invites).
 
 ## Known Issues
@@ -66,7 +68,7 @@
 - ✅ **Zoom shortcuts** — +/= zoom in, − zoom out, 0 = fit to content, 1 = 100%. FabricCanvas handleKeyDown.
 - ✅ **Zoom UI** — Toolbar zoom dropdown (25%, 50%, 100%, 200%, 400%, Fit). FabricCanvas ref exposes setZoom/zoomToFit; WorkspacePage wires ref + viewport zoom.
 - ✅ **Board loading** — Paginated initial fetch (documentsApi): PAGE_SIZE 50, order by object_id, range(); first batch applied immediately, rest in sequence so UI stays responsive.
-- ✅ Zoom (MVP) — Very wide zoom range 0.01%–10000% (MIN_ZOOM 0.0001, MAX_ZOOM 100); FabricCanvas. Figma-like infinite canvas.
+- ✅ Zoom (MVP) — Very wide zoom range 0.001%–10000% (MIN_ZOOM 0.00001, MAX_ZOOM 100); FabricCanvas. Figma-like infinite canvas.
 - ✅ Multi-selection move sync (scene coords) — Objects in selection were synced with group-relative coords → others saw them disappear during move and in wrong place on drop. Now payloadWithSceneCoords() uses qrDecompose(calcTransformMatrix()) so we sync absolute left/top/angle/scale.
 - ✅ Multi-selection move sync — Moving multiple selected objects (circle + triangle) now syncs; boardSync getObjectsToSync + pendingMoveIds
 - ✅ Presence awareness — Header shows "X others viewing — Alice, Bob"; working as wanted

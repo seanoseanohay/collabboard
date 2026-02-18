@@ -16,7 +16,7 @@ CollabBoard is a real-time collaborative whiteboard that enables multiple users 
 2. **Board List** — See owned/accessible boards
 3. **Create/Select Board** — Start new or open existing
 4. **Workspace** — Infinite canvas with:
-   - Pan, zoom (very wide range 0.01%–10000%+, Figma-like); create shapes (rect, circle, triangle, line)
+   - Pan, zoom (very wide range 0.001%–10000%+, Figma-like); create shapes (rect, circle, triangle, line)
    - Sticky notes and standalone text
    - Move, resize, change color, delete
    - See other users' cursors, presence, and edits in real time

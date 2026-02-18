@@ -40,6 +40,7 @@ import {
   setupLockDisconnect,
   type LockEntry,
 } from '../api/locksApi'
+import { updateStickyTextFontSize } from './shapeFactory'
 
 const OBJ_ID_KEY = 'id'
 
@@ -50,6 +51,25 @@ export function getObjectId(obj: FabricObject): string | null {
 
 export function setObjectId(obj: FabricObject, id: string): void {
   obj.set('data', { ...(obj.get('data') as object), [OBJ_ID_KEY]: id })
+}
+
+const ZINDEX_KEY = 'zIndex'
+
+export function getObjectZIndex(obj: FabricObject): number {
+  const z = obj.get(ZINDEX_KEY) as number | undefined
+  return typeof z === 'number' && !Number.isNaN(z) ? z : 0
+}
+
+export function setObjectZIndex(obj: FabricObject, z: number): void {
+  obj.set(ZINDEX_KEY, z)
+}
+
+/** Sort canvas objects by zIndex (ascending); reorder so lowest is at back. */
+export function sortCanvasByZIndex(canvas: Canvas): void {
+  const objects = canvas.getObjects().slice()
+  objects.sort((a, b) => getObjectZIndex(a) - getObjectZIndex(b))
+  objects.forEach((obj) => canvas.bringObjectToFront(obj))
+  canvas.requestRenderAll()
 }
 
 export interface BoardSyncLockOptions {
@@ -139,6 +159,11 @@ export function setupDocumentSync(
     }
   }
 
+  const applyZIndex = (obj: FabricObject, data: Record<string, unknown>) => {
+    const z = (data.zIndex as number) ?? Date.now()
+    setObjectZIndex(obj, z)
+  }
+
   const applyRemote = async (objectId: string, data: Record<string, unknown>) => {
     const clean = stripSyncFields(data)
     const existing = canvas.getObjects().find((o) => getObjectId(o) === objectId)
@@ -168,9 +193,12 @@ export function setupDocumentSync(
                 }
               })
             }
+            applyZIndex(existing, clean)
+            updateStickyTextFontSize(existing)
             ensureGroupChildrenNotSelectable(existing)
             ensureTextEditable(existing)
             applyLockStateCallbackRef.current?.()
+            sortCanvasByZIndex(canvas)
             canvas.requestRenderAll()
           }
         } catch {
@@ -185,11 +213,13 @@ export function setupDocumentSync(
           const serialized = revived.toObject(['data']) as Record<string, unknown>
           delete serialized.data
           delete serialized.type
-          delete serialized.layoutManager
+          delete (serialized as { layoutManager?: unknown }).layoutManager
           existing.set(serialized)
           existing.setCoords()
+          applyZIndex(existing, clean)
           ensureTextEditable(existing)
           applyLockStateCallbackRef.current?.()
+          sortCanvasByZIndex(canvas)
           canvas.requestRenderAll()
         }
       } catch {
@@ -202,12 +232,15 @@ export function setupDocumentSync(
       const [revived] = await util.enlivenObjects<FabricObject>([objData])
       if (revived) {
         revived.set('data', { id: objectId })
+        applyZIndex(revived, clean)
+        if (revived.type === 'group') updateStickyTextFontSize(revived)
         ensureGroupChildrenNotSelectable(revived)
         ensureTextEditable(revived)
         isApplyingRemote = true
         canvas.add(revived)
         revived.setCoords()
         applyLockStateCallbackRef.current?.()
+        sortCanvasByZIndex(canvas)
         canvas.requestRenderAll()
         isApplyingRemote = false
       }
@@ -232,7 +265,10 @@ export function setupDocumentSync(
     let payload = obj.toObject(['data', 'objects']) as Record<string, unknown>
     payload = payloadWithSceneCoords(obj, payload)
     delete payload.data
-    delete payload.layoutManager
+    delete (payload as { layoutManager?: unknown }).layoutManager
+    const z = (payload.zIndex as number) ?? Date.now()
+    payload.zIndex = z
+    setObjectZIndex(obj, z)
     writeDocument(boardId, id, payload).catch(console.error)
   }
 
@@ -257,7 +293,8 @@ export function setupDocumentSync(
     let payload = obj.toObject(['data', 'objects']) as Record<string, unknown>
     payload = payloadWithSceneCoords(obj, payload)
     delete payload.data
-    delete payload.layoutManager
+    delete (payload as { layoutManager?: unknown }).layoutManager
+    if (payload.zIndex === undefined) payload.zIndex = getObjectZIndex(obj)
     writeDocument(boardId, id, payload).catch(console.error)
   }
 

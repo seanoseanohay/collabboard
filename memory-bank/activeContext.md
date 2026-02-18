@@ -1,7 +1,7 @@
 # Active Context
 
 ## Current Focus (for next agent)
-**Stroke width + toolbar aesthetic done.** ✅ Per-object stroke control (1/2/4/8px), tldraw-style toolbar (icon groups, Stroke dropdown when selection has stroke). Next: Post-MVP (AI, Undo) or two-finger/touch.
+**MVP zIndex layering done.** ✅ PRD §4: bring to front / send to back. boardSync: zIndex in payload, sortCanvasByZIndex on apply; FabricCanvas ref bringToFront/sendToBack; toolbar layer buttons when selection. Next: Post-MVP (AI agent, Undo) or two-finger/touch.
 
 ### What Was Fixed (2026-02-17)
 1. **Locking never enabled** — Effect ran before auth loaded; `userId`/`userName` were empty. Added `userId`/`userName` to effect deps so sync re-ran when auth ready.
@@ -31,7 +31,7 @@
 ## Earlier Recent Changes (2026-02-17)
 
 **Zoom (MVP):**
-- ✅ Very wide zoom range: MIN_ZOOM = 0.0001 (0.01%), MAX_ZOOM = 100 (10000%). Figma-like infinite-canvas zoom. FabricCanvas.tsx.
+- ✅ Very wide zoom range: MIN_ZOOM = 0.00001 (0.001%), MAX_ZOOM = 100 (10000%). Figma-like infinite-canvas zoom. FabricCanvas.tsx.
 
 **Multi-selection move sync (coordinates fix):**
 - ✅ Objects in ActiveSelection have relative left/top/angle/scale; we were syncing those so other clients saw wrong position (disappear during move, wrong place on drop). boardSync now uses payloadWithSceneCoords(obj, payload): when obj.group exists, override payload with util.qrDecompose(obj.calcTransformMatrix()) so left/top/angle/scaleX/scaleY/skew are scene (absolute) coordinates. Used in emitAdd and emitModify.

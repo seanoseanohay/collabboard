@@ -19,6 +19,31 @@ const FILL = '#fff'
 export const DEFAULT_STROKE_WEIGHT = 2
 const STICKY_COLORS = ['#fef08a', '#bbf7d0', '#bfdbfe', '#fbcfe8', '#fed7aa']
 
+/** Sticky note text scales with sticky size so it stays readable at any zoom/size. */
+export const STICKY_TEXT_SIZE_RATIO = 0.18
+export const MIN_STICKY_FONT_SIZE = 10
+
+export function stickyFontSizeFromSize(width: number, height: number): number {
+  return Math.max(MIN_STICKY_FONT_SIZE, Math.round(Math.min(width, height) * STICKY_TEXT_SIZE_RATIO))
+}
+
+/** Update sticky group's text child fontSize from the group's current effective size (e.g. after resize/sync). */
+export function updateStickyTextFontSize(group: FabricObject): void {
+  if (group.type !== 'group' || !('getObjects' in group)) return
+  const children = (group as { getObjects: () => FabricObject[] }).getObjects()
+  if (children.length < 2) return
+  const txt = children[1]
+  if (txt.type !== 'i-text') return
+  const w = (group.get('width') as number) ?? 120
+  const h = (group.get('height') as number) ?? 80
+  const scaleX = (group.get('scaleX') as number) ?? 1
+  const scaleY = (group.get('scaleY') as number) ?? 1
+  const effectiveW = w * scaleX
+  const effectiveH = h * scaleY
+  const fontSize = stickyFontSizeFromSize(effectiveW, effectiveH)
+  txt.set('fontSize', fontSize)
+}
+
 let stickyColorIndex = 0
 
 function nextStickyColor(): string {
@@ -114,11 +139,12 @@ export function createShape(
         originX: 'left',
         originY: 'top',
       })
-      // Create text - positioned with 8px padding from top-left
+      // Text scales with sticky size so it stays readable at any zoom/size
+      const fontSize = stickyFontSizeFromSize(width, height)
       const txt = new IText('Note', {
         left: 8,
         top: 8,
-        fontSize: 14,
+        fontSize,
         fill: STROKE,
         originX: 'left',
         originY: 'top',

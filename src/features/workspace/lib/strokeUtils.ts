@@ -36,4 +36,9 @@ export function setStrokeWidthOnObject(obj: FabricObject, strokeWidth: number): 
   if (hasStroke(obj)) obj.set('strokeWidth', strokeWidth)
 }
 
-export const STROKE_WEIGHT_OPTIONS = [1, 2, 4, 8, 16, 32] as const
+export const MIN_STROKE_WEIGHT = 1
+export const MAX_STROKE_WEIGHT = 100
+
+export function clampStrokeWeight(value: number): number {
+  return Math.round(Math.max(MIN_STROKE_WEIGHT, Math.min(MAX_STROKE_WEIGHT, value)))
+}

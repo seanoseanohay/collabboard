@@ -61,4 +61,21 @@ Find objects matching optional criteria (e.g. fill = blue).
 
 ## Status
 
-Planned. Not yet implemented.
+**Implemented (client-only).** Use from workspace feature:
+
+```ts
+import {
+  createObject,
+  updateObject,
+  deleteObjects,
+  queryObjects,
+  type CreateObjectType,
+  type CreateObjectProps,
+  type UpdateObjectProps,
+  type QueryObjectsCriteria,
+} from '@/features/workspace'
+```
+
+- `documentsApi`: added `getDocument`, `fetchDocuments` (with optional `type`/`fill` criteria).
+- `aiClientApi.ts`: createObject (uses shapeFactory + writeDocument), updateObject (getDocument + merge + write), deleteObjects, queryObjects.
+- Realtime sync applies changes to all clients; no canvas ref required for API calls.

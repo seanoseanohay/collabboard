@@ -3,6 +3,7 @@ import type { ToolType } from '../types/tools'
 import type { FabricCanvasZoomHandle } from './FabricCanvas'
 import type { SelectionStrokeInfo } from './FabricCanvas'
 import { StrokeControl } from './StrokeControl'
+import { FillControl } from './FillControl'
 
 interface WorkspaceToolbarProps {
   selectedTool: ToolType
@@ -131,10 +132,42 @@ export function WorkspaceToolbar({
 
       <div style={styles.right}>
         {selectionStroke != null && canvasRef && (
-          <StrokeControl
-            strokeWidth={selectionStroke.strokeWidth}
-            canvasRef={canvasRef}
-          />
+          <>
+            {selectionStroke.strokeWidth > 0 && (
+              <StrokeControl
+                strokeWidth={selectionStroke.strokeWidth}
+                canvasRef={canvasRef}
+              />
+            )}
+            {selectionStroke.fill != null && (
+              <FillControl
+                fill={selectionStroke.fill}
+                canvasRef={canvasRef}
+              />
+            )}
+            <div style={styles.layerGroup}>
+              <button
+                type="button"
+                style={styles.layerBtn}
+                onClick={() => canvasRef.current?.bringToFront()}
+                title="Bring to front"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 14h6v6M4 10h10v4M4 6h14v4M4 4h18v2" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                style={styles.layerBtn}
+                onClick={() => canvasRef.current?.sendToBack()}
+                title="Send to back"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 10H10v10M20 6H6v4M20 4H4v2" />
+                </svg>
+              </button>
+            </div>
+          </>
         )}
         <div style={styles.zoomWrap}>
           <button
@@ -219,6 +252,24 @@ const styles: Record<string, React.CSSProperties> = {
     background: '#f1f5f9',
     color: '#1e293b',
     boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.1)',
+  },
+  layerGroup: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 0,
+  },
+  layerBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 32,
+    height: 32,
+    padding: 0,
+    border: 'none',
+    borderRadius: 6,
+    background: 'transparent',
+    color: '#374151',
+    cursor: 'pointer',
   },
   divider: {
     width: 1,

@@ -4,7 +4,7 @@
 
 ### Frontend
 - **React** + **Fabric.js** (BSD license)
-- Infinite canvas with viewport culling, pan/zoom (zoom 0.01%–10000%+)
+- Infinite canvas with viewport culling, pan/zoom (zoom 0.001%–10000%+)
 - Shapes, sticky notes, text (tldraw-like clean/flat visual style)
 - Selection (single + box), transforms (move, resize)
 - Multiplayer cursors + presence
