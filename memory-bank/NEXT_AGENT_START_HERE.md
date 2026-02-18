@@ -1,6 +1,6 @@
 # START HERE - Next Agent Context
 
-**Date:** 2026-02-17
+**Date:** 2026-02-18
 
 ## Current State
 
@@ -43,7 +43,7 @@
 **Planned (documented in PRD + memory bank):**
 - ~~**Bring forward / send backward**~~ ✅ — Done. bringForward/sendBackward in FabricCanvas + toolbar buttons.
 - ~~**Boards page cleanup**~~ ✅ — Done (Figma-inspired: header, loading, empty, card rows, copy link, delete, rename, sort).
-- **Boards grid (last-opened order)** ✅ — Grid of cards, ordered by last_accessed_at (when user opened board). user_boards.last_accessed_at migration; joinBoard updates it. formatLastAccessed: "Opened 2h ago", etc.
+- **Boards grid (last-opened order)** ✅ — Grid of cards (not list), ordered by last_accessed_at. Migration 20260218100000_user_boards_last_accessed.sql; BoardMeta.lastAccessedAt; joinBoard upserts last_accessed_at; subscribeToUserBoards orders by last_accessed_at desc. formatLastAccessed: "Opened 2h ago", etc. Grid layout: gridAutoRows 130, columnGap 16, rowGap 20; gridItem display flex; boardCard flex 1 minHeight 100. Log cleanup: removed verbose [LOCKS]/[FABRIC]/[APPLYLOCK]; only log CHANNEL_ERROR/TIMED_OUT (skip CLOSED).
 
 ### Parallel agent tasks (no merge conflicts)
 
@@ -77,3 +77,4 @@
 - **Sticky notes:** No placeholder. Create → box completes → edit mode opens (blinking cursor). shapeFactory sticky = [bg, mainText]; FabricCanvas handleMouseUp auto-enters edit after 50ms.
 - **documentsApi:** subscribeToDocuments fetchInitial uses .range(offset, offset + PAGE_SIZE - 1) in a loop.
 - **Lines:** shapeFactory creates lines as Polyline (not Fabric Line). No legacy Line boards to support.
+- **BoardListPage:** Grid of cards (repeat(auto-fill, minmax(220px, 1fr))), gridAutoRows 130, columnGap 16, rowGap 20. Ordered by last_accessed_at. boardsApi: recordBoardAccess, BoardMeta.lastAccessedAt.

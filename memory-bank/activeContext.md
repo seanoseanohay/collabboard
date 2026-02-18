@@ -3,7 +3,7 @@
 ## Current Focus (for next agent)
 **Multi-selection move drift: FIXED (2026-02-18).** Root cause was originX/originY vs calcTransformMatrix center mismatch — see systemPatterns for the pattern doc. All three fixes in boardSync.ts. No remaining high-priority bugs.
 
-**Next up:** Post-MVP polish — AI agent (Edge Function), Undo/Redo, revocable invite links, z-order nudge (bring forward / send backward), touch handling.
+**Next up:** Post-MVP polish — AI agent (Edge Function), Undo/Redo, touch handling. Revocable invite links deprioritized (do last).
 
 ### What Was Fixed (2026-02-17)
 1. **Locking never enabled** — Effect ran before auth loaded; `userId`/`userName` were empty. Added `userId`/`userName` to effect deps so sync re-ran when auth ready.
@@ -91,9 +91,9 @@
 
 **Design (documented in PRD § Sync Strategy):** During drag broadcast `{ objectIds, dx, dy }`; on drop write absolute to documents. Single-object and Fabric Group (sticky) moves unchanged.
 
-## Planned: Z-order nudge (bring forward / send backward)
+## Z-order nudge — DONE
 
-**Goal:** One step in z-order (in front of or behind adjacent object), not only full bring-to-front / send-to-back. PRD §4 Object Capabilities.
+**bringForward/sendBackward** — One step in z-order implemented in FabricCanvas + toolbar buttons. PRD §4 Object Capabilities.
 
 ## Planned: AI Client API (Post-MVP)
 
@@ -111,5 +111,5 @@
 - **FabricCanvas effect split:** Document sync in Effect 1 (deps: width, height, boardId). Lock sync in Effect 2 (deps: boardId, userId, userName). Prevents document subscription teardown when auth loads.
 - **boardSync:** setupDocumentSync + setupLockSync; applyLockStateCallbackRef for re-applying locks after remote updates.
 - **Multi-selection move:** ✅ Fixed. Broadcast deltas during drag, absolute on drop. Origin-vs-center bug resolved (payloadWithSceneCoords uses addTransformToObject; move-delta receiver uses obj.left+dx; applyRemote skips active selection echo).
-- **Z-order:** bringToFront/sendToBack implemented; bringForward/sendBackward (one step) planned per PRD §4.
-- **Boards page cleanup:** BoardListPage (list of user’s boards). Figma-inspired scope in memory-bank/boards-page-cleanup.md (layout, Workspace consistency, loading/empty, copy link, delete, rename, sort).
+- **Z-order:** bringToFront/sendToBack implemented; bringForward/sendBackward (one step) done. PRD §4.
+- **Boards page:** Grid of cards, last_accessed_at order. user_boards.last_accessed_at; joinBoard upserts it. Grid: gridAutoRows 130, columnGap 16, rowGap 20. Migration 20260218100000_user_boards_last_accessed.sql. Kebab menu: copy link, rename, delete. Replaces prior list layout (BoardListPage (list of user’s boards). Figma-inspired scope in memory-bank/boards-page-cleanup.md (layout, Workspace consistency, loading/empty, copy link, delete, rename, sort).

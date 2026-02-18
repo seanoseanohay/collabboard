@@ -29,7 +29,7 @@
 - zIndex: transactional increment / block reservation (post-MVP)
 - **Multi-selection move sync v2 (working):** During drag broadcast selection-move delta on Realtime channel (`objectIds`, `dx`, `dy`); receivers apply delta locally (`obj.left + dx`). On drop (`object:modified`) write absolute left/top/angle/scale to documents per object via `payloadWithSceneCoords`. `applyRemote` skips objects in the active selection to prevent sender echo corruption. Goal: correct positions + low lag.
 - **CRITICAL PATTERN — Origin vs Center in Fabric.js:** All shapes use `originX:'left', originY:'top'` (shapeFactory), meaning `left`/`top` are the left-edge/top-edge. But `calcTransformMatrix()` always returns a matrix whose translation is the object's **center** (via `getRelativeCenterPoint`). **Never write `qrDecompose(calcTransformMatrix()).translateX` directly as `left`** — this writes the center into an origin field, shifting objects by `width/2, height/2`. Instead: (a) for absolute position writes use `util.addTransformToObject` which calls `setPositionByOrigin(center, 'center', 'center')` to correctly convert; (b) for deltas, use `obj.left + dx` directly (delta is the same for center vs origin since the offset is constant during translation).
-- **Z-order:** bringToFront/sendToBack in place; bringForward/sendBackward (one step) planned. PRD §4.
+- **Z-order:** bringToFront/sendToBack + bringForward/sendBackward (one step) done. PRD §4.
 
 ## Locking (High Risk)
 - **Client:** Disable interaction on locked objects; show lock badge/overlay
