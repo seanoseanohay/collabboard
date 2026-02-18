@@ -443,8 +443,9 @@ export function setupDocumentSync(
       lastDeltaCenter = center
       return
     }
-    const dx = center.x - lastDeltaCenter.x
-    const dy = center.y - lastDeltaCenter.y
+    const prevDeltaCenter = lastDeltaCenter // const so TS narrows away from null
+    const dx = center.x - prevDeltaCenter.x
+    const dy = center.y - prevDeltaCenter.y
     const elapsed = now - lastDeltaEmit
     if (elapsed >= DELTA_BROADCAST_MS) {
       lastDeltaEmit = now
