@@ -1,9 +1,9 @@
 # Active Context
 
 ## Current Focus (for next agent)
-**Priority to fix:** Multi-selection move drift — When one user moves a group of objects, other clients see the objects continuously move down and to the right (regardless of drag direction). Move-delta broadcast is in place (boardSync: move_deltas channel, getTargetSceneCenter for sender, scene-coords apply on receiver); bug still reproduces. Treat as high priority until resolved.
+**Multi-selection move drift: FIXED (2026-02-18).** Root cause was originX/originY vs calcTransformMatrix center mismatch — see systemPatterns for the pattern doc. All three fixes in boardSync.ts. No remaining high-priority bugs.
 
-**Sticky notes UX:** No placeholder text; on create, box completes and edit mode opens automatically (blinking cursor, ready to type). shapeFactory sticky = [bg, mainText] only; FabricCanvas handleMouseUp auto-enters edit after 50ms + hiddenTextarea.focus(). Next: Post-MVP (AI agent, Undo).
+**Next up:** Post-MVP polish — AI agent (Edge Function), Undo/Redo, revocable invite links, z-order nudge (bring forward / send backward), touch handling.
 
 ### What Was Fixed (2026-02-17)
 1. **Locking never enabled** — Effect ran before auth loaded; `userId`/`userName` were empty. Added `userId`/`userName` to effect deps so sync re-ran when auth ready.
@@ -83,11 +83,11 @@
 15. ~~**Shape tool: no selection when drawing**~~ ✅ — FabricCanvas: shape tool always draws, discardActiveObject on pointer down.
 16. ~~**Board loading performance**~~ ✅ — documentsApi fetchInitial paginated (PAGE_SIZE 50).
 
-## Multi-selection move sync v2 — implemented but buggy (priority fix)
+## Multi-selection move sync v2 — FIXED (2026-02-18)
 
 **Goal:** All items end up in the right spot when moving a selection; other clients see moves with minimal lag.
 
-**Current state:** Implemented (boardSync: move_deltas channel, broadcast during drag, absolute write on drop, getTargetSceneCenter for sender, scene-coords apply on receiver). **Bug:** Other clients still see objects continuously drift down and to the right regardless of drag direction. Tried fixing by using target scene center instead of children average; still reproducing. **Priority to fix.**
+**Status: Working.** Root cause was originX/originY vs calcTransformMatrix center mismatch. All shapes use `originX:'left', originY:'top'` but `calcTransformMatrix()` returns the object center. Writing center coords as left/top shifted objects by width/2 and height/2 on every apply. **Three fixes in boardSync.ts:** (1) `payloadWithSceneCoords` uses `util.addTransformToObject` + save/restore for correct origin conversion; (2) move-delta receiver uses `obj.left + dx` directly; (3) `applyRemote` skips objects in active selection to prevent sender echo corruption.
 
 **Design (documented in PRD § Sync Strategy):** During drag broadcast `{ objectIds, dx, dy }`; on drop write absolute to documents. Single-object and Fabric Group (sticky) moves unchanged.
 
@@ -110,6 +110,6 @@
 ## Considerations
 - **FabricCanvas effect split:** Document sync in Effect 1 (deps: width, height, boardId). Lock sync in Effect 2 (deps: boardId, userId, userName). Prevents document subscription teardown when auth loads.
 - **boardSync:** setupDocumentSync + setupLockSync; applyLockStateCallbackRef for re-applying locks after remote updates.
-- **Multi-selection move:** Implemented (broadcast deltas during drag, absolute on drop; getTargetSceneCenter for sender). Bug: other clients see continuous drift down and right. Priority to fix; see progress.md Known Issues.
+- **Multi-selection move:** ✅ Fixed. Broadcast deltas during drag, absolute on drop. Origin-vs-center bug resolved (payloadWithSceneCoords uses addTransformToObject; move-delta receiver uses obj.left+dx; applyRemote skips active selection echo).
 - **Z-order:** bringToFront/sendToBack implemented; bringForward/sendBackward (one step) planned per PRD §4.
 - **Boards page cleanup:** BoardListPage (list of user’s boards). Figma-inspired scope in memory-bank/boards-page-cleanup.md (layout, Workspace consistency, loading/empty, copy link, delete, rename, sort).

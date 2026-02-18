@@ -29,6 +29,7 @@
 
 **Done this session:**
 - **AI Client API** ✅ — createObject, updateObject, deleteObjects, queryObjects; getDocument/fetchDocuments in documentsApi; exported from @/features/workspace.
+- **AI Client API docs (Task B)** ✅ — docs/AI_CLIENT_API.md updated: marked "Implemented (client + Edge Function)", import examples, usage examples. Edge Function (supabase/functions/ai-canvas-ops) + frontend wrapper (aiCanvasOpsEdgeApi.ts) + barrel export all verified.
 - **Trackpad pan/zoom** ✅ — Two-finger scroll = pan, pinch = zoom at cursor (FabricCanvas handleWheel: ctrlKey → zoom, else relativePan). Pinch sensitivity 0.006 (deltaY multiplier).
 
 **Post-MVP / polish:**
@@ -36,12 +37,11 @@
 - Undo/Redo, rotation (throttled).
 - Revocable invite links.
 
-**Priority to fix:**
-- **Multi-selection move drift** — When moving a group, other clients see objects continuously move down and to the right (regardless of drag direction). Move-delta broadcast + getTargetSceneCenter in place; bug still reproduces. See progress.md Known Issues, activeContext.
+**Fixed this session:**
+- ~~**Multi-selection move drift**~~ ✅ — Root cause: originX/originY vs calcTransformMatrix center mismatch. Three fixes in boardSync.ts (payloadWithSceneCoords uses addTransformToObject; move-delta receiver uses obj.left+dx; applyRemote skips active selection echo). See systemPatterns for the pattern doc.
 
 **Planned (documented in PRD + memory bank):**
-- **Multi-selection move sync v2** — Implemented but buggy (drift down/right); priority fix. Design: during drag broadcast (`objectIds`, `dx`, `dy`); on drop write absolute. See PRD § Sync Strategy, activeContext, systemPatterns.
-- **Bring forward / send backward** — One step in z-order (not only full front/back). PRD §4.
+- ~~**Bring forward / send backward**~~ ✅ — Done. bringForward/sendBackward in FabricCanvas + toolbar buttons.
 - ~~**Boards page cleanup**~~ ✅ — Done (Figma-inspired: header, loading, empty, card rows, copy link, delete, rename, sort).
 
 ### Parallel agent tasks (no merge conflicts)
@@ -50,18 +50,18 @@
 
 | Agent | Task | Primary files | Notes |
 |-------|------|----------------|--------|
-| **A** | **Fix multi-selection move drift** | boardSync.ts, FabricCanvas.tsx | High priority. Move-deltas apply logic. |
-| **B** | **AI Client API docs** | docs/AI_CLIENT_API.md only | Mark Implemented, add usage examples. |
-| **C** | **StrictMode for production only** | main.tsx only | Wrap app in React.StrictMode when import.meta.env.PROD. |
+| ~~**A**~~ | ~~**Fix multi-selection move drift**~~ | ~~boardSync.ts, FabricCanvas.tsx~~ | ✅ DONE. Origin-vs-center fix. |
+| ~~**B**~~ | ~~**AI Client API docs**~~ | ~~docs/AI_CLIENT_API.md~~ | ✅ DONE. Docs updated, usage examples, Edge Function + client imports verified. |
+| ~~**C**~~ | ~~**StrictMode for production only**~~ | ~~main.tsx~~ | ✅ DONE. StrictMode wraps app only when import.meta.env.PROD. |
 | **D** | **AI agent (Edge Function)** | supabase/functions/, new invoke from frontend if needed | Post-MVP. Uses aiClientApi. |
-| **E** | **Revocable invite links** | supabase/migrations, invite API, ShareModal/BoardListPage | Post-MVP. Schema + RLS + UI to revoke. |
+| **E** | **Revocable invite links** | supabase/migrations, invite API, ShareModal/BoardListPage | Post-MVP. Low priority — do last. |
 
 **Run one at a time (all touch workspace canvas/sync — same area):**
 
 | Agent | Task | Primary files | Notes |
 |-------|------|----------------|--------|
-| **F** | **Z-order nudge (bring forward / send backward)** | FabricCanvas.tsx, WorkspaceToolbar, boardSync.ts | PRD §4. One step in z-order. |
-| **G** | **Rotation throttle + sync** | boardSync.ts | object:rotating ~50ms throttle, sync like moving. Post-MVP. |
+| ~~**F**~~ | ~~**Z-order nudge (bring forward / send backward)**~~ | ~~FabricCanvas.tsx, WorkspaceToolbar, boardSync.ts~~ | ✅ DONE. bringForward/sendBackward implemented + toolbar buttons. |
+| ~~**G**~~ | ~~**Rotation throttle + sync**~~ | ~~boardSync.ts~~ | ✅ DONE. object:rotating hooked to emitModifyThrottled. |
 | **H** | **Touch handling (mobile)** | FabricCanvas.tsx | Touch/pointer for pan, zoom, draw. |
 | **I** | **Undo/Redo** | New feature module, FabricCanvas, boardSync | Post-MVP. History stack + integrate. |
 
