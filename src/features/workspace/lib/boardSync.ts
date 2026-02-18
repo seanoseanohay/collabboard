@@ -8,25 +8,31 @@
 import type { Canvas, FabricObject } from 'fabric'
 import { util } from 'fabric'
 
-/** When object is inside a group/ActiveSelection, left/top/angle/scale are relative. Override with scene (absolute) transform. */
+/** When object is inside a group/ActiveSelection, left/top/angle/scale are relative. Override with scene (absolute) transform.
+ * Uses Fabric's addTransformToObject + setPositionByOrigin so the conversion correctly respects the object's originX/originY.
+ * (calcTransformMatrix gives the scene CENTER, but left/top are the ORIGIN which differs when originX/Y != 'center'.) */
 function payloadWithSceneCoords(
   obj: FabricObject,
   payload: Record<string, unknown>
 ): Record<string, unknown> {
-  const group = (obj as { group?: unknown }).group
+  const group = (obj as unknown as { group?: FabricObject & { calcOwnMatrix: () => number[] } }).group
   if (!group) return payload
-  const matrix = obj.calcTransformMatrix()
-  const d = util.qrDecompose(matrix)
-  return {
-    ...payload,
-    left: d.translateX,
-    top: d.translateY,
-    angle: d.angle,
-    scaleX: d.scaleX,
-    scaleY: d.scaleY,
-    skewX: d.skewX,
-    skewY: d.skewY,
+  const origProps = {
+    left: obj.left, top: obj.top, angle: obj.angle,
+    scaleX: obj.scaleX, scaleY: obj.scaleY,
+    skewX: obj.skewX, skewY: obj.skewY,
+    flipX: obj.flipX, flipY: obj.flipY,
   }
+  util.addTransformToObject(obj, group.calcOwnMatrix())
+  const result = {
+    ...payload,
+    left: obj.left, top: obj.top, angle: obj.angle,
+    scaleX: obj.scaleX, scaleY: obj.scaleY,
+    skewX: obj.skewX, skewY: obj.skewY,
+    flipX: obj.flipX, flipY: obj.flipY,
+  }
+  obj.set(origProps)
+  return result
 }
 
 /** Scene position of the event target (single object or ActiveSelection). Used for move-delta so we never use selection-relative (0,0) as base.
@@ -201,6 +207,12 @@ export function setupDocumentSync(
     const clean = stripSyncFields(data)
     const existing = canvas.getObjects().find((o) => getObjectId(o) === objectId)
     if (existing) {
+      // Skip objects that are in our active selection (multi-select). The sender's own
+      // document writes echo back via postgres_changes; applying scene-space left/top to
+      // a group-relative child would corrupt its position. Locking ensures only we write
+      // to these objects while selected.
+      const active = canvas.getActiveObject()
+      if (existing.group && existing.group === active) return
       if (existing.type === 'group') {
         try {
           const objData = { ...clean, data: { id: objectId } }
@@ -395,12 +407,11 @@ export function setupDocumentSync(
       for (const objectId of p.objectIds) {
         const obj = canvas.getObjects().find((o) => getObjectId(o) === objectId)
         if (obj) {
-          // Apply delta in scene coordinates so Groups and Paths behave correctly
-          const matrix = obj.calcTransformMatrix()
-          const d = util.qrDecompose(matrix)
-          const newLeft = d.translateX + p.dx
-          const newTop = d.translateY + p.dy
-          obj.set({ left: newLeft, top: newTop })
+          // Add delta directly to left/top. These are in scene (canvas) space for
+          // standalone objects. The delta is the same whether measured at center or
+          // origin, so no calcTransformMatrix conversion is needed (which would give
+          // center coords and break objects with originX/Y != 'center').
+          obj.set({ left: obj.left + p.dx, top: obj.top + p.dy })
           obj.setCoords()
         }
       }
@@ -489,13 +500,8 @@ export function setupDocumentSync(
     }
     lastDeltaCenter = null
     if (e.target) {
-      const target = e.target
-      // Defer writing so we read positions after Fabric has committed the drop (selection exit / final coords).
-      // Otherwise we can read stale coords and other clients jump to the wrong place on release.
-      const toSync = getObjectsToSync(target)
-      setTimeout(() => {
-        toSync.forEach((o) => emitModify(o))
-      }, 0)
+      const toSync = getObjectsToSync(e.target)
+      toSync.forEach((o) => emitModify(o))
     }
   })
   canvas.on('object:removed', (e) => {
