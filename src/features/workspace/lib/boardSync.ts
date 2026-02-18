@@ -29,18 +29,11 @@ function payloadWithSceneCoords(
   }
 }
 
-/** Scene center (average of scene left/top) for a set of objects. Used for move-delta broadcast. */
-function getSceneCenter(objects: FabricObject[]): { x: number; y: number } {
-  if (objects.length === 0) return { x: 0, y: 0 }
-  let sx = 0
-  let sy = 0
-  for (const obj of objects) {
-    const matrix = obj.calcTransformMatrix()
-    const d = util.qrDecompose(matrix)
-    sx += d.translateX
-    sy += d.translateY
-  }
-  return { x: sx / objects.length, y: sy / objects.length }
+/** Scene position of the event target (single object or ActiveSelection). Used for move-delta so we never use selection-relative (0,0) as base. */
+function getTargetSceneCenter(target: FabricObject): { x: number; y: number } {
+  const matrix = target.calcTransformMatrix()
+  const d = util.qrDecompose(matrix)
+  return { x: d.translateX, y: d.translateY }
 }
 
 export type MoveDeltaPayload = {
@@ -416,7 +409,7 @@ export function setupDocumentSync(
     if (toSync.length === 0) return
     const ids = toSync.map((o) => getObjectId(o)).filter((id): id is string => !!id)
     if (ids.length === 0) return
-    const center = getSceneCenter(toSync)
+    const center = getTargetSceneCenter(target)
     const now = Date.now()
     if (lastDeltaCenter === null) {
       lastDeltaCenter = center
