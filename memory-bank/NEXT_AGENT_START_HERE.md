@@ -43,6 +43,7 @@
 **Planned (documented in PRD + memory bank):**
 - ~~**Bring forward / send backward**~~ ✅ — Done. bringForward/sendBackward in FabricCanvas + toolbar buttons.
 - ~~**Boards page cleanup**~~ ✅ — Done (Figma-inspired: header, loading, empty, card rows, copy link, delete, rename, sort).
+- **Boards grid (last-opened order)** ✅ — Grid of cards, ordered by last_accessed_at (when user opened board). user_boards.last_accessed_at migration; joinBoard updates it. formatLastAccessed: "Opened 2h ago", etc.
 
 ### Parallel agent tasks (no merge conflicts)
 

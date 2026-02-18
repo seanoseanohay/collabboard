@@ -169,13 +169,11 @@ export function BoardListPage() {
         </div>
 
         {loading ? (
-          <ul style={styles.list}>
-            {[1, 2, 3, 4].map((i) => (
-              <li key={i} style={styles.skeletonItem}>
-                <div style={styles.skeletonCard} />
-              </li>
+          <div style={styles.grid}>
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} style={styles.skeletonCard} />
             ))}
-          </ul>
+          </div>
         ) : boards.length === 0 ? (
           <div style={styles.emptyWrap}>
             <p style={styles.empty}>No boards yet. Create one to get started.</p>
@@ -189,9 +187,9 @@ export function BoardListPage() {
             </button>
           </div>
         ) : (
-          <ul style={styles.list}>
+          <div style={styles.grid}>
             {boards.map((board) => (
-              <li key={board.id} style={styles.item}>
+              <div key={board.id} style={styles.gridItem}>
                 <div
                   role="button"
                   tabIndex={0}
@@ -201,77 +199,79 @@ export function BoardListPage() {
                   }
                   style={styles.boardCard}
                 >
-                  <div style={styles.boardCardMain}>
-                    {renameBoardId === board.id ? (
-                      <input
-                        type="text"
-                        value={renameValue}
-                        onChange={(e) => setRenameValue(e.target.value)}
-                        onBlur={() => handleRenameSubmit(board.id)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.currentTarget.blur()
-                          }
-                          if (e.key === 'Escape') {
-                            setRenameBoardId(null)
-                            setRenameValue(board.title)
-                          }
+                  <div style={styles.boardCardHeader}>
+                    <div style={styles.boardCardMain}>
+                      {renameBoardId === board.id ? (
+                        <input
+                          type="text"
+                          value={renameValue}
+                          onChange={(e) => setRenameValue(e.target.value)}
+                          onBlur={() => handleRenameSubmit(board.id)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.currentTarget.blur()
+                            }
+                            if (e.key === 'Escape') {
+                              setRenameBoardId(null)
+                              setRenameValue(board.title)
+                            }
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                          style={styles.renameInput}
+                          autoFocus
+                          aria-label="Rename board"
+                        />
+                      ) : (
+                        <span style={styles.boardTitle}>{board.title}</span>
+                      )}
+                    </div>
+                    <div style={styles.actionsWrap} ref={menuBoardId === board.id ? menuRef : undefined}>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setMenuBoardId(menuBoardId === board.id ? null : board.id)
                         }}
-                        onClick={(e) => e.stopPropagation()}
-                        style={styles.renameInput}
-                        autoFocus
-                        aria-label="Rename board"
-                      />
-                    ) : (
-                      <span style={styles.boardTitle}>{board.title}</span>
-                    )}
-                    <span style={styles.boardDate}>
-                      {formatDate(board.createdAt)}
-                    </span>
+                        style={styles.kebabBtn}
+                        aria-label="Board actions"
+                        aria-expanded={menuBoardId === board.id}
+                      >
+                        ⋮
+                      </button>
+                      {menuBoardId === board.id && (
+                        <div style={styles.menu}>
+                          <button
+                            type="button"
+                            style={styles.menuItem}
+                            onClick={(e) => handleCopyLink(e, board.id)}
+                          >
+                            {copiedId === board.id ? 'Copied!' : 'Copy share link'}
+                          </button>
+                          <button
+                            type="button"
+                            style={styles.menuItem}
+                            onClick={(e) => handleRenameClick(e, board)}
+                          >
+                            Rename
+                          </button>
+                          <button
+                            type="button"
+                            style={{ ...styles.menuItem, ...styles.menuItemDanger }}
+                            onClick={(e) => handleDeleteClick(e, board.id)}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div style={styles.actionsWrap} ref={menuBoardId === board.id ? menuRef : undefined}>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setMenuBoardId(menuBoardId === board.id ? null : board.id)
-                      }}
-                      style={styles.kebabBtn}
-                      aria-label="Board actions"
-                      aria-expanded={menuBoardId === board.id}
-                    >
-                      ⋮
-                    </button>
-                    {menuBoardId === board.id && (
-                      <div style={styles.menu}>
-                        <button
-                          type="button"
-                          style={styles.menuItem}
-                          onClick={(e) => handleCopyLink(e, board.id)}
-                        >
-                          {copiedId === board.id ? 'Copied!' : 'Copy share link'}
-                        </button>
-                        <button
-                          type="button"
-                          style={styles.menuItem}
-                          onClick={(e) => handleRenameClick(e, board)}
-                        >
-                          Rename
-                        </button>
-                        <button
-                          type="button"
-                          style={{ ...styles.menuItem, ...styles.menuItemDanger }}
-                          onClick={(e) => handleDeleteClick(e, board.id)}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                  <span style={styles.boardDate}>
+                    {formatLastAccessed(board.lastAccessedAt ?? board.createdAt)}
+                  </span>
                 </div>
-              </li>
+              </div>
             ))}
-          </ul>
+          </div>
         )}
       </main>
 
@@ -308,15 +308,16 @@ export function BoardListPage() {
   )
 }
 
-function formatDate(ts: number): string {
+function formatLastAccessed(ts: number): string {
   if (!ts) return ''
   const d = new Date(ts)
   const now = new Date()
   const diff = now.getTime() - d.getTime()
-  if (diff < 60_000) return 'Just now'
-  if (diff < 86400_000)
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  return d.toLocaleDateString()
+  if (diff < 60_000) return 'Opened just now'
+  if (diff < 3600_000) return `Opened ${Math.floor(diff / 60000)}m ago`
+  if (diff < 86400_000) return `Opened ${Math.floor(diff / 3600000)}h ago`
+  if (diff < 7 * 86400_000) return `Opened ${Math.floor(diff / 86400000)}d ago`
+  return `Opened ${d.toLocaleDateString()}`
 }
 
 const styles: Record<string, React.CSSProperties> = {
@@ -363,7 +364,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   main: {
     padding: 24,
-    maxWidth: 800,
+    maxWidth: 1200,
     margin: '0 auto',
   },
   toolbar: {
@@ -410,21 +411,22 @@ const styles: Record<string, React.CSSProperties> = {
     color: '#fff',
     cursor: 'pointer',
   },
-  list: {
+  grid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+    gap: 16,
     listStyle: 'none',
     margin: 0,
     padding: 0,
   },
-  item: {
-    marginBottom: 10,
-  },
-  skeletonItem: {
-    marginBottom: 10,
+  gridItem: {
+    minWidth: 0,
   },
   skeletonCard: {
-    height: 56,
-    borderRadius: 8,
+    aspectRatio: '4/3',
+    borderRadius: 12,
     background: '#e5e7eb',
+    minHeight: 140,
   },
   emptyWrap: {
     textAlign: 'center',
@@ -447,19 +449,25 @@ const styles: Record<string, React.CSSProperties> = {
   },
   boardCard: {
     display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '16px 20px',
+    flexDirection: 'column',
+    height: '100%',
+    minHeight: 140,
+    padding: 16,
     background: '#fff',
     border: '1px solid #e5e7eb',
-    borderRadius: 8,
-    boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+    borderRadius: 12,
+    boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
     cursor: 'pointer',
   },
-  boardCardMain: {
+  boardCardHeader: {
     display: 'flex',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    gap: 8,
+    flex: 1,
+    minWidth: 0,
+  },
+  boardCardMain: {
     flex: 1,
     minWidth: 0,
   },
@@ -470,22 +478,21 @@ const styles: Record<string, React.CSSProperties> = {
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
-    marginRight: 12,
+    display: 'block',
   },
   renameInput: {
-    flex: 1,
-    marginRight: 12,
+    width: '100%',
     padding: '4px 8px',
     fontSize: 15,
     border: '1px solid #e5e7eb',
     borderRadius: 6,
     outline: 'none',
-    minWidth: 0,
+    boxSizing: 'border-box',
   },
   boardDate: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#9ca3af',
-    flexShrink: 0,
+    marginTop: 8,
   },
   actionsWrap: {
     position: 'relative',

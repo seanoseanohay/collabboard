@@ -731,12 +731,6 @@ const FabricCanvasInner = (
         ? { userId: uid, userName: uname }
         : undefined
 
-    if (!lockOpts && boardId && uid !== undefined) {
-      console.error('[FABRIC] ❌ LOCKING DISABLED - Missing:', { boardId: !!boardId, uid: !!uid, uname: !!uname })
-    } else if (lockOpts) {
-      console.log('[FABRIC] ✅ LOCKING ENABLED:', lockOpts)
-    }
-
     if (!canvas || !boardId || !lockOpts) return
 
     const cleanupLockSync = setupLockSync(canvas, boardId, lockOpts, applyLockStateCallbackRef)

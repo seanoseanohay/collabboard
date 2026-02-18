@@ -60,18 +60,11 @@ export async function acquireLock(
 
   // Broadcast lock acquisition for instant propagation (<100ms)
   if (broadcastChannel) {
-    const channelState = broadcastChannel.state
-    console.log('[LOCKS] 📤 Sending lock_acquired broadcast:', { objectId, userId, userName, channelState })
-    
-    const result = await broadcastChannel.send({
+    await broadcastChannel.send({
       type: 'broadcast',
       event: 'lock_acquired',
       payload: { objectId, userId, userName, lastActive: Date.now() },
     })
-    
-    console.log('[LOCKS] Broadcast send result:', result)
-  } else {
-    console.warn('[LOCKS] ⚠️ No broadcast channel available for lock acquisition')
   }
 
   return true
@@ -101,16 +94,11 @@ export async function releaseLock(
 
   // Broadcast lock release for instant propagation (<100ms)
   if (broadcastChannel) {
-    const channelState = broadcastChannel.state
-    console.log('[LOCKS] 📤 Sending lock_released broadcast:', { objectId, userId, channelState })
-    
     await broadcastChannel.send({
       type: 'broadcast',
       event: 'lock_released',
       payload: { objectId, userId },
     })
-  } else {
-    console.warn('[LOCKS] ⚠️ No broadcast channel available for lock release')
   }
 }
 
@@ -134,7 +122,6 @@ export function subscribeToLocks(
       userName: r.user_name ?? 'Unknown',
       lastActive: r.last_active ?? 0,
     }))
-    console.log('[LOCKS] Fetched from DB:', entries)
     onLocks(entries)
   }
 
@@ -145,16 +132,12 @@ export function subscribeToLocks(
     .on(
       'postgres_changes',
       { event: '*', schema: 'public', table: 'locks', filter: `board_id=eq.${boardId}` },
-      (payload) => {
-        console.log('[LOCKS] postgres_changes event:', payload)
-        fetch()
-      }
+      () => fetch()
     )
     .on(
       'broadcast',
       { event: 'lock_acquired' },
       (payload) => {
-        console.log('[LOCKS] 🔒 Broadcast received: lock_acquired', payload)
         const data = payload.payload as { objectId: string; userId: string; userName: string; lastActive: number }
         if (onBroadcastLockAcquired) {
           onBroadcastLockAcquired({
@@ -170,7 +153,6 @@ export function subscribeToLocks(
       'broadcast',
       { event: 'lock_released' },
       (payload) => {
-        console.log('[LOCKS] 🔓 Broadcast received: lock_released', payload)
         const data = payload.payload as { objectId: string; userId: string }
         if (onBroadcastLockReleased) {
           onBroadcastLockReleased(data.objectId, data.userId)
@@ -178,21 +160,14 @@ export function subscribeToLocks(
       }
     )
     .subscribe((status, err) => {
-      console.log('[LOCKS] Channel subscription status:', status, err || '')
-      if (status === 'SUBSCRIBED') {
-        console.log('[LOCKS] ✅ Channel ready for broadcasts')
-      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-        console.error('[LOCKS] ❌ Channel error:', status, err)
+      // Only log unexpected errors; CLOSED is expected when we call removeChannel during cleanup
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        console.error('[LOCKS] Channel error:', status, err)
       }
     })
 
-  console.log('[LOCKS] Channel created:', `locks:${boardId}`)
-
   return {
-    cleanup: () => {
-      console.log('[LOCKS] Cleaning up channel')
-      supabase.removeChannel(channel)
-    },
+    cleanup: () => supabase.removeChannel(channel),
     channel,
   }
 }

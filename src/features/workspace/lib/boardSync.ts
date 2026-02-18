@@ -125,19 +125,11 @@ export function applyLockState(
   const lockedByOthers = new Set(
     locks.filter((l) => l.userId !== currentUserId).map((l) => l.objectId)
   )
-  
-  console.log('[APPLYLOCK] Applying lock state. Locked by others:', Array.from(lockedByOthers))
-  
-  let lockedCount = 0
+
   for (const obj of canvas.getObjects()) {
     const id = getObjectId(obj)
     if (!id) continue
     const locked = lockedByOthers.has(id)
-    
-    if (locked) {
-      console.log('[APPLYLOCK] 🔒 Locking object:', id, 'setting evented=false, selectable=false')
-      lockedCount++
-    }
     
     obj.set({
       selectable: !locked,
@@ -158,8 +150,7 @@ export function applyLockState(
       })
     }
   }
-  
-  console.log('[APPLYLOCK] ✅ Applied locks to', lockedCount, 'objects')
+
   canvas.requestRenderAll()
 }
 
