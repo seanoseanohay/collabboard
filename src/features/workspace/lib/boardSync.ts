@@ -377,6 +377,7 @@ export function setupDocumentSync(
   let lastDeltaCenter: { x: number; y: number } | null = null
   let deltaThrottleTimer: ReturnType<typeof setTimeout> | null = null
   let lastDeltaEmit = 0
+  let moveChannelReady = false
 
   moveChannel
     .on('broadcast', { event: 'move_delta' }, (message) => {
@@ -385,19 +386,25 @@ export function setupDocumentSync(
       for (const objectId of p.objectIds) {
         const obj = canvas.getObjects().find((o) => getObjectId(o) === objectId)
         if (obj) {
-          const left = (obj.get('left') as number) ?? 0
-          const top = (obj.get('top') as number) ?? 0
-          obj.set({ left: left + p.dx, top: top + p.dy })
+          // Apply delta in scene coordinates so Groups and Paths behave correctly
+          const matrix = obj.calcTransformMatrix()
+          const d = util.qrDecompose(matrix)
+          const newLeft = d.translateX + p.dx
+          const newTop = d.translateY + p.dy
+          obj.set({ left: newLeft, top: newTop })
           obj.setCoords()
         }
       }
       canvas.requestRenderAll()
     })
-    .subscribe()
+    .subscribe((status) => {
+      moveChannelReady = status === 'SUBSCRIBED'
+    })
 
   const broadcastMoveDelta = (objectIds: string[], dx: number, dy: number) => {
     const uid = getCurrentUserId?.()
     if (!uid) return
+    if (!moveChannelReady) return
     moveChannel.send({
       type: 'broadcast',
       event: 'move_delta',
