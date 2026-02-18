@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
 import type { BoardMeta } from '@/features/boards/api/boardsApi'
+import { Z_INDEX } from '@/shared/constants/zIndex'
 import { getShareUrl } from '@/shared/lib/shareLinks'
 import { inviteToBoard } from '../api/inviteApi'
 
@@ -161,7 +162,7 @@ const overlay: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  zIndex: 1000,
+  zIndex: Z_INDEX.MODALS,
 }
 const modal: React.CSSProperties = {
   background: '#fff',

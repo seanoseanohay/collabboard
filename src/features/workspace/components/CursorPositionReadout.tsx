@@ -1,3 +1,5 @@
+import { Z_INDEX } from '@/shared/constants/zIndex'
+
 /**
  * tldraw-style cursor position readout. Displays scene (page) coordinates.
  */
@@ -22,7 +24,7 @@ export function CursorPositionReadout({ x, y }: CursorPositionReadoutProps) {
         background: 'rgba(255,255,255,0.9)',
         border: '1px solid #e5e7eb',
         borderRadius: 4,
-        zIndex: 10,
+        zIndex: Z_INDEX.CURSOR_READOUT,
         pointerEvents: 'none',
       }}
     >

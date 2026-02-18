@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'
+import { Z_INDEX } from '@/shared/constants/zIndex'
 import { invokeAiInterpret } from '../api/aiInterpretApi'
 import { executeAiCommands } from '../lib/executeAiCommands'
 
@@ -158,7 +159,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 1000,
+    zIndex: Z_INDEX.MODALS,
   },
   modal: {
     background: '#fff',

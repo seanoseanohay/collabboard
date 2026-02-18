@@ -1,4 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
+import { Z_INDEX } from '@/shared/constants/zIndex'
 import { Canvas, Point, type FabricObject } from 'fabric'
 import { createHistoryManager, type HistoryManager } from '../lib/historyManager'
 
@@ -984,7 +985,7 @@ const styles: Record<string, React.CSSProperties> = {
     background: 'transparent',
     cursor: 'default',
     position: 'relative',
-    zIndex: 1,
+    zIndex: Z_INDEX.CANVAS,
     touchAction: 'none', // let JS own all touch gestures; prevents browser scroll/zoom conflicts
   },
 }

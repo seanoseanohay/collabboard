@@ -4,6 +4,7 @@
  * Pirate icon is deterministically assigned per userId via hash.
  */
 
+import { Z_INDEX } from '@/shared/constants/zIndex'
 import type { PresenceEntry } from '../api/presenceApi'
 
 interface CursorOverlayProps {
@@ -85,6 +86,7 @@ const styles: Record<string, React.CSSProperties> = {
     position: 'absolute',
     inset: 0,
     pointerEvents: 'none',
+    zIndex: Z_INDEX.CURSORS,
   },
   cursor: {
     position: 'absolute',

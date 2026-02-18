@@ -1,4 +1,5 @@
 import { forwardRef } from 'react'
+import { Z_INDEX } from '@/shared/constants/zIndex'
 
 /**
  * tldraw-style grid overlay. Tracks viewport via backgroundSize/backgroundPosition
@@ -32,7 +33,7 @@ export const GridOverlay = forwardRef<HTMLDivElement, GridOverlayProps>(
           backgroundImage: makeGridSvg(gridSize),
           backgroundSize: cellPx,
           backgroundPosition: '0px 0px',
-          zIndex: 0,
+          zIndex: Z_INDEX.GRID,
         }}
       />
     )

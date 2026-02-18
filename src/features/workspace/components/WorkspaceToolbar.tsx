@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Z_INDEX } from '@/shared/constants/zIndex'
 import type { ToolType } from '../types/tools'
 import type { FabricCanvasZoomHandle } from './FabricCanvas'
 import type { SelectionStrokeInfo } from './FabricCanvas'
@@ -427,7 +428,7 @@ const styles: Record<string, React.CSSProperties> = {
     boxShadow: '0 4px 14px rgba(0,0,0,0.1)',
     padding: 4,
     minWidth: 80,
-    zIndex: 10,
+    zIndex: Z_INDEX.TOOLBAR_OVERLAY,
   },
   zoomItem: {
     display: 'block',
