@@ -61,18 +61,9 @@ export function CursorOverlay({
               ...styles.cursor,
               left: x,
               top: y,
-              ['--cursor-color' as string]: c.color,
             }}
           >
-            <div style={styles.iconBadge}>
-              <span style={styles.pirateIcon}>{icon}</span>
-              <div
-                style={{
-                  ...styles.colorDot,
-                  background: c.color,
-                }}
-              />
-            </div>
+            <span style={styles.pirateIcon}>{icon}</span>
             <div style={styles.label}>{c.name}</div>
           </div>
         )
@@ -90,31 +81,16 @@ const styles: Record<string, React.CSSProperties> = {
   },
   cursor: {
     position: 'absolute',
-    transform: 'translate(-8px, -8px)',
+    transform: 'translate(-9px, -9px)',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
-  },
-  iconBadge: {
-    position: 'relative',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
+    gap: 2,
   },
   pirateIcon: {
     fontSize: 18,
     lineHeight: 1,
     filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.35))',
-  },
-  colorDot: {
-    position: 'absolute',
-    bottom: -1,
-    right: -3,
-    width: 8,
-    height: 8,
-    borderRadius: '50%',
-    border: '1.5px solid white',
-    boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
   },
   label: {
     marginTop: 3,

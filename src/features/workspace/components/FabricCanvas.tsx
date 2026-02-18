@@ -27,6 +27,7 @@ import {
   sortCanvasByZIndex,
   type LockStateCallbackRef,
 } from '../lib/boardSync'
+import { createSticker, type StickerKind } from '../lib/pirateStickerFactory'
 
 export interface SelectionStrokeInfo {
   strokeWidth: number
@@ -54,6 +55,7 @@ interface FabricCanvasProps {
   height?: number
   className?: string
   selectedTool?: ToolType
+  selectedStickerKind?: StickerKind
   boardId?: string
   userId?: string
   userName?: string
@@ -77,6 +79,7 @@ const FabricCanvasInner = (
     height = 800,
     className,
     selectedTool = 'select',
+    selectedStickerKind = 'anchor',
     boardId,
     userId,
     userName,
@@ -92,6 +95,8 @@ const FabricCanvasInner = (
   const zoomApiRef = useRef<Pick<FabricCanvasZoomHandle, 'setZoom' | 'zoomToFit'> | null>(null)
   const toolRef = useRef(selectedTool)
   toolRef.current = selectedTool
+  const stickerKindRef = useRef(selectedStickerKind)
+  stickerKindRef.current = selectedStickerKind
   const onPointerMoveRef = useRef(onPointerMove)
   onPointerMoveRef.current = onPointerMove
   const onViewportChangeRef = useRef(onViewportChange)
@@ -340,6 +345,21 @@ const FabricCanvasInner = (
       const target = opt.target
       const tool = toolRef.current
       objectWasTransformed = false  // Reset at start of each mouse interaction
+
+      // Sticker tool: click-to-place at cursor position (no drag needed)
+      if (tool === 'sticker' && 'button' in ev && ev.button === 0) {
+        const sp = getScenePoint(opt)
+        if (sp) {
+          fabricCanvas.discardActiveObject()
+          const sticker = createSticker(stickerKindRef.current, sp.x, sp.y)
+          if (sticker) {
+            fabricCanvas.add(sticker)
+            fabricCanvas.setActiveObject(sticker)
+            fabricCanvas.requestRenderAll()
+          }
+        }
+        return
+      }
 
       // With a shape tool active, pointer-down always starts drawing (never selects).
       if (isShapeTool(tool) && 'button' in ev && ev.button === 0) {

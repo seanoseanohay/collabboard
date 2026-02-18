@@ -65,6 +65,11 @@
 - ~~Undo/Redo~~ ✅ DONE.
 - ~~Revocable invite links~~ — removed from scope.
 
+**Done this session (MeBoard branding — canvas items, post-merge):**
+- **CursorOverlay fix** ✅ — Removed color dot; only pirate emoji icon shown (⚓🦜🧭☠️🔱 hash-assigned) + name label below.
+- **MapBorderOverlay** ✅ — `src/features/workspace/components/MapBorderOverlay.tsx`: 4 gradient strips at canvas edges (sepia/parchment), zoom-aware opacity (fades when zoomed in), compass rose emoji in corners. Toggle button (🗺️) in WorkspaceToolbar right section. `showMapBorder` state in WorkspacePage.
+- **Pirate Plunder stickers** ✅ — 9 SVG stickers (anchor, skull, ship, hat, compass, parrot, chest, sword, barrel). `pirateStickerFactory.ts`: `StickerKind`, `STICKER_DEFS`, `createSticker(kind, x, y)` — returns Fabric Path at 48×48. `ToolType` + `'sticker'`. FabricCanvas: click-to-place (no drag) in handleMouseDown; `selectedStickerKind` prop + `stickerKindRef`. WorkspaceToolbar: 🏴‍☠️ dropdown "Pirate Plunder" 3-col grid; map border toggle button. WorkspacePage: `selectedStickerKind` + `showMapBorder` state.
+
 **Done this session (MeBoard branding — safe parallel items):**
 - **LoginPage rebrand** ✅ — Full pirate theme: "MeBoard" hero, "Ahoy Captain" copy, parchment card, gold Google button ("Join the Crew with Google"), "Enter the Ship" submit, "New to the crew? Sign up free ⚓" toggle, "Why MeBoard?" feature section, testimonial, CTA.
 - **NavBar + Footer** ✅ — `src/shared/components/NavBar.tsx` (fixed top, MeBoard logo, Features/Pricing links, Log In button) + `src/shared/components/Footer.tsx` ("© MeBoard – All hands on deck"). Used in LoginPage only for now (safe from Undo/Redo conflicts).

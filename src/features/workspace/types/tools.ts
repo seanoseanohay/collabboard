@@ -11,6 +11,7 @@ export type ToolType =
   | 'line'
   | 'text'
   | 'sticky'
+  | 'sticker'
 
 export const SHAPE_TOOLS: ToolType[] = [
   'rect',

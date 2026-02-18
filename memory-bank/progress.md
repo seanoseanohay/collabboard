@@ -17,7 +17,7 @@
 - **Authentication** — Supabase Auth (Google + Email), LoginPage, useAuth, BoardListPage
 - **Board list & CRUD** — createBoard, useUserBoards, BoardListPage, WorkspacePage
 - **Deployment** — Vercel, vercel.json (COOP header), auth debounce
-- **Workspace** — Fabric.js canvas (FabricCanvas) with pan/zoom; zoom range 0.001%–10000% (MVP); **grid overlay** (20px tldraw-style); **cursor position readout** (bottom-left x/y); **zoom slider** (25%–400%, log scale) + dropdown
+- **Workspace** — Fabric.js canvas (FabricCanvas) with pan/zoom; zoom range 0.001%–10000% (MVP); **grid overlay** (20px tldraw-style); **cursor position readout** (bottom-left x/y); **zoom slider** (25%–400%, log scale) + dropdown; **inline board title edit** (click header title to rename)
 - **Sticky notes** — Start empty (no placeholder). On create, edit mode opens automatically (blinking cursor, ready to type). Text scales with sticky size. Double-click existing sticky to edit.
 - **Sync** — Live document sync; real-time position updates (object:moving/scaling/rotating, 80ms throttle)
 - **Presence & cursors** — Working in multi-user
@@ -45,6 +45,9 @@
 
 - ~~**zIndex layering (MVP §4)**~~ ✅ — Bring to front / send to back. boardSync: getObjectZIndex/setObjectZIndex, sortCanvasByZIndex; zIndex in emitAdd/emitModify/applyRemote; FabricCanvas bringToFront/sendToBack; toolbar layer buttons when selection.
 
+### Workspace UX
+- ~~**Inline board rename**~~ ✅ — Click board title in workspace header (e.g. "Untitled Board") to edit inline. Blur or Enter saves; Escape cancels. WorkspacePage: titleEditing state, updateBoardTitle, onBoardTitleChange callback. BoardPage wires callback to setBoard.
+
 ### Post-MVP
 - ~~**AI agent**~~ ✅ (code done, awaiting OpenAI key fix) — ai-interpret Edge Function (OpenAI gpt-4o-mini), AiPromptBar, invokeAiInterpret + executeAiCommands. Natural language → createObject/updateObject/deleteObjects via aiClientApi. OPENAI_API_KEY secret. Deploy: `supabase functions deploy ai-interpret --no-verify-jwt`. **🔴 User must update OpenAI key in Supabase secrets — restricted key is missing `model.request` scope (Model capabilities permission).**
 - Undo/Redo
@@ -54,8 +57,9 @@
   - ✅ index.html — "MeBoard – Pirate-Themed Collaborative Whiteboard"; OG tags; anchor emoji favicon
   - ✅ App.tsx loading — "Hoisting the sails…" with ⚓ icon on navy gradient
   - ✅ Pirate cursor icons — CursorOverlay: emoji badge (⚓🦜🧭☠️🔱) hash-assigned per userId; color dot badge in corner
-  - 🔜 Map border overlay + toggle (WorkspacePage/WorkspaceToolbar) — after Undo/Redo
-  - 🔜 Pirate Plunder stickers (FabricCanvas, shapeFactory, toolbar) — after Undo/Redo
+  - ✅ Map border overlay + toggle — `MapBorderOverlay.tsx` (4 sepia gradient strips, zoom-aware opacity, compass corners); 🗺️ toggle in toolbar; `showMapBorder` in WorkspacePage
+  - ✅ Pirate Plunder stickers — `pirateStickerFactory.ts` (9 SVG Path stickers, 48×48); `ToolType` + `'sticker'`; FabricCanvas click-to-place; 🏴‍☠️ dropdown in WorkspaceToolbar
+  - ✅ Cursor icon fix — color dot removed; only pirate emoji shown
 - **Planned canvas features** — docs/PLANNED_CANVAS_FEATURES.md: Object grouping, Free draw, Lasso selection, Multi-scale map vision. See doc for implementation notes and effort estimates.
 - ~~Rotation (Task G)~~ ✅ — object:rotating hooked to emitModifyThrottled in boardSync.ts; rotation syncs live
 - ~~**Per-object stroke width (border thickness)**~~ ✅ — StrokeControl in toolbar when selection has stroke (1/2/4/8px); strokeUtils + FabricCanvas ref; sync via existing object:modified.

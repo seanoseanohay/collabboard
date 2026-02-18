@@ -88,6 +88,7 @@ export function BoardPage() {
     <WorkspacePage
       board={board}
       onBack={handleBack}
+      onBoardTitleChange={(title) => setBoard((prev) => (prev ? { ...prev, title } : null))}
     />
   )
 }

@@ -7,6 +7,8 @@
 
 **Remaining work:** MeBoard branding (docs/MeBoard_BRANDING_SPEC.md) and planned canvas features (docs/PLANNED_CANVAS_FEATURES.md) — both optional polish/stretch.
 
+**Inline board rename in workspace** ✅ — Click the board title (e.g. "Untitled Board") in the workspace header to edit inline. Blur or Enter saves; Escape cancels. Uses updateBoardTitle; BoardPage passes onBoardTitleChange to keep local state in sync.
+
 **Planned: MeBoard branding** — Pirate-themed rebrand (CollabBoard → MeBoard). Full spec in docs/MeBoard_BRANDING_SPEC.md: hero/copy, parchment visuals, treasure map canvas border, pirate presence icons, Pirate Plunder stickers, nav/footer, easter eggs.
 
 **Planned canvas features** — See docs/PLANNED_CANVAS_FEATURES.md: Object grouping (Group/Ungroup), Free draw (pencil), Lasso selection, Multi-scale map vision (with MeBoard border).

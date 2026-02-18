@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import type { BoardMeta } from '@/features/boards/api/boardsApi'
+import { updateBoardTitle } from '@/features/boards/api/boardsApi'
 import { useAuth } from '@/features/auth/hooks/useAuth'
 import { FabricCanvas, type FabricCanvasZoomHandle, type SelectionStrokeInfo } from './FabricCanvas'
 import { ShareModal } from './ShareModal'
@@ -8,16 +9,23 @@ import { AiPromptBar } from './AiPromptBar'
 import { CursorOverlay } from './CursorOverlay'
 import { CursorPositionReadout } from './CursorPositionReadout'
 import { GridOverlay } from './GridOverlay'
+import { MapBorderOverlay } from './MapBorderOverlay'
 import { usePresence } from '../hooks/usePresence'
 import type { ToolType } from '../types/tools'
+import type { StickerKind } from '../lib/pirateStickerFactory'
 
 interface WorkspacePageProps {
   board: BoardMeta
   onBack: () => void
+  onBoardTitleChange?: (title: string) => void
 }
 
-export function WorkspacePage({ board, onBack }: WorkspacePageProps) {
+export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePageProps) {
   const [selectedTool, setSelectedTool] = useState<ToolType>('select')
+  const [selectedStickerKind, setSelectedStickerKind] = useState<StickerKind>('anchor')
+  const [showMapBorder, setShowMapBorder] = useState(true)
+  const [titleEditing, setTitleEditing] = useState(false)
+  const [titleValue, setTitleValue] = useState(board.title)
   const [viewportTransform, setViewportTransform] = useState<number[] | null>(null)
   const [canvasSize, setCanvasSize] = useState({ width: 1200, height: 800 })
   const [shareOpen, setShareOpen] = useState(false)
@@ -67,6 +75,36 @@ export function WorkspacePage({ board, onBack }: WorkspacePageProps) {
     setHistoryState({ canUndo, canRedo })
   }, [])
 
+  // Sync title when board prop changes (e.g. after joinBoard)
+  useEffect(() => {
+    setTitleValue(board.title)
+  }, [board.title])
+
+  const handleTitleClick = () => {
+    setTitleValue(board.title)
+    setTitleEditing(true)
+  }
+
+  const handleTitleSave = () => {
+    setTitleEditing(false)
+    const trimmed = titleValue.trim()
+    if (!trimmed || trimmed === board.title || !user?.uid) return
+    void updateBoardTitle(board.id, user.uid, trimmed)
+      .then(() => onBoardTitleChange?.(trimmed))
+      .catch(() => setTitleValue(board.title))
+  }
+
+  const handleTitleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      handleTitleSave()
+    }
+    if (e.key === 'Escape') {
+      setTitleValue(board.title)
+      setTitleEditing(false)
+    }
+  }
+
   useEffect(() => {
     const el = canvasContainerRef.current
     if (!el) return
@@ -86,7 +124,29 @@ export function WorkspacePage({ board, onBack }: WorkspacePageProps) {
         <button type="button" onClick={onBack} style={styles.backBtn}>
           ← Boards
         </button>
-        <h1 style={styles.title}>{board.title}</h1>
+        {titleEditing ? (
+          <input
+            type="text"
+            value={titleValue}
+            onChange={(e) => setTitleValue(e.target.value)}
+            onBlur={handleTitleSave}
+            onKeyDown={handleTitleKeyDown}
+            autoFocus
+            style={styles.titleInput}
+            aria-label="Board name"
+          />
+        ) : (
+          <h1
+            style={styles.title}
+            onClick={handleTitleClick}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => e.key === 'Enter' && handleTitleClick()}
+            aria-label={`Board name: ${board.title}. Click to rename.`}
+          >
+            {board.title}
+          </h1>
+        )}
         <AiPromptBar boardId={board.id} />
         <button
           type="button"
@@ -112,6 +172,8 @@ export function WorkspacePage({ board, onBack }: WorkspacePageProps) {
       <WorkspaceToolbar
         selectedTool={selectedTool}
         onToolChange={setSelectedTool}
+        selectedStickerKind={selectedStickerKind}
+        onStickerKindChange={setSelectedStickerKind}
         zoom={viewportTransform?.[0] ?? 1}
         onZoomToFit={() => canvasZoomRef.current?.zoomToFit()}
         onZoomSet={(z) => canvasZoomRef.current?.setZoom(z)}
@@ -121,15 +183,19 @@ export function WorkspacePage({ board, onBack }: WorkspacePageProps) {
         canRedo={historyState.canRedo}
         onUndo={() => canvasZoomRef.current?.undo()}
         onRedo={() => canvasZoomRef.current?.redo()}
+        showMapBorder={showMapBorder}
+        onToggleMapBorder={() => setShowMapBorder((v) => !v)}
       />
       <div ref={canvasContainerRef} style={styles.canvas}>
         <GridOverlay ref={gridRef} />
+        <MapBorderOverlay zoom={viewportTransform?.[0] ?? 1} visible={showMapBorder} />
         <FabricCanvas
           ref={canvasZoomRef}
           selectedTool={selectedTool}
           boardId={board.id}
           userId={user?.uid}
           userName={userName}
+          selectedStickerKind={selectedStickerKind}
           onPointerMove={handlePointerMove}
           onViewportChange={handleViewportChange}
           onSelectionChange={handleSelectionChange}
@@ -184,6 +250,19 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 16,
     fontWeight: 600,
     color: '#1e293b',
+    cursor: 'pointer',
+  },
+  titleInput: {
+    margin: 0,
+    fontSize: 16,
+    fontWeight: 600,
+    color: '#1e293b',
+    border: '1px solid #94a3b8',
+    borderRadius: 4,
+    padding: '2px 6px',
+    outline: 'none',
+    minWidth: 120,
+    maxWidth: 320,
   },
   shareBtn: {
     display: 'flex',

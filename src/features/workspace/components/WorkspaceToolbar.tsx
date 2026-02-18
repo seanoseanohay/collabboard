@@ -6,10 +6,13 @@ import type { SelectionStrokeInfo } from './FabricCanvas'
 import { StrokeControl } from './StrokeControl'
 import { FillControl } from './FillControl'
 import { StrokeColorControl } from './StrokeColorControl'
+import { STICKER_DEFS, STICKER_KINDS, type StickerKind } from '../lib/pirateStickerFactory'
 
 interface WorkspaceToolbarProps {
   selectedTool: ToolType
   onToolChange: (tool: ToolType) => void
+  selectedStickerKind?: StickerKind
+  onStickerKindChange?: (kind: StickerKind) => void
   zoom?: number
   onZoomToFit?: () => void
   onZoomSet?: (zoom: number) => void
@@ -19,6 +22,8 @@ interface WorkspaceToolbarProps {
   canRedo?: boolean
   onUndo?: () => void
   onRedo?: () => void
+  showMapBorder?: boolean
+  onToggleMapBorder?: () => void
 }
 
 const TOOLS: { id: ToolType; label: string }[] = [
@@ -103,11 +108,19 @@ const ToolIcons: Record<ToolType, React.ReactNode> = {
       <path d="M14 2v4a2 2 0 0 0 2 2h4" />
     </svg>
   ),
+  sticker: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 3C7 3 3 7 3 12s4 9 9 9h6a3 3 0 0 0 3-3v-6c0-5-4-9-9-9z" />
+      <path d="M12 7v5l3 3" />
+    </svg>
+  ),
 }
 
 export function WorkspaceToolbar({
   selectedTool,
   onToolChange,
+  selectedStickerKind = 'anchor',
+  onStickerKindChange,
   zoom = 1,
   onZoomToFit,
   onZoomSet,
@@ -117,10 +130,15 @@ export function WorkspaceToolbar({
   canRedo = false,
   onUndo,
   onRedo,
+  showMapBorder = true,
+  onToggleMapBorder,
 }: WorkspaceToolbarProps) {
   const [zoomOpen, setZoomOpen] = useState(false)
+  const [plunderOpen, setPlunderOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const zoomButtonRef = useRef<HTMLButtonElement>(null)
+  const plunderRef = useRef<HTMLDivElement>(null)
+  const plunderBtnRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     if (!zoomOpen) return
@@ -132,6 +150,17 @@ export function WorkspaceToolbar({
     document.addEventListener('click', close, true)
     return () => document.removeEventListener('click', close, true)
   }, [zoomOpen])
+
+  useEffect(() => {
+    if (!plunderOpen) return
+    const close = (e: MouseEvent) => {
+      const target = e.target as Node
+      if (plunderRef.current?.contains(target) || plunderBtnRef.current?.contains(target)) return
+      setPlunderOpen(false)
+    }
+    document.addEventListener('click', close, true)
+    return () => document.removeEventListener('click', close, true)
+  }, [plunderOpen])
 
   const toolGroups: ToolType[][] = [
     ['select', 'hand'],
@@ -187,6 +216,54 @@ export function WorkspaceToolbar({
               <path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13" />
             </svg>
           </button>
+        </div>
+        <div style={styles.divider} />
+        {/* Pirate Plunder dropdown */}
+        <div style={{ position: 'relative' }}>
+          <button
+            ref={plunderBtnRef}
+            type="button"
+            style={{
+              ...styles.toolBtn,
+              fontSize: 16,
+              ...(selectedTool === 'sticker' ? styles.toolBtnActive : {}),
+            }}
+            onClick={() => setPlunderOpen((o) => !o)}
+            title="Pirate Plunder stickers"
+          >
+            🏴‍☠️
+          </button>
+          {plunderOpen && (
+            <div ref={plunderRef} style={styles.plunderMenu}>
+              <div style={styles.plunderHeader}>Pirate Plunder</div>
+              <div style={styles.plunderGrid}>
+                {STICKER_KINDS.map((kind) => {
+                  const def = STICKER_DEFS[kind]
+                  return (
+                    <button
+                      key={kind}
+                      type="button"
+                      style={{
+                        ...styles.plunderItem,
+                        ...(selectedStickerKind === kind && selectedTool === 'sticker'
+                          ? styles.plunderItemActive
+                          : {}),
+                      }}
+                      title={def.label}
+                      onClick={() => {
+                        onStickerKindChange?.(kind)
+                        onToolChange('sticker')
+                        setPlunderOpen(false)
+                      }}
+                    >
+                      <span style={styles.plunderIcon}>{def.icon}</span>
+                      <span style={styles.plunderLabel}>{def.label}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -257,6 +334,20 @@ export function WorkspaceToolbar({
             </div>
           </>
         )}
+        <button
+          type="button"
+          style={{
+            ...styles.toolBtn,
+            fontSize: 14,
+            opacity: showMapBorder ? 1 : 0.4,
+            border: showMapBorder ? '1px solid #e5e7eb' : 'none',
+          }}
+          onClick={onToggleMapBorder}
+          title={showMapBorder ? 'Hide map border' : 'Show map border'}
+        >
+          🗺️
+        </button>
+        <div style={styles.divider} />
         <div style={styles.zoomControls}>
           <input
             type="range"
@@ -440,5 +531,57 @@ const styles: Record<string, React.CSSProperties> = {
     background: 'transparent',
     cursor: 'pointer',
     textAlign: 'left',
+  },
+  plunderMenu: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    marginTop: 4,
+    background: '#fff',
+    border: '1px solid #e5e7eb',
+    borderRadius: 10,
+    boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
+    padding: '10px 8px',
+    width: 200,
+    zIndex: Z_INDEX.TOOLBAR_OVERLAY,
+  },
+  plunderHeader: {
+    fontSize: 11,
+    fontWeight: 600,
+    color: '#6b7280',
+    textTransform: 'uppercase' as const,
+    letterSpacing: '0.6px',
+    marginBottom: 8,
+    paddingLeft: 4,
+  },
+  plunderGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3, 1fr)',
+    gap: 4,
+  },
+  plunderItem: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    alignItems: 'center',
+    gap: 3,
+    padding: '8px 4px',
+    border: '1px solid transparent',
+    borderRadius: 8,
+    background: 'transparent',
+    cursor: 'pointer',
+  },
+  plunderItemActive: {
+    background: '#f1f5f9',
+    border: '1px solid #cbd5e1',
+  },
+  plunderIcon: {
+    fontSize: 22,
+    lineHeight: 1,
+  },
+  plunderLabel: {
+    fontSize: 10,
+    color: '#6b7280',
+    textAlign: 'center' as const,
+    lineHeight: 1.2,
   },
 }
