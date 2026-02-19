@@ -90,7 +90,7 @@
 
 ## Current Status
 **Phase:** MVP + post-MVP complete. Frames ✅ (2026-02-19). Duplicate, Copy & Paste ✅ (2026-02-19). Board list page fully featured. Viewport persistence + branding polish done.
-**Next:** Lasso selection, Connector Phase 2, Frame Phase 2 (form slots), remaining branding (hero illustration). **Recently added (2026-02-19):** Marquee mode (Alt+drag), Free draw tool.
+**Next:** Lasso selection, Connector Phase 2, Frame Phase 2 (form slots), remaining branding (hero illustration). **Recently added (2026-02-19):** Marquee mode (Alt/Cmd/Ctrl+drag), Free draw tool (fixed PencilBrush init + DOM-level marquee events).
 
 ## ~~🔴 Blocking Issue: AI Agent OpenAI Key Permissions~~ ✅ RESOLVED
 OpenAI key permissions confirmed fixed. AI agent and parrot joke generation (usePirateJokes) are now unblocked.
@@ -119,6 +119,9 @@ OpenAI key permissions confirmed fixed. AI agent and parrot joke generation (use
 
 ### Drawing Tool Fix
 - ✅ **Universal handle detection** — All drawing tools (sticker, text, sticky, shapes) use same rule: `_currentTransform?.corner` set → resize/rotate; otherwise → create new object. Previously `if (target) return` blocked drawing on top of existing objects entirely.
+
+## Recently Added (2026-02-19 — Escape key + tool UX)
+- ✅ **Escape key releases everything** — `handleKeyDown` now handles `Escape`: cancels active marquee drag (removes rect, removes DOM listeners), cancels in-progress shape/frame draw (removes preview object), cancels connector draw (removes preview line), calls `fabricCanvas.discardActiveObject()`, sets `isDrawingMode = false`, and calls `onToolChangeRef.current?.('select')` to return the toolbar to Select. New `onToolChange` prop on `FabricCanvas`; `WorkspacePage` passes `setSelectedTool`.
 
 ## Recently Added (2026-02-19)
 - ✅ **Presence icon avatars** — Header presence replaced: circular emoji icon buttons (up to 4, "+N" overflow), hover tooltip, click jumps to that user's cursor via `panToScene`. `getPirateIcon` exported. `panToScene` added to `FabricCanvasZoomHandle`.

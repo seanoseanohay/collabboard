@@ -483,7 +483,11 @@ export function WorkspaceToolbar({
                   </>
                 )}
                 {selectionStroke!.fontFamily != null && (
-                  <FontControl fontFamily={selectionStroke!.fontFamily} canvasRef={canvasRef} />
+                  <FontControl
+                    fontFamily={selectionStroke!.fontFamily}
+                    fontSize={selectionStroke!.fontSize ?? 16}
+                    canvasRef={canvasRef}
+                  />
                 )}
                 {selectionStroke!.fill != null && !selectionStroke!.isConnector && (
                   <FillControl fill={selectionStroke!.fill} canvasRef={canvasRef} />

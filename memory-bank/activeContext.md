@@ -1,7 +1,9 @@
 # Active Context
 
 ## Current Focus (for next agent)
-**Duplicate + Copy & Paste implemented (2026-02-19).** Cmd+D duplicates selected object(s) with +20 offset; connectors are floated. Cmd+C copies selection to in-memory clipboard; Cmd+V pastes at cursor (or viewport center). Toolbar buttons in contextual row.
+**Escape key released everything (2026-02-19).** Pressing Esc now cancels any in-progress operation (marquee, shape draw, connector draw, free draw) and returns the toolbar to Select. `onToolChange` prop added to `FabricCanvas`; `WorkspacePage` passes `setSelectedTool`.
+
+**Previous:** Duplicate + Copy & Paste implemented (2026-02-19). Cmd+D duplicates selected object(s) with +20 offset; connectors are floated. Cmd+C copies selection to in-memory clipboard; Cmd+V pastes at cursor (or viewport center). Toolbar buttons in contextual row.
 
 **Current state:** TypeScript compiles clean, no linter errors. Edge Function deployed. Frames sync across collaborators.
 

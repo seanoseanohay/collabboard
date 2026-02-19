@@ -280,6 +280,7 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
           onSelectionChange={handleSelectionChange}
           onHistoryChange={handleHistoryChange}
           onObjectCountChange={handleObjectCountChange}
+          onToolChange={setSelectedTool}
         />
         <CursorOverlay
           cursors={others}

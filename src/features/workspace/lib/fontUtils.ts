@@ -25,6 +25,29 @@ export function getFontFamilyFromObject(obj: FabricObject | null): string | null
   return (textObj.get('fontFamily') as string) ?? 'Arial'
 }
 
+/** Get fontSize from a single IText or from the first text child of a group (e.g. sticky). */
+export function getFontSizeFromObject(obj: FabricObject | null): number | null {
+  if (!obj) return null
+  const textObj = hasFontFamily(obj) ? obj : getFirstTextChild(obj)
+  if (!textObj) return null
+  const size = textObj.get('fontSize')
+  return typeof size === 'number' ? size : null
+}
+
+/** Set fontSize on IText or on all text children of a group. */
+export function setFontSizeOnObject(obj: FabricObject, fontSize: number): void {
+  if (obj.type === 'group' && 'getObjects' in obj) {
+    const children = (obj as { getObjects: () => FabricObject[] }).getObjects()
+    children.forEach((child) => {
+      if (child.type === 'i-text' || child.type === 'text') {
+        child.set('fontSize', fontSize)
+      }
+    })
+    return
+  }
+  if (hasFontFamily(obj)) obj.set('fontSize', fontSize)
+}
+
 /** Set fontFamily on IText or on all text children of a group. */
 export function setFontFamilyOnObject(obj: FabricObject, fontFamily: string): void {
   if (obj.type === 'group' && 'getObjects' in obj) {

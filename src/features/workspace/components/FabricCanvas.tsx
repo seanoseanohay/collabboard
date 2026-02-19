@@ -1,6 +1,6 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { Z_INDEX } from '@/shared/constants/zIndex'
-import { Canvas, Group, ActiveSelection, Point, Polyline, Rect, util, type FabricObject } from 'fabric'
+import { Canvas, Group, ActiveSelection, Point, Polyline, Rect, util, PencilBrush, type FabricObject } from 'fabric'
 import { createHistoryManager, type HistoryManager } from '../lib/historyManager'
 
 /** IText has enterEditing; FabricText does not. Check by method presence. */
@@ -20,7 +20,9 @@ import {
 } from '../lib/strokeUtils'
 import {
   getFontFamilyFromObject,
+  getFontSizeFromObject,
   setFontFamilyOnObject,
+  setFontSizeOnObject,
   isTextOnlySelection,
   isStickyGroup,
   hasEditableText,
@@ -73,6 +75,8 @@ export interface SelectionStrokeInfo {
   isStickyNote: boolean
   /** Font family when selection has text (standalone or in group). */
   fontFamily: string | null
+  /** Font size when selection has text (standalone or in group). */
+  fontSize: number | null
   /** True when the selected object is a connector. */
   isConnector: boolean
   /** Arrow mode for connector (null when not a connector). */
@@ -89,6 +93,7 @@ export interface FabricCanvasZoomHandle {
   setActiveObjectFill: (fill: string) => void
   setActiveObjectStrokeColor: (stroke: string) => void
   setActiveObjectFontFamily: (fontFamily: string) => void
+  setActiveObjectFontSize: (fontSize: number) => void
   setActiveConnectorArrowMode: (mode: ArrowMode) => void
   setActiveConnectorStrokeDash: (dash: StrokeDash) => void
   bringToFront: () => void
@@ -135,6 +140,7 @@ interface FabricCanvasProps {
   onSelectionChange?: (info: SelectionStrokeInfo | null) => void
   onHistoryChange?: (canUndo: boolean, canRedo: boolean) => void
   onObjectCountChange?: (count: number) => void
+  onToolChange?: (tool: ToolType) => void
 }
 
 /**
@@ -160,6 +166,7 @@ const FabricCanvasInner = (
     onSelectionChange,
     onHistoryChange,
     onObjectCountChange,
+    onToolChange,
   }: FabricCanvasProps,
   ref: React.Ref<FabricCanvasZoomHandle>
 ) => {
@@ -181,6 +188,8 @@ const FabricCanvasInner = (
   onHistoryChangeRef.current = onHistoryChange
   const onObjectCountChangeRef = useRef(onObjectCountChange)
   onObjectCountChangeRef.current = onObjectCountChange
+  const onToolChangeRef = useRef(onToolChange)
+  onToolChangeRef.current = onToolChange
   const lockOptsRef = useRef({ userId: userId ?? '', userName: userName ?? 'Anonymous' })
   lockOptsRef.current = { userId: userId ?? '', userName: userName ?? 'Anonymous' }
   const applyLockStateCallbackRef = useRef<LockStateCallbackRef['current']>(null)
@@ -242,6 +251,16 @@ const FabricCanvasInner = (
       if (!active || !hasEditableText(active)) return
       captureBeforeForHistory(active)
       setFontFamilyOnObject(active, fontFamily)
+      canvas.fire('object:modified', { target: active })
+      canvas.requestRenderAll()
+    },
+    setActiveObjectFontSize: (fontSize: number) => {
+      const canvas = canvasRef.current
+      if (!canvas) return
+      const active = canvas.getActiveObject()
+      if (!active || !hasEditableText(active)) return
+      captureBeforeForHistory(active)
+      setFontSizeOnObject(active, fontSize)
       canvas.fire('object:modified', { target: active })
       canvas.requestRenderAll()
     },
@@ -549,13 +568,15 @@ const FabricCanvasInner = (
     hasClipboard: () => hasClipboard(),
     setDrawBrushColor: (color: string) => {
       const canvas = canvasRef.current
-      const brush = canvas?.freeDrawingBrush
-      if (brush) brush.color = color
+      if (!canvas) return
+      if (!canvas.freeDrawingBrush) canvas.freeDrawingBrush = new PencilBrush(canvas)
+      canvas.freeDrawingBrush.color = color
     },
     setDrawBrushWidth: (width: number) => {
       const canvas = canvasRef.current
-      const brush = canvas?.freeDrawingBrush
-      if (brush) brush.width = width
+      if (!canvas) return
+      if (!canvas.freeDrawingBrush) canvas.freeDrawingBrush = new PencilBrush(canvas)
+      canvas.freeDrawingBrush.width = width
     },
     }
     fabricImperativeRef.current = api
@@ -604,7 +625,6 @@ const FabricCanvasInner = (
       selection: true,
       skipOffscreen: true, // Viewport culling: skip rendering off-screen objects (500+ perf)
       backgroundColor: '#fafafa',
-      isDrawingMode: toolRef.current === 'draw',
     })
     canvasRef.current = fabricCanvas
 
@@ -675,7 +695,49 @@ const FabricCanvasInner = (
 
     // Marquee mode: DOM capture so we intercept BEFORE Fabric (works when starting on objects).
     // Support Cmd (Mac), Option/Alt, or Ctrl — any modifier triggers marquee.
+    // We use DOM-level mousemove/mouseup listeners to avoid relying on Fabric's event system,
+    // which requires Fabric to have processed mousedown first.
     const upperEl = fabricCanvas.upperCanvasEl
+
+    const onMarqueeMouseMove = (ev: MouseEvent) => {
+      if (!marqueeState) return
+      const sp = fabricCanvas.getScenePoint(ev)
+      const { start, rect } = marqueeState
+      const l = Math.min(start.x, sp.x)
+      const t = Math.min(start.y, sp.y)
+      const w = Math.abs(sp.x - start.x)
+      const h = Math.abs(sp.y - start.y)
+      rect.set({ left: l, top: t, width: w, height: h })
+      rect.setCoords()
+      fabricCanvas.requestRenderAll()
+    }
+
+    const onMarqueeMouseUp = () => {
+      if (!marqueeState) return
+      const { rect } = marqueeState
+      const l = rect.left ?? 0
+      const t = rect.top ?? 0
+      const w = rect.width ?? 0
+      const h = rect.height ?? 0
+      const tl = new Point(l, t)
+      const br = new Point(l + w, t + h)
+      fabricCanvas.remove(rect)
+      marqueeState = null
+      document.removeEventListener('mousemove', onMarqueeMouseMove)
+      document.removeEventListener('mouseup', onMarqueeMouseUp)
+      const objects = fabricCanvas.getObjects().filter((o) => {
+        const id = getObjectId(o)
+        if (!id) return false
+        return o.intersectsWithRect(tl, br)
+      })
+      if (objects.length > 0) {
+        const sel = new ActiveSelection(objects, { canvas: fabricCanvas })
+        fabricCanvas.setActiveObject(sel)
+        sel.setCoords()
+      }
+      fabricCanvas.requestRenderAll()
+    }
+
     const onCaptureMouseDown = (ev: MouseEvent) => {
       if (toolRef.current !== 'select' || ev.button !== 0) return
       const mod = ev.altKey || ev.metaKey || ev.ctrlKey
@@ -689,6 +751,8 @@ const FabricCanvasInner = (
         top: sp.y,
         width: 0,
         height: 0,
+        originX: 'left',
+        originY: 'top',
         fill: 'rgba(59, 130, 246, 0.1)',
         stroke: '#2563eb',
         strokeWidth: 1,
@@ -698,6 +762,9 @@ const FabricCanvasInner = (
       rect.set('data', {})
       fabricCanvas.add(rect)
       marqueeState = { start: sp, rect }
+      // Use DOM-level listeners so we get move/up even if Fabric didn't process the mousedown
+      document.addEventListener('mousemove', onMarqueeMouseMove)
+      document.addEventListener('mouseup', onMarqueeMouseUp)
     }
     upperEl.addEventListener('mousedown', onCaptureMouseDown, { capture: true })
 
@@ -793,18 +860,7 @@ const FabricCanvasInner = (
         onPointerMoveRef.current?.(sp)
       }
 
-      // Marquee: update selection rect
-      if (marqueeState && sp) {
-        const { start, rect } = marqueeState
-        const l = Math.min(start.x, sp.x)
-        const t = Math.min(start.y, sp.y)
-        const w = Math.abs(sp.x - start.x)
-        const h = Math.abs(sp.y - start.y)
-        rect.set({ left: l, top: t, width: w, height: h })
-        rect.setCoords()
-        fabricCanvas.requestRenderAll()
-        return
-      }
+      // Marquee updates are handled by DOM-level onMarqueeMouseMove listener (skipping here)
 
       if (isDrawing && drawStart && previewObj) {
         const sp = getScenePoint(opt)
@@ -871,29 +927,7 @@ const FabricCanvasInner = (
     }
 
     const handleMouseUp = (opt?: { target?: unknown }) => {
-      if (marqueeState) {
-        const { rect } = marqueeState
-        const l = rect.left ?? 0
-        const t = rect.top ?? 0
-        const w = rect.width ?? 0
-        const h = rect.height ?? 0
-        const tl = new Point(l, t)
-        const br = new Point(l + w, t + h)
-        fabricCanvas.remove(rect)
-        marqueeState = null
-        const objects = fabricCanvas.getObjects().filter((o) => {
-          const id = getObjectId(o)
-          if (!id) return false
-          return o.intersectsWithRect(tl, br)
-        })
-        if (objects.length > 0) {
-          const sel = new ActiveSelection(objects, { canvas: fabricCanvas })
-          fabricCanvas.setActiveObject(sel)
-          sel.setCoords()
-        }
-        fabricCanvas.requestRenderAll()
-        return
-      }
+      // Marquee finalization is handled by DOM-level onMarqueeMouseUp listener (skipping here)
       if (connectorDrawState) {
         const target = opt?.target as FabricObject | undefined
         const sourceId = getObjectId(connectorDrawState.sourceObj)
@@ -1241,6 +1275,35 @@ const FabricCanvasInner = (
         return
       }
 
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        // Cancel marquee drag
+        if (marqueeState) {
+          fabricCanvas.remove(marqueeState.rect)
+          marqueeState = null
+          document.removeEventListener('mousemove', onMarqueeMouseMove)
+          document.removeEventListener('mouseup', onMarqueeMouseUp)
+        }
+        // Cancel shape/frame draw in progress
+        if (isDrawing && previewObj) {
+          fabricCanvas.remove(previewObj)
+          previewObj = null
+        }
+        isDrawing = false
+        // Cancel connector draw in progress
+        if (connectorPreviewLine) {
+          fabricCanvas.remove(connectorPreviewLine)
+          connectorPreviewLine = null
+        }
+        connectorDrawState = null
+        // Deselect + exit text editing
+        fabricCanvas.discardActiveObject()
+        fabricCanvas.isDrawingMode = false
+        fabricCanvas.requestRenderAll()
+        // Return to select tool
+        onToolChangeRef.current?.('select')
+        return
+      }
       if (e.key === ' ') {
         spacePressed = true
         fabricCanvas.selection = false
@@ -1333,6 +1396,7 @@ const FabricCanvasInner = (
       if (obj.type === 'path' && !getObjectId(obj)) {
         setObjectId(obj, crypto.randomUUID())
         setObjectZIndex(obj, Date.now())
+        obj.set('perPixelTargetFind', true)
       }
       applyConnectorControls(obj)
       if (isEditableText(obj) || (obj.type === 'group' && getTextToEdit(obj))) {
@@ -1378,6 +1442,7 @@ const FabricCanvasInner = (
         isTextOnly,
         isStickyNote,
         fontFamily: hasText ? getFontFamilyFromObject(active) ?? 'Arial' : null,
+        fontSize: hasText ? getFontSizeFromObject(active) ?? null : null,
         isConnector: isConnectorObj,
         arrowMode: connectorInfo?.arrowMode ?? null,
         strokeDash: connectorInfo?.strokeDash ?? null,
@@ -1506,6 +1571,8 @@ const FabricCanvasInner = (
 
     return () => {
       upperEl.removeEventListener('mousedown', onCaptureMouseDown, { capture: true })
+      document.removeEventListener('mousemove', onMarqueeMouseMove)
+      document.removeEventListener('mouseup', onMarqueeMouseUp)
       zoomApiRef.current = null
       historyRef.current = null
       history.clear()
@@ -1551,15 +1618,21 @@ const FabricCanvasInner = (
     }
   }, [width, height, boardId])
 
-  // Sync isDrawingMode with selected tool (free draw)
+  // Sync isDrawingMode with selected tool (free draw).
+  // Fabric v7 does NOT auto-create freeDrawingBrush — must be created manually.
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
-    canvas.isDrawingMode = selectedTool === 'draw'
-    const brush = canvas.freeDrawingBrush
-    if (selectedTool === 'draw' && brush) {
+    if (selectedTool === 'draw') {
+      if (!canvas.freeDrawingBrush) {
+        canvas.freeDrawingBrush = new PencilBrush(canvas)
+      }
+      const brush = canvas.freeDrawingBrush
       brush.color = '#1e293b'
       brush.width = 2
+      canvas.isDrawingMode = true
+    } else {
+      canvas.isDrawingMode = false
     }
   }, [selectedTool])
 
