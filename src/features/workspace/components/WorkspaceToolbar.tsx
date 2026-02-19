@@ -186,7 +186,7 @@ export function WorkspaceToolbar({
     setInsertOpen(false)
   }
 
-  const insertLabel =
+  const insertTitle =
     selectedTool === 'sticker'
       ? STICKER_DEFS[selectedStickerKind].label
       : INSERT_TOOLS.includes(selectedTool)
@@ -236,14 +236,13 @@ export function WorkspaceToolbar({
                 ...(INSERT_TOOLS.includes(selectedTool) || selectedTool === 'sticker' ? styles.toolBtnActive : {}),
               }}
               onClick={() => setInsertOpen((o) => !o)}
-              title={insertLabel}
+              title={insertTitle}
             >
               {selectedTool === 'sticker' ? (
                 <span style={{ fontSize: 18, lineHeight: 1 }}>{insertIcon}</span>
               ) : (
                 insertIcon
               )}
-              <span style={{ marginLeft: 4, fontSize: 11 }}>{insertLabel}</span>
             </button>
             {insertOpen && (
               <div ref={insertRef} style={styles.insertMenu}>
