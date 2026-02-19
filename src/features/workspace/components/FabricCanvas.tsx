@@ -512,9 +512,17 @@ const FabricCanvasInner = (
       const tool = toolRef.current
       objectWasTransformed = false  // Reset at start of each mouse interaction
 
-      // Sticker tool: click-to-place at cursor position (no drag needed)
+      // Helper: is the click landing on a resize/rotate handle of the active object?
+      const activeObj = fabricCanvas.getActiveObject()
+      const xform = (fabricCanvas as unknown as { _currentTransform?: { corner?: string } })._currentTransform
+      const isOnHandle = !!(target && target === activeObj && xform?.corner)
+
+      // Sticker tool: click-to-place.
+      //   - Handle of active sticker → resize (Fabric handles it)
+      //   - Body of active sticker → also let Fabric handle (move/select, don't double-place)
+      //   - Anything else (non-active object or empty space) → place new sticker
       if (tool === 'sticker' && 'button' in ev && ev.button === 0) {
-        if (target) return // Clicked on existing object: let Fabric handle select/resize
+        if (target && target === activeObj) return // Active sticker: allow resize/move
         const sp = getScenePoint(opt)
         if (sp) {
           fabricCanvas.discardActiveObject()
@@ -530,8 +538,38 @@ const FabricCanvasInner = (
         return
       }
 
-      // With a shape tool active, pointer-down always starts drawing — even over existing objects.
+      // Text / sticky tools: because text auto-enters edit mode, _currentTransform.corner
+      // is unreliable (Fabric exits edit mode before the transform is set). Use a simpler
+      // rule: if clicking the active object (body OR handle) → let Fabric handle
+      // (resize, move, or re-enter edit). Only draw when clicking on empty space or a
+      // non-active object.
+      if ((tool === 'text' || tool === 'sticky') && 'button' in ev && ev.button === 0) {
+        if (target && target === activeObj) return // Resize/move/edit the active text
+        const sp = getScenePoint(opt)
+        if (sp) {
+          fabricCanvas.discardActiveObject()
+          isDrawing = true
+          drawStart = sp
+          const shape = createShape(tool, sp.x, sp.y, sp.x, sp.y, {
+            assignId: false,
+            zoom: fabricCanvas.getZoom(),
+          })
+          if (shape) {
+            previewObj = shape
+            shape.selectable = false
+            shape.evented = false
+            fabricCanvas.add(shape)
+          }
+        }
+        return
+      }
+
+      // All other shape tools (rect, circle, triangle, line, connector, …):
+      //   - Handle of active object → let Fabric resize/rotate
+      //   - Body of active object or any other click → always draw a new shape
       if (isShapeTool(tool) && 'button' in ev && ev.button === 0) {
+        if (isOnHandle) return // Resize/rotate handle → allow transform
+
         const sp = getScenePoint(opt)
         if (sp) {
           fabricCanvas.discardActiveObject()
