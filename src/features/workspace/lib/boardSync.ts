@@ -645,7 +645,8 @@ export function setupDocumentSync(
     emitAdd(e.target)
     if (!isApplyingRemote) {
       if (isFrame(e.target)) {
-        // New frame drawn: auto-capture existing canvas objects whose center is inside it
+        // New frame drawn: auto-capture existing canvas objects whose center is inside it.
+        // Only run for real frames (assignId=true); preview frames have no id.
         const frame = e.target
         const frameId = getObjectId(frame)
         if (frameId) {

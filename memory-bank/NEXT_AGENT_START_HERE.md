@@ -64,7 +64,7 @@ Connector endpoints now update in real-time when connected objects are **rotated
 
 **Done this session (MeBoard branding — safe parallel items):**
 - **LoginPage rebrand** ✅ — Full pirate theme: "MeBoard" hero, "Ahoy Captain" copy, parchment card, gold Google button ("Join the Crew with Google"), "Enter the Ship" submit, "New to the crew? Sign up free ⚓" toggle, "Why MeBoard?" feature section, testimonial, CTA.
-- **NavBar + Footer** ✅ — `src/shared/components/NavBar.tsx` (fixed top, MeBoard logo, Features/Pricing links, Log In button) + `src/shared/components/Footer.tsx` ("© MeBoard – All hands on deck"). Used in LoginPage only for now (safe from Undo/Redo conflicts).
+- **NavBar + Footer** ✅ — `src/shared/components/NavBar.tsx` (fixed top, MeBoard logo, Log In/Sign out) + `src/shared/components/Footer.tsx`. Used in LoginPage and BoardListPage. Features/Pricing links removed — TODO very much later.
 - **index.html** ✅ — Title: "MeBoard – Pirate-Themed Collaborative Whiteboard"; meta description; OG tags; anchor emoji favicon (SVG data URI).
 - **App.tsx loading** ✅ — "Hoisting the sails…" with ⚓ anchor icon on navy gradient.
 - **Pirate cursor icons** ✅ — `CursorOverlay.tsx`: dot replaced with emoji icon (⚓🦜🧭☠️🔱) assigned deterministically via `hash(userId) % 5`. Color dot removed — icon only.
@@ -76,12 +76,15 @@ Connector endpoints now update in real-time when connected objects are **rotated
 - ~~**Multi-selection move drift**~~ ✅ — Root cause: originX/originY vs calcTransformMatrix center mismatch. Three fixes in boardSync.ts (payloadWithSceneCoords uses addTransformToObject; move-delta receiver uses obj.left+dx; applyRemote skips active selection echo). See systemPatterns for the pattern doc.
 
 **Recently completed (2026-02-19):**
-- ~~**`usePirateJokes` hook + Edge Function**~~ ✅ — `supabase/functions/pirate-jokes/index.ts` (OpenAI gpt-4o-mini, 5 jokes/call, temperature 0.95, no auth). `src/features/boards/hooks/usePirateJokes.ts`: checks `meboard:jokes:YYYY-MM-DD` localStorage cache, fetches Edge Function on miss, falls back to 8 hardcoded jokes on error; exposes stable `pickJoke()` via `useCallback` + `useRef`. `BoardListPage` waits for both `loading` and `jokesLoading` before showing parrot message. First-time welcome message (`meboard:welcomed:${userId}` localStorage flag) shown when no boards exist.
-- ~~**Presence icon avatars**~~ ✅ — `WorkspacePage` header: emoji icons replacing text. `getPirateIcon` exported from `CursorOverlay.tsx`. `panToScene(sceneX, sceneY)` on `FabricCanvasZoomHandle` (centers viewport on scene coord at current zoom). Up to 4 circular 28px icon buttons; "+N" overflow; `title` tooltip; click → `panToScene`; count text on cluster hover via `presenceHovered` state.
-- ~~**Presence stale cleanup fix**~~ ✅ — `usePresence.ts`: stale timer resets `lastActive → 0` instead of removing. Header icons persist while connected; only Presence `leave` removes. Canvas cursor already hides on `lastActive === 0` (`CursorOverlay` check).
+- ~~**`usePirateJokes` hook + Edge Function**~~ ✅ — pirate-jokes Edge Function + usePirateJokes; cache `meboard:jokes:YYYY-MM-DD`; first-time welcome `meboard:welcomed:${userId}` when no boards.
+- ~~**Presence icon avatars**~~ ✅ — WorkspacePage header emoji icons; getPirateIcon; panToScene; "+N" overflow.
+- ~~**Presence stale cleanup fix**~~ ✅ — lastActive → 0 stub instead of remove; icons persist until leave.
+- ~~**Viewport persistence**~~ ✅ — viewportPersistence.ts; debounced 400ms save; restore on mount; Reset view in zoom dropdown.
+- ~~**WelcomeToast**~~ ✅ — "Welcome aboard!" on first BoardListPage visit per session.
+- ~~**EmptyCanvasX**~~ ✅ — Faint central "✕" on empty zoomed-out boards; EmptyCanvasX.tsx; onObjectCountChange.
+- ~~**NavBar/Footer on BoardListPage**~~ ✅ — Features/Pricing removed (TODO very much later).
 
 **Planned (documented in PRD + memory bank):**
-- **Viewport persistence** — TODO: Persist zoom/pan per board so returning users see where they left off. Currently resets to (0,0) at 100% on reload. localStorage + debounced save; optional "Reset view" control. See docs/PLANNED_CANVAS_FEATURES.md §0.
 - **Canvas features** — docs/PLANNED_CANVAS_FEATURES.md: Object grouping (Group ✅, Ungroup ⚠️ **bug: objects move + unselectable — being fixed**), Free draw (pencil), Lasso selection, Multi-scale map vision.
 - **Finished-product requirements** — Connectors (Miro-style, required), Frames, Duplicate, Copy & Paste, Marquee mode (box-select over large objects). See docs/PLANNED_CANVAS_FEATURES.md §5–9.
 - ~~**Bring forward / send backward**~~ ✅ — Done. bringForward/sendBackward in FabricCanvas + toolbar buttons.
@@ -127,3 +130,4 @@ Connector endpoints now update in real-time when connected objects are **rotated
 - **Parrot welcome:** `meboard:welcomed:${userId}` localStorage flag. Set on first show (no boards). After that, always jokes.
 - **Presence icons:** `WorkspacePage` header. `getPirateIcon(userId)` exported from `CursorOverlay.tsx`. `FabricCanvasZoomHandle.panToScene(x, y)` centers viewport. Max 4 icons + "+N" overflow. `presenceHovered` state for count label.
 - **Presence stale:** `usePresence.ts` stale timer resets `lastActive → 0` (stub) not remove. `CursorOverlay` skips `lastActive === 0`. Only `presence leave` event removes from list.
+- **Viewport persistence:** `viewportPersistence.ts` — load/save per board (meboard:viewport:{boardId}); 400ms debounce; FabricCanvas restores on mount; Reset view in zoom dropdown.

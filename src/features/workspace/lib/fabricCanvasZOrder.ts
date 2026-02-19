@@ -10,10 +10,12 @@ import { getObjectId, getObjectZIndex, setObjectZIndex, sortCanvasByZIndex } fro
 function getTargetObjects(canvas: Canvas): { active: FabricObject; objects: FabricObject[] } | null {
   const active = canvas.getActiveObject()
   if (!active) return null
+  // For ActiveSelection (multi-select): operate on each selected child.
+  // For single Group objects (sticky, frame, container): operate on the group itself.
   const objects =
-    'getObjects' in active
+    active.type === 'activeselection' && 'getObjects' in active
       ? (active as { getObjects: () => FabricObject[] }).getObjects().filter((o) => getObjectId(o))
-      : [active]
+      : getObjectId(active) ? [active] : []
   if (objects.length === 0) return null
   return { active, objects }
 }

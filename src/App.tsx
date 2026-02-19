@@ -1,7 +1,5 @@
 import { useAuth } from '@/features/auth/hooks/useAuth'
 import { LoginPage } from '@/features/auth/components/LoginPage'
-import { FeaturesPage } from '@/features/auth/components/FeaturesPage'
-import { PricingPage } from '@/features/auth/components/PricingPage'
 import { BoardListPage } from '@/features/boards/components/BoardListPage'
 import { BoardPage } from '@/features/boards/components/BoardPage'
 import { Routes, Route, Navigate } from 'react-router-dom'
@@ -26,8 +24,6 @@ function App() {
     <Routes>
       <Route path="/" element={<BoardListPage />} />
       <Route path="/board/:boardId" element={<BoardPage />} />
-      <Route path="/features" element={<FeaturesPage />} />
-      <Route path="/pricing" element={<PricingPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

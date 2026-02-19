@@ -16,13 +16,17 @@ export const FRAME_MIN_HEIGHT = 150
  * Creates a Frame Fabric Group object.
  * The group contains only visual chrome (bg Rect + title IText).
  * Associated canvas objects are tracked in data.childIds, not as Fabric children.
+ *
+ * @param assignId - When false, no UUID is assigned (use for drag previews to avoid
+ *   spurious DB writes; boardSync's emitAdd skips objects without an id).
  */
 export function createFrameShape(
   left: number,
   top: number,
   width: number,
   height: number,
-  title = 'Frame'
+  title = 'Frame',
+  assignId = true
 ): FabricObject {
   const w = Math.max(width, FRAME_MIN_WIDTH)
   const h = Math.max(height, FRAME_MIN_HEIGHT)
@@ -32,7 +36,7 @@ export function createFrameShape(
     top: 0,
     width: w,
     height: h,
-    fill: 'rgba(241, 245, 249, 0.55)',
+    fill: '#f1f5f9',   // solid hex — rgba breaks the color picker
     stroke: '#94a3b8',
     strokeWidth: 2,
     rx: 8,
@@ -52,7 +56,6 @@ export function createFrameShape(
     originY: 'top',
   })
 
-  const id = crypto.randomUUID()
   const group = new Group([bg, titleText], {
     left,
     top,
@@ -60,6 +63,12 @@ export function createFrameShape(
     originY: 'top',
   })
 
-  group.set('data', { id, subtype: 'frame', title, childIds: [] as string[] })
+  if (assignId) {
+    const id = crypto.randomUUID()
+    group.set('data', { id, subtype: 'frame', title, childIds: [] as string[] })
+  } else {
+    // No id → boardSync.emitAdd will skip this object (preview-only)
+    group.set('data', { subtype: 'frame', childIds: [] as string[] })
+  }
   return group
 }

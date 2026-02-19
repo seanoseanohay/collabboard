@@ -352,8 +352,8 @@ const FabricCanvasInner = (
       if (!canvas) return
       const frame = createFrameShape(left, top, width, height, title)
       setFrameChildIds(frame, childIds)
-      // Give frames a z-index below the objects that were just created
-      setObjectZIndex(frame, Date.now() - childIds.length - 1)
+      // Frames sit behind their children; use zIndex 1 so sortCanvasByZIndex keeps them at back
+      setObjectZIndex(frame, 1)
       canvas.add(frame)
       canvas.sendObjectToBack(frame)
       canvas.setActiveObject(frame)
@@ -597,7 +597,7 @@ const FabricCanvasInner = (
           isDrawing = true
           drawStart = sp
           const shape = tool === 'frame'
-            ? createFrameShape(sp.x, sp.y, 0, 0)
+            ? createFrameShape(sp.x, sp.y, 0, 0, 'Frame', false)
             : createShape(tool, sp.x, sp.y, sp.x, sp.y, {
                 assignId: false,
                 zoom: fabricCanvas.getZoom(),
@@ -647,7 +647,9 @@ const FabricCanvasInner = (
                 Math.min(drawStart.x, sp.x),
                 Math.min(drawStart.y, sp.y),
                 Math.abs(sp.x - drawStart.x),
-                Math.abs(sp.y - drawStart.y)
+                Math.abs(sp.y - drawStart.y),
+                'Frame',
+                false  // no id → preview only, won't be written to DB
               )
             : createShape(tool, drawStart.x, drawStart.y, sp.x, sp.y, {
                 assignId: false,
@@ -759,8 +761,12 @@ const FabricCanvasInner = (
                 zoom: fabricCanvas.getZoom(),
               })
           if (shape) {
+            if (tool === 'frame') {
+              // Frames live behind their children; set a low zIndex so sortCanvasByZIndex keeps them at back
+              setObjectZIndex(shape, 1)
+            }
             fabricCanvas.add(shape)
-            fabricCanvas.sendObjectToBack(shape)
+            if (tool === 'frame') fabricCanvas.sendObjectToBack(shape)
             fabricCanvas.setActiveObject(shape)
             // Sticky: auto-enter edit mode so blinking cursor appears and user can type immediately
             if (tool === 'sticky') {

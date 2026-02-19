@@ -16,8 +16,6 @@ export function NavBar({ showSignIn = false, onSignInClick, isAuthenticated = fa
         <span style={styles.logoText}>MeBoard</span>
       </Link>
       <div style={styles.links}>
-        <Link to="/features" style={styles.link}>Features</Link>
-        <Link to="/pricing" style={styles.link}>Pricing</Link>
         {isAuthenticated && onSignOut ? (
           <button onClick={onSignOut} style={styles.signOutBtn}>
             Sign out

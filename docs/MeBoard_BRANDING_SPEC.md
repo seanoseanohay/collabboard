@@ -2,7 +2,7 @@
 
 > Pirate-themed rebrand of CollabBoard. CollabBoard → MeBoard with treasure map / nautical aesthetic.
 
-**Status:** Phase 1 (login, nav, footer, index) + Phase 2 (map border, pirate cursors, Pirate Plunder stickers) + Phase 3 (parrot mascot) implemented.  
+**Status:** Phase 1–3 (login, nav, footer, map border, pirate cursors, Pirate Plunder, parrot mascot) + Phase 4 (WelcomeToast, NavBar/Footer on BoardListPage, EmptyCanvasX easter egg). Features/Pricing pages: TODO very much later.  
 **Last updated:** 2026-02-19
 
 ---
@@ -73,27 +73,21 @@
 
 ## 4. Polish Login & Onboarding Flow
 
-- **Login form card:** Frame in light parchment-style card (echo canvas border aesthetic)
-- **Microcopy above fields:** "Enter yer credentials, matey!"
-- **Welcome animation:** After login — brief parrot swoop + "Welcome aboard!" then straight to canvas with map border visible
-- **Demo Board button:** Quick guest access to a sample board showing treasure map border in action  
-  - *Note: PRD says "No guest access in MVP" — may need public demo board or post-MVP*
+- **Login form card:** Frame in light parchment-style card (echo canvas border aesthetic) ✅
+- **Microcopy above fields:** "Enter yer credentials, matey!" ✅
+- **Welcome animation:** ✅ IMPLEMENTED — `WelcomeToast.tsx` shows "Welcome aboard!" on first BoardListPage visit per session; 2.5s fade out
+- **Demo Board button:** Quick guest access to a sample board showing treasure map border in action — *deferred (PRD: no guest access in MVP)*
 
 ---
 
 ## 5. Easter Eggs & Light Touches
 
-| Location      | Behavior |
-|--------------|----------|
-| Landing idle | Gentle wave or flag ripple |
-| In-app       | "arrr" in comments triggers pirate sticker or message *(requires comments feature — AiPromptBar is chat-like but not comments)* |
-| Canvas       | Empty zoomed-out board shows faint central "X" that disappears on first edit |
-| Loading      | "Hoisting the sails…" with tiny ship icon |
-
-### Files to update
-- `src/App.tsx` — loading state
-- `GridOverlay` or similar for empty-canvas "X"
-- Future comments feature for "arrr" easter egg
+| Location      | Behavior | Status |
+|--------------|----------|--------|
+| Landing idle | Gentle wave or flag ripple | TODO |
+| In-app       | "arrr" in comments triggers pirate sticker *(requires comments feature)* | Deferred |
+| Canvas       | Empty zoomed-out board shows faint central "X" that disappears on first edit | ✅ `EmptyCanvasX.tsx` |
+| Loading      | "Hoisting the sails…" with anchor icon | ✅ `App.tsx` |
 
 ---
 
@@ -111,29 +105,23 @@
 
 ## 7. Navigation, Footer & Final Touches
 
-### Top nav
-- **Structure:** Logo | Features | Pricing | Log In
-- **Placement:** Shared across LoginPage, BoardListPage, and possibly WorkspacePage
+### Top nav — ✅ IMPLEMENTED
+- **Structure:** Logo | Log In / Sign out — Features | Pricing removed; **TODO very much later** (placeholder routes)
+- **Placement:** NavBar on LoginPage, BoardListPage
+- **Files:** `NavBar.tsx`, `Footer.tsx`
 
-### Footer
+### Footer — ✅ IMPLEMENTED
 - **Copy:** "© MeBoard – All hands on deck"
 - **Links:** Terms, Privacy, Contact
 
 ### Palette
-- Navy accents
-- Gold CTAs
-- Sepia for map borders
+- Navy accents, gold CTAs, sepia for map borders
 
-### Favicon
-- Ship's wheel or "M" on parchment
+### Favicon — ✅
+- Anchor emoji in index.html
 
 ### SEO
 - **Title:** "MeBoard – Pirate-Themed Collaborative Whiteboard with Treasure Map Canvas."
-
-### Files to update
-- New shared layout component (nav + footer)
-- `index.html` (title, meta, favicon)
-- New routes: Features, Pricing (can be placeholders)
 
 ---
 
@@ -208,13 +196,14 @@ Add "Pirate Plunder" section in toolbar with draggable/stampable pirate-themed s
 4. ~~Supporting content ("Why MeBoard?")~~ ✅
 5. ~~Map border on canvas + toggle~~ ✅
 6. ~~Loading state ("Hoisting the sails…")~~ ✅
-7. Welcome animation (post-MVP)
+7. ~~Welcome animation~~ ✅ — WelcomeToast.tsx
 8. ~~Pirate presence icons (CursorOverlay)~~ ✅
 9. ~~Pirate Plunder stickers~~ ✅
 10. ~~Parrot mascot (Boards page)~~ ✅
-11. Easter eggs (landing animation, empty-canvas X) (post-MVP)
-12. AI joke generation for parrot (`usePirateJokes` hook + Edge Function) — OpenAI key fixed, ready to implement
+11. ~~Easter eggs (empty-canvas X)~~ ✅ — EmptyCanvasX.tsx; landing wave TODO
+12. ~~AI joke generation for parrot~~ ✅ — usePirateJokes + pirate-jokes Edge Function
 13. Demo board (if guest access allowed)
+14. Features/Pricing pages — TODO very much later (removed from NavBar for now)
 
 ---
 
