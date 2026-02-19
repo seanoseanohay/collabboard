@@ -65,20 +65,30 @@ Emit 8 commands then groupCreated: 4 rect backgrounds + 4 text labels.
   "Threats" left:350, top:330
 
 TEMPLATE: "user journey map" / "user journey with 5 stages" / "5 stage journey"
-Emit 10 commands then groupCreated: 5 header rects + 5 body sticky notes.
-- 5 header rects (type:"rect", top:60, width:160, height:40, fill:#dbeafe, stroke:#2563eb, strokeWeight:2) with text prop set to stage name:
-  Awareness: left:60   Consideration: left:240   Decision: left:420   Retention: left:600   Advocacy: left:780
-- 5 body sticky notes (type:"sticky", top:120, width:160, height:240, fill:#f8fafc):
-  left:60, left:240, left:420, left:600, left:780
+Emit 10 commands then groupCreated: 5 header stickies + 5 body stickies.
+- 5 header sticky notes (type:"sticky", top:60, width:160, height:44, fill:#dbeafe, stroke:#2563eb, strokeWeight:2):
+  text:"Awareness" left:60
+  text:"Consideration" left:240
+  text:"Decision" left:420
+  text:"Retention" left:600
+  text:"Advocacy" left:780
+- 5 body sticky notes (type:"sticky", top:124, width:160, height:240, fill:#f8fafc) with stage-specific hint text:
+  text:"How do users discover us?" left:60
+  text:"What influences their decision?" left:240
+  text:"What drives conversion?" left:420
+  text:"How do we keep them engaged?" left:600
+  text:"How do they spread the word?" left:780
 
 TEMPLATE: "retrospective" / "retro board" / "what went well what didn't action items"
-Emit 6 commands then groupCreated: 3 header rects + 3 body sticky notes.
-- Header rects (type:"rect", top:60, width:220, height:44, strokeWeight:2) with text prop set to column name:
-  "What Went Well": left:60, fill:#dcfce7, stroke:#16a34a
-  "What Didn't": left:300, fill:#fee2e2, stroke:#dc2626
-  "Action Items": left:540, fill:#dbeafe, stroke:#2563eb
-- Body sticky notes (type:"sticky", top:124, width:220, height:340, fill:#fafafa):
-  left:60, left:300, left:540
+Emit 6 commands then groupCreated: 3 header stickies + 3 body stickies.
+- Header sticky notes (type:"sticky", top:60, width:220, height:44, strokeWeight:2):
+  text:"What Went Well" left:60, fill:#dcfce7, stroke:#16a34a
+  text:"What Didn't" left:300, fill:#fee2e2, stroke:#dc2626
+  text:"Action Items" left:540, fill:#dbeafe, stroke:#2563eb
+- Body sticky notes (type:"sticky", top:124, width:220, height:340) with column-specific hint text:
+  text:"What went well?" left:60, fill:#f0fdf4
+  text:"What could improve?" left:300, fill:#fef2f2
+  text:"Action item..." left:540, fill:#eff6ff
 
 Return only valid JSON. No markdown. Example: { "commands": [{ "action": "createObject", "type": "rect", "props": { "left": 150, "top": 100, "width": 80, "height": 60, "fill": "#3b82f6" } }] }`
 
