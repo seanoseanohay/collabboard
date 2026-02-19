@@ -150,7 +150,11 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
             {board.title}
           </h1>
         )}
-        <AiPromptBar boardId={board.id} getSelectedObjectIds={() => canvasZoomRef.current?.getSelectedObjectIds() ?? []} />
+        <AiPromptBar
+          boardId={board.id}
+          getSelectedObjectIds={() => canvasZoomRef.current?.getSelectedObjectIds() ?? []}
+          groupObjectIds={(ids) => canvasZoomRef.current?.groupObjectIds(ids) ?? Promise.resolve()}
+        />
         <button
           type="button"
           onClick={() => setShareOpen(true)}

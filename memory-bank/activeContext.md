@@ -8,7 +8,7 @@
 **Remaining work:**
 1. ~~**Fix OpenAI key**~~ ✅ — Confirmed done. AI agent + parrot joke generation now unblocked.
 2. ~~**`usePirateJokes` hook**~~ ✅ — `pirate-jokes` Edge Function (OpenAI gpt-4o-mini, temperature 0.95, 5 jokes/call); `usePirateJokes` hook caches in `localStorage` keyed by date (`meboard:jokes:YYYY-MM-DD`); stable `pickJoke()` via `useCallback` + `useRef`; FALLBACK_JOKES if fetch fails. Wired into `BoardListPage` alongside the first-time welcome message.
-3. **Presence icon avatars in workspace header** — Replace "X others viewing — Alice, Bob" text with pirate emoji icons. Spec: up to 4 icons shown, then "+N" badge. Hover any icon → tooltip shows name. Click icon → pan/zoom canvas to that user's cursor. Count text shown only on hover of the cluster. Uses same `getPirateIcon(userId)` hash as `CursorOverlay`. Files: `WorkspacePage.tsx` (header presence area); export `getPirateIcon` from `CursorOverlay` or move to shared util.
+3. ~~**Presence icon avatars in workspace header**~~ ✅ — `getPirateIcon` exported from `CursorOverlay.tsx`. `panToScene(sceneX, sceneY)` added to `FabricCanvasZoomHandle` (mutates `viewportTransform[4/5]` to center scene coords at current zoom). `WorkspacePage` header: up to 4 emoji icons (circular 28px buttons), "+N" overflow badge, `title` attr hover tooltip, click calls `panToScene`. Count text "X others" slides in via `presenceHovered` state on cluster hover. Old `presence`/`presenceNames` styles replaced with `presenceCluster`/`presenceCount`/`presenceIconBtn`/`presenceOverflow`.
 4. **Viewport persistence** — persist zoom/pan per board in localStorage; restore on canvas mount. See docs/PLANNED_CANVAS_FEATURES.md §0.
 5. **Canvas features** — Object grouping, Free draw, Lasso selection. See docs/PLANNED_CANVAS_FEATURES.md.
 6. **Connector Phase 2** — Nice-to-haves: port hover glow, double-click segment for waypoint, right-click context menu (Reset route, Reverse direction), auto-route.
@@ -43,6 +43,16 @@
 4. ~~**Shape tool vs selection**~~ ✅ — With shape tool active, pointer-down always starts drawing (discardActiveObject + draw); never selects.
 5. ~~**Board loading performance**~~ ✅ — Paginated fetch in documentsApi (50 per batch, order by object_id).
 6. ~~**Stroke width (border thickness)**~~ ✅ — PRD §4. strokeUtils (getStrokeWidthFromObject, setStrokeWidthOnObject), StrokeControl in toolbar when selection has stroke (1/2/4/8px). Sync uses Fabric strokeWidth in payload. FabricCanvas: onSelectionChange, setActiveObjectStrokeWidth on ref.
+
+## Recent Changes (2026-02-19 — Presence icons + stale fix)
+
+**Presence icon avatars (`WorkspacePage.tsx`, `CursorOverlay.tsx`, `FabricCanvas.tsx`):**
+- ✅ `getPirateIcon(userId)` exported from `CursorOverlay.tsx` (was private).
+- ✅ `panToScene(sceneX, sceneY)` added to `FabricCanvasZoomHandle` interface + `useImperativeHandle`: sets `vpt[4] = width/2 - sceneX*zoom`, `vpt[5] = height/2 - sceneY*zoom`, re-renders, notifies viewport.
+- ✅ `WorkspacePage` header presence replaced: `presenceCluster` div (flex row, `marginLeft: auto`); up to 4 emoji icon buttons (28px circle, `title` = name); "+N" overflow badge; `presenceHovered` state (`onMouseEnter`/`onMouseLeave`) shows count text. Click → `canvasZoomRef.current?.panToScene(o.x, o.y)`.
+
+**Presence stale cleanup fix (`usePresence.ts`):**
+- ✅ Stale timer (1s interval) now **resets `lastActive` to 0** on idle entries instead of removing them. `lastActive: 0` = stub state: canvas cursor hidden (`CursorOverlay` already skips these), but user stays in `others` → header icon persists while connected. Presence `leave` (tab close / disconnect) still removes entries entirely. Crash fallback still works: entry stays at stub until Supabase Presence heartbeat fires `leave` (~30–60s).
 
 ## Recent Changes (2026-02-19 — Parrot mascot)
 

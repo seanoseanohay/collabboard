@@ -54,11 +54,12 @@
 
 ## Presence / Cursors
 - **Cursor positions: Supabase Broadcast** — same low-latency WebSocket path as object move-deltas. `channel.send({ type: 'broadcast', event: 'cursor', payload: { userId, x, y, name, color, lastActive } })`. Fire-and-forget, no server-side state reconciliation.
-- **Online presence (join/leave): Supabase Presence** — `channel.track({ userId, name, color })` on same channel. Presence `leave` fires automatically on disconnect → removes peer cursor. Presence `sync`/`join` populates a stub entry (x:0, y:0, lastActive:0) so the "X others viewing" header shows all online users even before they move.
+- **Online presence (join/leave): Supabase Presence** — `channel.track({ userId, name, color })` on same channel. Presence `leave` fires automatically on disconnect → removes peer from `others`. Presence `sync`/`join` populates a stub entry (`x:0, y:0, lastActive:0`) so the header shows all online users even before they move their mouse.
 - **Channel:** single `cursor:${boardId}` channel with both Broadcast + Presence listeners. Same pattern as `move_deltas:${boardId}`.
 - **Throttle:** 33ms (~30fps) with immediate first send — not debounce. Cursor updates stream during movement.
-- **Stale cleanup:** 1s interval purges entries where `lastActive < Date.now() - 3000`. Handles crashes/network loss that Presence `leave` may not catch immediately.
-- **CursorOverlay rendering:** Uses `transform: translate(x, y)` (GPU compositing, no layout reflow) + `transition: transform 80ms linear` for interpolation — cursor glides smoothly between broadcast positions, hiding network gap visually. Skips entries with `lastActive === 0` (Presence stubs with no broadcast yet).
+- **Stale cleanup — IMPORTANT:** 1s interval in `usePresence.ts` checks `lastActive < Date.now() - 3000`. On stale: **resets `lastActive → 0`** (does NOT remove the entry). This hides the canvas cursor (`CursorOverlay` skips `lastActive === 0`) without removing the user from the header presence list. Presence `leave` is the only thing that removes an entry from `others`. This means: idle users keep their header icon; crash/network loss users linger as `lastActive:0` stubs until Supabase Presence fires `leave` (~30–60s).
+- **CursorOverlay rendering:** Uses `transform: translate(x, y)` (GPU compositing, no layout reflow) + `transition: transform 80ms linear` for interpolation. Skips entries with `lastActive === 0`.
+- **Header presence avatars:** `WorkspacePage` shows up to 4 circular emoji icon buttons from `others`. Icon = `getPirateIcon(userId)` (exported from `CursorOverlay.tsx`, deterministic hash of userId → one of 5 pirate emoji). Hover = `title` tooltip with name. Click = `canvasZoomRef.current?.panToScene(o.x, o.y)` (centers viewport on that user's last cursor position). "+N" badge for overflow > 4. Count label ("X others") shown only on cluster hover via `presenceHovered` state. `panToScene(sceneX, sceneY)` on `FabricCanvasZoomHandle`: `vpt[4] = width/2 - sceneX*zoom`, `vpt[5] = height/2 - sceneY*zoom`.
 - `presenceApi.ts` / `usePresence.ts` — single file pair owns cursor channel lifecycle.
 
 ## Code Structure

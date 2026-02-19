@@ -100,17 +100,20 @@ export function usePresence({ boardId, userId, userName }: UsePresenceOptions): 
     )
     channelRef.current = handle
 
-    // Stale cursor cleanup: purge entries that haven't broadcast recently.
-    // Handles tab crash / network loss without waiting for Presence leave.
+    // Stale cursor cleanup: hide the canvas cursor for peers who haven't broadcast
+    // recently, but keep them in the presence list (they're still connected).
+    // Only Presence leave (tab close / disconnect) removes them from the list entirely.
     const staleTimer = setInterval(() => {
       const cutoff = Date.now() - STALE_MS
-      const filtered = latestEntries.filter(
-        (e) => e.lastActive === 0 || e.lastActive > cutoff
-      )
-      if (filtered.length !== latestEntries.length) {
-        latestEntries = filtered
-        setOthers(filtered)
-      }
+      let changed = false
+      latestEntries = latestEntries.map((e) => {
+        if (e.lastActive > 0 && e.lastActive <= cutoff) {
+          changed = true
+          return { ...e, lastActive: 0 }  // stub: cursor hidden, presence icon stays
+        }
+        return e
+      })
+      if (changed) setOthers([...latestEntries])
     }, 1000)
 
     return () => {

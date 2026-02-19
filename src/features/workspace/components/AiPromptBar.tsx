@@ -23,9 +23,10 @@ const SELECTION_EXAMPLES = [
 interface AiPromptBarProps {
   boardId: string
   getSelectedObjectIds?: () => string[]
+  groupObjectIds?: (ids: string[]) => Promise<void>
 }
 
-export function AiPromptBar({ boardId, getSelectedObjectIds }: AiPromptBarProps) {
+export function AiPromptBar({ boardId, getSelectedObjectIds, groupObjectIds }: AiPromptBarProps) {
   const [open, setOpen] = useState(false)
   const [prompt, setPrompt] = useState('')
   const [loading, setLoading] = useState(false)
@@ -39,7 +40,7 @@ export function AiPromptBar({ boardId, getSelectedObjectIds }: AiPromptBarProps)
       try {
         const selectedObjectIds = getSelectedObjectIds?.() ?? []
         const { commands } = await invokeAiInterpret(boardId, text, { selectedObjectIds })
-        const result = await executeAiCommands(boardId, commands)
+        const result = await executeAiCommands(boardId, commands, { groupObjectIds })
         if (!result.ok) {
           setError(result.error ?? 'Failed to execute')
         } else {

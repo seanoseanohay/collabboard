@@ -38,17 +38,21 @@ LAYOUT COMMANDS — use these when the user asks to rearrange or space existing 
 
 SELECTION CONTEXT — when the user says "these", "them", "selected", etc., they mean the selected objects. Their IDs will be provided as selectedObjectIds in the request.
 
-TEMPLATES — for these requests, emit multiple createObject commands using exact layouts below:
+GROUPING — always append this as the LAST command of every template:
+{ "action": "groupCreated" }
+This groups everything created in the template into a single movable unit.
+
+TEMPLATES — for these requests, emit multiple createObject commands using exact layouts below, then append groupCreated:
 
 TEMPLATE: "pros and cons" / "pros cons grid" / "2 by 3 grid of sticky notes for pros and cons"
-- Header rect "Pros" (left:100, top:60, width:200, height:40, fill:#dcfce7, stroke:#16a34a)
-- Header rect "Cons" (left:330, top:60, width:200, height:40, fill:#fee2e2, stroke:#dc2626)
-- 3 sticky notes under Pros at left:100, top:120/230/340, width:200, height:90, fill:#f0fdf4
-- 3 sticky notes under Cons at left:330, top:120/230/340, width:200, height:90, fill:#fef2f2
-Use text type for headers (fontSize:16). Use sticky for the note cells.
+Emit 8 sticky commands then groupCreated:
+- Header sticky "Pros": type:"sticky", text:"Pros", left:100, top:60, width:200, height:50, fill:#dcfce7, stroke:#16a34a, strokeWeight:2
+- Header sticky "Cons": type:"sticky", text:"Cons", left:330, top:60, width:200, height:50, fill:#fee2e2, stroke:#dc2626, strokeWeight:2
+- 3 blank sticky notes under Pros: left:100, top:130/240/350, width:200, height:90, fill:#f0fdf4
+- 3 blank sticky notes under Cons: left:330, top:130/240/350, width:200, height:90, fill:#fef2f2
 
 TEMPLATE: "SWOT analysis" / "SWOT template" / "4 quadrant SWOT"
-Emit 8 commands: 4 header text labels + 4 rect quadrant backgrounds.
+Emit 8 commands then groupCreated: 4 rect backgrounds + 4 text labels.
 - Background rects (width:220, height:200, strokeWeight:2):
   Strengths: left:100, top:100, fill:#dcfce7, stroke:#16a34a
   Weaknesses: left:340, top:100, fill:#fee2e2, stroke:#dc2626
@@ -61,20 +65,20 @@ Emit 8 commands: 4 header text labels + 4 rect quadrant backgrounds.
   "Threats" left:350, top:330
 
 TEMPLATE: "user journey map" / "user journey with 5 stages" / "5 stage journey"
-Emit per stage (width:160, height:300, gap:20, start left:60):
-- 5 header rects (top:60, height:40, fill:#dbeafe, stroke:#2563eb) with stage names: Awareness, Consideration, Decision, Retention, Advocacy
-- 5 body rects below each (top:120, height:240, fill:#f8fafc, stroke:#e2e8f0)
-Stage left positions: 60, 240, 420, 600, 780
+Emit 10 commands then groupCreated: 5 header rects + 5 body sticky notes.
+- 5 header rects (type:"rect", top:60, width:160, height:40, fill:#dbeafe, stroke:#2563eb, strokeWeight:2) with text prop set to stage name:
+  Awareness: left:60   Consideration: left:240   Decision: left:420   Retention: left:600   Advocacy: left:780
+- 5 body sticky notes (type:"sticky", top:120, width:160, height:240, fill:#f8fafc):
+  left:60, left:240, left:420, left:600, left:780
 
 TEMPLATE: "retrospective" / "retro board" / "what went well what didn't action items"
-Emit 6 commands: 3 header rects + 3 body rects.
-- Headers (top:60, width:220, height:44, strokeWeight:2):
-  "What Went Well" left:60, fill:#dcfce7, stroke:#16a34a
-  "What Didn't" left:300, fill:#fee2e2, stroke:#dc2626
-  "Action Items" left:540, fill:#dbeafe, stroke:#2563eb
-- Body rects (top:124, width:220, height:340, fill:#fafafa, stroke:#e5e7eb):
+Emit 6 commands then groupCreated: 3 header rects + 3 body sticky notes.
+- Header rects (type:"rect", top:60, width:220, height:44, strokeWeight:2) with text prop set to column name:
+  "What Went Well": left:60, fill:#dcfce7, stroke:#16a34a
+  "What Didn't": left:300, fill:#fee2e2, stroke:#dc2626
+  "Action Items": left:540, fill:#dbeafe, stroke:#2563eb
+- Body sticky notes (type:"sticky", top:124, width:220, height:340, fill:#fafafa):
   left:60, left:300, left:540
-Use type:"text" for headers (fontSize:14, fill:"#1a1a2e").
 
 Return only valid JSON. No markdown. Example: { "commands": [{ "action": "createObject", "type": "rect", "props": { "left": 150, "top": 100, "width": 80, "height": 60, "fill": "#3b82f6" } }] }`
 

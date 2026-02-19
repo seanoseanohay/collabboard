@@ -132,20 +132,27 @@ async function spaceEvenly(
   )
 }
 
+export interface ExecuteAiCommandsOptions {
+  groupObjectIds?: (ids: string[]) => Promise<void>
+}
+
 export async function executeAiCommands(
   boardId: string,
-  commands: AiCommand[]
+  commands: AiCommand[],
+  options?: ExecuteAiCommandsOptions
 ): Promise<{ ok: boolean; error?: string }> {
   let lastQueryResults: { objectId: string; data: Record<string, unknown> }[] = []
   const baseZ = Date.now()
   let createIndex = 0
+  const createdIds: string[] = []
 
   for (const cmd of commands) {
     try {
       if (cmd.action === 'createObject') {
         const type = normalizeCreateType(cmd.type)
         const props = toCreateProps(cmd.props ?? {})
-        await createObject(boardId, type, props, { zIndex: baseZ + createIndex })
+        const objectId = await createObject(boardId, type, props, { zIndex: baseZ + createIndex })
+        createdIds.push(objectId)
         createIndex++
       } else if (cmd.action === 'queryObjects') {
         const criteria: QueryObjectsCriteria | undefined = cmd.criteria
@@ -171,6 +178,10 @@ export async function executeAiCommands(
         const ids = Array.isArray(cmd.objectIds) ? cmd.objectIds : []
         const dir = cmd.direction === 'vertical' ? 'vertical' : 'horizontal'
         await spaceEvenly(boardId, ids, dir)
+      } else if (cmd.action === 'groupCreated') {
+        if (options?.groupObjectIds && createdIds.length >= 2) {
+          await options.groupObjectIds([...createdIds])
+        }
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)

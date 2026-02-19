@@ -94,6 +94,7 @@ export interface FabricCanvasZoomHandle {
   groupSelected: () => void
   ungroupSelected: () => void
   getSelectedObjectIds: () => string[]
+  groupObjectIds: (ids: string[]) => Promise<void>
   panToScene: (sceneX: number, sceneY: number) => void
 }
 
@@ -296,6 +297,45 @@ const FabricCanvasInner = (
       }
       const id = getObjectId(active)
       return id ? [id] : []
+    },
+    groupObjectIds: async (ids: string[]) => {
+      if (ids.length < 2) return
+      const canvas = canvasRef.current
+      const history = historyRef.current
+      if (!canvas) return
+
+      // Poll until all objects are present on the canvas (they arrive via Realtime)
+      const deadline = Date.now() + 8000
+      let objects: FabricObject[] = []
+      while (Date.now() < deadline) {
+        objects = ids
+          .map((id) => canvas.getObjects().find((o) => getObjectId(o) === id))
+          .filter((o): o is FabricObject => !!o)
+        if (objects.length === ids.length) break
+        await new Promise((r) => setTimeout(r, 150))
+      }
+      if (objects.length < 2) return
+
+      const removeActions = objects
+        .map((obj) => ({ type: 'remove' as const, objectId: getObjectId(obj)!, snapshot: history?.snapshot(obj) ?? {} }))
+        .filter((a) => a.objectId)
+
+      canvas.discardActiveObject()
+      objects.forEach((obj) => canvas.remove(obj))
+
+      const group = new Group(objects, { originX: 'left', originY: 'top' })
+      group.set('data', { id: crypto.randomUUID(), subtype: 'container' })
+      setObjectZIndex(group, Date.now())
+
+      canvas.add(group)
+      canvas.setActiveObject(group)
+      group.setCoords()
+      canvas.requestRenderAll()
+
+      history?.pushCompound([
+        ...removeActions,
+        { type: 'add', objectId: getObjectId(group)!, snapshot: history.snapshot(group) },
+      ])
     },
     panToScene: (sceneX: number, sceneY: number) => {
       const canvas = canvasRef.current
