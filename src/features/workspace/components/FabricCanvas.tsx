@@ -109,6 +109,8 @@ export interface FabricCanvasZoomHandle {
   copySelected: () => void
   paste: () => Promise<void>
   hasClipboard: () => boolean
+  setDrawBrushColor: (color: string) => void
+  setDrawBrushWidth: (width: number) => void
 }
 
 interface ConnectorDropState {
@@ -545,6 +547,16 @@ const FabricCanvasInner = (
       if (addActions.length > 0) history?.pushCompound(addActions)
     },
     hasClipboard: () => hasClipboard(),
+    setDrawBrushColor: (color: string) => {
+      const canvas = canvasRef.current
+      const brush = canvas?.freeDrawingBrush
+      if (brush) brush.color = color
+    },
+    setDrawBrushWidth: (width: number) => {
+      const canvas = canvasRef.current
+      const brush = canvas?.freeDrawingBrush
+      if (brush) brush.width = width
+    },
     }
     fabricImperativeRef.current = api
     return api
@@ -592,6 +604,7 @@ const FabricCanvasInner = (
       selection: true,
       skipOffscreen: true, // Viewport culling: skip rendering off-screen objects (500+ perf)
       backgroundColor: '#fafafa',
+      isDrawingMode: toolRef.current === 'draw',
     })
     canvasRef.current = fabricCanvas
 
@@ -660,6 +673,34 @@ const FabricCanvasInner = (
     fabricCanvas.on('object:removed', notifyObjectCount)
     notifyObjectCount()
 
+    // Marquee mode: DOM capture so we intercept BEFORE Fabric (works when starting on objects).
+    // Support Cmd (Mac), Option/Alt, or Ctrl — any modifier triggers marquee.
+    const upperEl = fabricCanvas.upperCanvasEl
+    const onCaptureMouseDown = (ev: MouseEvent) => {
+      if (toolRef.current !== 'select' || ev.button !== 0) return
+      const mod = ev.altKey || ev.metaKey || ev.ctrlKey
+      if (!mod) return
+      ev.preventDefault()
+      ev.stopImmediatePropagation()
+      const sp = fabricCanvas.getScenePoint(ev)
+      fabricCanvas.discardActiveObject()
+      const rect = new Rect({
+        left: sp.x,
+        top: sp.y,
+        width: 0,
+        height: 0,
+        fill: 'rgba(59, 130, 246, 0.1)',
+        stroke: '#2563eb',
+        strokeWidth: 1,
+        selectable: false,
+        evented: false,
+      })
+      rect.set('data', {})
+      fabricCanvas.add(rect)
+      marqueeState = { start: sp, rect }
+    }
+    upperEl.addEventListener('mousedown', onCaptureMouseDown, { capture: true })
+
     const handleMouseDown = (
       opt: {
         e: globalThis.MouseEvent | PointerEvent | TouchEvent
@@ -672,29 +713,6 @@ const FabricCanvasInner = (
       const target = opt.target
       const tool = toolRef.current
       objectWasTransformed = false  // Reset at start of each mouse interaction
-
-      // Marquee mode: Alt+drag to box-select even when starting on an object
-      if (tool === 'select' && 'button' in ev && ev.button === 0 && ev.altKey) {
-        const sp = getScenePoint(opt)
-        if (sp) {
-          fabricCanvas.discardActiveObject()
-          const rect = new Rect({
-            left: sp.x,
-            top: sp.y,
-            width: 0,
-            height: 0,
-            fill: 'rgba(59, 130, 246, 0.1)',
-            stroke: '#2563eb',
-            strokeWidth: 1,
-            selectable: false,
-            evented: false,
-          })
-          rect.set('data', {}) // no id → not synced
-          fabricCanvas.add(rect)
-          marqueeState = { start: sp, rect }
-          return
-        }
-      }
 
       // Universal rule for all drawing tools:
       //   - Clicking a resize/rotate handle of the ACTIVE object → let Fabric handle (resize/rotate)
@@ -1487,6 +1505,7 @@ const FabricCanvasInner = (
     resizeObserver.observe(el)
 
     return () => {
+      upperEl.removeEventListener('mousedown', onCaptureMouseDown, { capture: true })
       zoomApiRef.current = null
       historyRef.current = null
       history.clear()

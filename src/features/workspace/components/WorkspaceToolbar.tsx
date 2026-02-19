@@ -7,6 +7,7 @@ import { StrokeControl } from './StrokeControl'
 import { FillControl } from './FillControl'
 import { StrokeColorControl } from './StrokeColorControl'
 import { FontControl } from './FontControl'
+import { DrawBrushControl } from './DrawBrushControl'
 import { STICKER_DEFS, STICKER_KINDS, type StickerKind } from '../lib/pirateStickerFactory'
 import type { ArrowMode, StrokeDash } from '../lib/connectorFactory'
 
@@ -465,26 +466,30 @@ export function WorkspaceToolbar({
         </div>
       </div>
 
-      {/* Contextual bar (selection controls) */}
-      {selectionStroke != null && canvasRef && (
+      {/* Contextual bar (selection controls or draw brush) */}
+      {(selectionStroke != null || selectedTool === 'draw') && canvasRef && (
         <div style={styles.contextualRow}>
           <div style={styles.contextualLeft}>
-            {showStrokeControls && (
+            {selectedTool === 'draw' ? (
+              <DrawBrushControl canvasRef={canvasRef} />
+            ) : (
               <>
-                <StrokeControl strokeWidth={selectionStroke.strokeWidth} canvasRef={canvasRef} />
-                {selectionStroke.strokeColor != null && (
-                  <StrokeColorControl strokeColor={selectionStroke.strokeColor} canvasRef={canvasRef} />
+                {showStrokeControls && (
+                  <>
+                    <StrokeControl strokeWidth={selectionStroke!.strokeWidth} canvasRef={canvasRef} />
+                    {selectionStroke!.strokeColor != null && (
+                      <StrokeColorControl strokeColor={selectionStroke!.strokeColor} canvasRef={canvasRef} />
+                    )}
+                  </>
                 )}
-              </>
-            )}
-            {selectionStroke.fontFamily != null && (
-              <FontControl fontFamily={selectionStroke.fontFamily} canvasRef={canvasRef} />
-            )}
-            {selectionStroke.fill != null && !selectionStroke.isConnector && (
-              <FillControl fill={selectionStroke.fill} canvasRef={canvasRef} />
-            )}
-            {/* Connector-specific controls */}
-            {selectionStroke.isConnector && (
+                {selectionStroke!.fontFamily != null && (
+                  <FontControl fontFamily={selectionStroke!.fontFamily} canvasRef={canvasRef} />
+                )}
+                {selectionStroke!.fill != null && !selectionStroke!.isConnector && (
+                  <FillControl fill={selectionStroke!.fill} canvasRef={canvasRef} />
+                )}
+                {/* Connector-specific controls */}
+                {selectionStroke!.isConnector && (
               <>
                 {/* Arrow mode selector */}
                 <div style={styles.connectorGroup}>
@@ -495,7 +500,7 @@ export function WorkspaceToolbar({
                       type="button"
                       style={{
                         ...styles.connectorBtn,
-                        ...(selectionStroke.arrowMode === mode ? styles.connectorBtnActive : {}),
+                        ...(selectionStroke!.arrowMode === mode ? styles.connectorBtnActive : {}),
                       }}
                       onClick={() => canvasRef.current?.setActiveConnectorArrowMode?.(mode)}
                       title={mode === 'none' ? 'No arrows' : mode === 'end' ? 'Arrow at end' : 'Arrows at both ends'}
@@ -531,7 +536,7 @@ export function WorkspaceToolbar({
                       type="button"
                       style={{
                         ...styles.connectorBtn,
-                        ...(selectionStroke.strokeDash === dash ? styles.connectorBtnActive : {}),
+                        ...(selectionStroke!.strokeDash === dash ? styles.connectorBtnActive : {}),
                       }}
                       onClick={() => canvasRef.current?.setActiveConnectorStrokeDash?.(dash)}
                       title={dash}
@@ -585,9 +590,9 @@ export function WorkspaceToolbar({
                 </svg>
               </button>
             </div>
-            {(selectionStroke.canGroup || selectionStroke.canUngroup) && (
+                {(selectionStroke!.canGroup || selectionStroke!.canUngroup) && (
               <div style={styles.layerGroup}>
-                {selectionStroke.canGroup && (
+                {selectionStroke!.canGroup && (
                   <button
                     type="button"
                     style={styles.layerBtn}
@@ -603,7 +608,7 @@ export function WorkspaceToolbar({
                     </svg>
                   </button>
                 )}
-                {selectionStroke.canUngroup && (
+                {selectionStroke!.canUngroup && (
                   <button
                     type="button"
                     style={styles.layerBtn}
@@ -650,6 +655,8 @@ export function WorkspaceToolbar({
                 </div>
               )}
             </div>
+              </>
+            )}
           </div>
         </div>
       )}
