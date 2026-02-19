@@ -1,16 +1,18 @@
 # Active Context
 
 ## Current Focus (for next agent)
-**Parrot mascot added (2026-02-19).** `ParrotMascot.tsx` live on BoardListPage — SVG green parrot, parchment bubble below, bobbing animation, 8 static pirate jokes. No remaining high-priority bugs.
+**Connectors Phase 1 implemented (2026-02-19).** Full Miro-style connector system: waypoints, arrowheads, stroke dash, create-on-drop popup, toolbar controls, floating endpoints on delete.
 
-**Current state:** All planned MVP + post-MVP features complete. MeBoard branding mostly done — parrot mascot is the latest addition.
+**Current state:** Core connector feature complete with all Phase 1 requirements + rotation/scale fix. TypeScript compiles clean, no linter errors.
 
 **Remaining work:**
 1. ~~**Fix OpenAI key**~~ ✅ — Confirmed done. AI agent + parrot joke generation now unblocked.
-2. **`usePirateJokes` hook** — fetch 5 AI-generated jokes/day from new `pirate-jokes` Edge Function; cache in `localStorage` keyed by date (`meboard:jokes:YYYY-MM-DD`); replace static `PARROT_GREETINGS` in BoardListPage.
-3. **Viewport persistence** — persist zoom/pan per board in localStorage; restore on canvas mount. See docs/PLANNED_CANVAS_FEATURES.md §0.
-4. **Canvas features** — Object grouping, Free draw, Lasso selection. See docs/PLANNED_CANVAS_FEATURES.md.
-5. **Branding polish** — Welcome animation, hero illustration, NavBar/Footer on BoardListPage, easter eggs (wave, empty-canvas X). See docs/MeBoard_BRANDING_SPEC.md.
+2. ~~**`usePirateJokes` hook**~~ ✅ — `pirate-jokes` Edge Function (OpenAI gpt-4o-mini, temperature 0.95, 5 jokes/call); `usePirateJokes` hook caches in `localStorage` keyed by date (`meboard:jokes:YYYY-MM-DD`); stable `pickJoke()` via `useCallback` + `useRef`; FALLBACK_JOKES if fetch fails. Wired into `BoardListPage` alongside the first-time welcome message.
+3. **Presence icon avatars in workspace header** — Replace "X others viewing — Alice, Bob" text with pirate emoji icons. Spec: up to 4 icons shown, then "+N" badge. Hover any icon → tooltip shows name. Click icon → pan/zoom canvas to that user's cursor. Count text shown only on hover of the cluster. Uses same `getPirateIcon(userId)` hash as `CursorOverlay`. Files: `WorkspacePage.tsx` (header presence area); export `getPirateIcon` from `CursorOverlay` or move to shared util.
+4. **Viewport persistence** — persist zoom/pan per board in localStorage; restore on canvas mount. See docs/PLANNED_CANVAS_FEATURES.md §0.
+5. **Canvas features** — Object grouping, Free draw, Lasso selection. See docs/PLANNED_CANVAS_FEATURES.md.
+6. **Connector Phase 2** — Nice-to-haves: port hover glow, double-click segment for waypoint, right-click context menu (Reset route, Reverse direction), auto-route.
+7. **Branding polish** — Welcome animation, hero illustration, NavBar/Footer on BoardListPage, easter eggs (wave, empty-canvas X). See docs/MeBoard_BRANDING_SPEC.md.
 
 **Parrot mascot layout pattern:**
 - `ParrotMascot` is `position: fixed, right: 20, top: 58`. Flex column, parrot on top, bubble below.
@@ -20,7 +22,7 @@
 
 **MeBoard branding** ✅ — Phase 1 + Phase 2 + Parrot mascot done. Login, nav, footer, index.html, App loading, pirate cursor icons, map border overlay + toggle, Pirate Plunder stickers, Parrot mascot. Spec: docs/MeBoard_BRANDING_SPEC.md.
 
-**Planned canvas features** — See docs/PLANNED_CANVAS_FEATURES.md: Object grouping (Group ✅, Ungroup ⚠️ bug: objects move + unselectable — being fixed), Free draw (pencil), Lasso selection, Multi-scale map vision (with MeBoard border).
+**Planned canvas features** — See docs/PLANNED_CANVAS_FEATURES.md: Object grouping (Group ✅, Ungroup ⚠️ bug: objects move + unselectable — being fixed), Free draw (pencil), Lasso selection, Multi-scale map vision. **Finished-product:** Connectors (Miro-style, required), Frames, Duplicate, Copy & Paste, Marquee mode (box-select when starting on large objects).
 
 ### What Was Fixed (2026-02-17)
 1. **Locking never enabled** — Effect ran before auth loaded; `userId`/`userName` were empty. Added `userId`/`userName` to effect deps so sync re-ran when auth ready.
@@ -56,7 +58,7 @@
 - `showParrot` + `parrotMsg` state; `parrotMsg` initialised via `useState(pickGreeting)`.
 - BoardListPage header: "CollabBoard" → "⚓ MeBoard".
 - `toolbar` and `grid` styles: `paddingRight: 245` — keeps all buttons + cards clear of parrot+bubble zone.
-- **Next:** replace static greetings with `usePirateJokes` hook (Edge Function + localStorage cache) — OpenAI key fixed, ready to implement.
+- ~~**Next:** replace static greetings with `usePirateJokes` hook~~ ✅ Done. `pirate-jokes` Edge Function + `usePirateJokes` hook wired in. First-time welcome message shown when `!localStorage.getItem('meboard:welcomed:'+userId)` and `boards.length === 0`; key set after showing. Subsequent visits get AI-generated jokes from cache or Edge Function.
 
 ## Recent Changes (2026-02-19 — Other)
 

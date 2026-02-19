@@ -59,6 +59,25 @@ export type DocumentQueryCriteria = {
   fill?: string
 }
 
+/** Fetch a specific set of documents by their object IDs. */
+export async function getDocumentsByIds(
+  boardId: string,
+  objectIds: string[]
+): Promise<{ objectId: string; data: Record<string, unknown> }[]> {
+  if (objectIds.length === 0) return []
+  const supabase = getSupabaseClient()
+  const { data, error } = await supabase
+    .from('documents')
+    .select('object_id, data')
+    .eq('board_id', boardId)
+    .in('object_id', objectIds)
+  if (error) throw error
+  const rows = data ?? []
+  return rows
+    .filter((row): row is { object_id: string; data: Record<string, unknown> } => !!row?.object_id && !!row.data)
+    .map((row) => ({ objectId: row.object_id, data: row.data }))
+}
+
 const QUERY_PAGE_SIZE = 500
 
 /** Fetch documents for a board with optional criteria. For AI/client query use. */

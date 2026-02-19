@@ -19,7 +19,7 @@ interface CursorOverlayProps {
 
 const PIRATE_ICONS = ['⚓', '🦜', '🧭', '☠️', '🔱']
 
-function getPirateIcon(userId: string): string {
+export function getPirateIcon(userId: string): string {
   let hash = 0
   for (let i = 0; i < userId.length; i++) {
     hash = (hash * 31 + userId.charCodeAt(i)) | 0

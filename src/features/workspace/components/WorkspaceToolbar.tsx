@@ -8,6 +8,7 @@ import { FillControl } from './FillControl'
 import { StrokeColorControl } from './StrokeColorControl'
 import { FontControl } from './FontControl'
 import { STICKER_DEFS, STICKER_KINDS, type StickerKind } from '../lib/pirateStickerFactory'
+import type { ArrowMode, StrokeDash } from '../lib/connectorFactory'
 
 interface WorkspaceToolbarProps {
   selectedTool: ToolType
@@ -434,8 +435,75 @@ export function WorkspaceToolbar({
             {selectionStroke.fontFamily != null && (
               <FontControl fontFamily={selectionStroke.fontFamily} canvasRef={canvasRef} />
             )}
-            {selectionStroke.fill != null && (
+            {selectionStroke.fill != null && !selectionStroke.isConnector && (
               <FillControl fill={selectionStroke.fill} canvasRef={canvasRef} />
+            )}
+            {/* Connector-specific controls */}
+            {selectionStroke.isConnector && (
+              <>
+                {/* Arrow mode selector */}
+                <div style={styles.connectorGroup}>
+                  <span style={styles.connectorLabel}>Arrow</span>
+                  {(['none', 'end', 'both'] as ArrowMode[]).map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      style={{
+                        ...styles.connectorBtn,
+                        ...(selectionStroke.arrowMode === mode ? styles.connectorBtnActive : {}),
+                      }}
+                      onClick={() => canvasRef.current?.setActiveConnectorArrowMode?.(mode)}
+                      title={mode === 'none' ? 'No arrows' : mode === 'end' ? 'Arrow at end' : 'Arrows at both ends'}
+                    >
+                      {mode === 'none' && (
+                        <svg width="22" height="14" viewBox="0 0 22 14" fill="none">
+                          <line x1="2" y1="7" x2="20" y2="7" stroke="currentColor" strokeWidth="2" />
+                        </svg>
+                      )}
+                      {mode === 'end' && (
+                        <svg width="22" height="14" viewBox="0 0 22 14" fill="none">
+                          <line x1="2" y1="7" x2="16" y2="7" stroke="currentColor" strokeWidth="2" />
+                          <path d="M16 3L21 7L16 11" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" fill="currentColor" />
+                        </svg>
+                      )}
+                      {mode === 'both' && (
+                        <svg width="22" height="14" viewBox="0 0 22 14" fill="none">
+                          <line x1="6" y1="7" x2="16" y2="7" stroke="currentColor" strokeWidth="2" />
+                          <path d="M6 3L1 7L6 11" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" fill="currentColor" />
+                          <path d="M16 3L21 7L16 11" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" fill="currentColor" />
+                        </svg>
+                      )}
+                    </button>
+                  ))}
+                </div>
+                <div style={styles.divider} />
+                {/* Stroke dash selector */}
+                <div style={styles.connectorGroup}>
+                  <span style={styles.connectorLabel}>Line</span>
+                  {(['solid', 'dashed', 'dotted'] as StrokeDash[]).map((dash) => (
+                    <button
+                      key={dash}
+                      type="button"
+                      style={{
+                        ...styles.connectorBtn,
+                        ...(selectionStroke.strokeDash === dash ? styles.connectorBtnActive : {}),
+                      }}
+                      onClick={() => canvasRef.current?.setActiveConnectorStrokeDash?.(dash)}
+                      title={dash}
+                    >
+                      <svg width="28" height="10" viewBox="0 0 28 10" fill="none">
+                        <line
+                          x1="2" y1="5" x2="26" y2="5"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeDasharray={dash === 'solid' ? undefined : dash === 'dashed' ? '6 3' : '2 3'}
+                        />
+                      </svg>
+                    </button>
+                  ))}
+                </div>
+                <div style={styles.divider} />
+              </>
             )}
             {(selectionStroke.canGroup || selectionStroke.canUngroup) && (
               <div style={styles.layerGroup}>
@@ -704,6 +772,35 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     gap: 8,
+  },
+  connectorGroup: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 2,
+  },
+  connectorLabel: {
+    fontSize: 11,
+    fontWeight: 500,
+    color: '#6b7280',
+    marginRight: 4,
+  },
+  connectorBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 36,
+    height: 28,
+    padding: 0,
+    border: '1px solid transparent',
+    borderRadius: 5,
+    background: 'transparent',
+    color: '#374151',
+    cursor: 'pointer',
+  },
+  connectorBtnActive: {
+    background: '#e0e7ff',
+    border: '1px solid #a5b4fc',
+    color: '#1d4ed8',
   },
   layersMenu: {
     position: 'absolute',

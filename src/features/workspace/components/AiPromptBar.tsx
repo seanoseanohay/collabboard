@@ -3,19 +3,29 @@ import { Z_INDEX } from '@/shared/constants/zIndex'
 import { invokeAiInterpret } from '../api/aiInterpretApi'
 import { executeAiCommands } from '../lib/executeAiCommands'
 
-const EXAMPLES = [
+const DRAW_EXAMPLES = [
   { label: 'Blue circle at 100, 100', prompt: 'Draw a blue circle at 100, 100' },
   { label: '5 green triangles in a row', prompt: 'Draw 5 green triangles in a horizontal row, evenly spaced' },
-  { label: 'Red rectangle at 200, 150', prompt: 'Add a red rectangle at 200, 150' },
-  { label: 'Sticky note: Hello', prompt: 'Create a sticky note that says Hello' },
-  { label: 'Purple line', prompt: 'Draw a purple line from 50, 50 to 250, 250' },
+]
+
+const TEMPLATE_EXAMPLES = [
+  { label: 'Pros & cons grid', prompt: 'Create a 2 by 3 grid of sticky notes for pros and cons' },
+  { label: 'SWOT analysis', prompt: 'Create a SWOT analysis template for 4 quadrants' },
+  { label: 'User journey map (5 stages)', prompt: 'Build a user journey map with 5 stages' },
+  { label: 'Retrospective board', prompt: "Set up a retrospective board of what went well, what didn't, and action items columns" },
+]
+
+const SELECTION_EXAMPLES = [
+  { label: 'Arrange in a grid', prompt: 'Arrange these sticky notes in a grid' },
+  { label: 'Space evenly', prompt: 'Space these elements evenly' },
 ]
 
 interface AiPromptBarProps {
   boardId: string
+  getSelectedObjectIds?: () => string[]
 }
 
-export function AiPromptBar({ boardId }: AiPromptBarProps) {
+export function AiPromptBar({ boardId, getSelectedObjectIds }: AiPromptBarProps) {
   const [open, setOpen] = useState(false)
   const [prompt, setPrompt] = useState('')
   const [loading, setLoading] = useState(false)
@@ -27,7 +37,8 @@ export function AiPromptBar({ boardId }: AiPromptBarProps) {
       setLoading(true)
       setError(null)
       try {
-        const { commands } = await invokeAiInterpret(boardId, text)
+        const selectedObjectIds = getSelectedObjectIds?.() ?? []
+        const { commands } = await invokeAiInterpret(boardId, text, { selectedObjectIds })
         const result = await executeAiCommands(boardId, commands)
         if (!result.ok) {
           setError(result.error ?? 'Failed to execute')
@@ -86,9 +97,40 @@ export function AiPromptBar({ boardId }: AiPromptBarProps) {
               </button>
             </div>
 
-            <p style={styles.examplesLabel}>Examples</p>
+            <p style={styles.examplesLabel}>Draw</p>
             <div style={styles.examplesGrid}>
-              {EXAMPLES.map((ex) => (
+              {DRAW_EXAMPLES.map((ex) => (
+                <button
+                  key={ex.prompt}
+                  type="button"
+                  onClick={() => handleExampleClick(ex.prompt)}
+                  disabled={loading}
+                  style={styles.exampleBtn}
+                >
+                  {ex.label}
+                </button>
+              ))}
+            </div>
+
+            <p style={{ ...styles.examplesLabel, marginTop: 12 }}>Templates</p>
+            <div style={styles.examplesGrid}>
+              {TEMPLATE_EXAMPLES.map((ex) => (
+                <button
+                  key={ex.prompt}
+                  type="button"
+                  onClick={() => handleExampleClick(ex.prompt)}
+                  disabled={loading}
+                  style={styles.exampleBtn}
+                >
+                  {ex.label}
+                </button>
+              ))}
+            </div>
+
+            <p style={{ ...styles.examplesLabel, marginTop: 12 }}>Selection</p>
+            <p style={styles.selectionHint}>Select objects on the canvas first, then run these.</p>
+            <div style={styles.examplesGrid}>
+              {SELECTION_EXAMPLES.map((ex) => (
                 <button
                   key={ex.prompt}
                   type="button"
@@ -262,6 +304,11 @@ const styles: Record<string, React.CSSProperties> = {
   },
   hint: {
     margin: '8px 0 0',
+    fontSize: 12,
+    color: '#9ca3af',
+  },
+  selectionHint: {
+    margin: '-4px 0 6px',
     fontSize: 12,
     color: '#9ca3af',
   },

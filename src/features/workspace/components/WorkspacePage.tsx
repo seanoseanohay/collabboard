@@ -1,4 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
+
+const MAX_PRESENCE_ICONS = 4
 import type { BoardMeta } from '@/features/boards/api/boardsApi'
 import { updateBoardTitle } from '@/features/boards/api/boardsApi'
 import { useAuth } from '@/features/auth/hooks/useAuth'
@@ -6,7 +8,7 @@ import { FabricCanvas, type FabricCanvasZoomHandle, type SelectionStrokeInfo } f
 import { ShareModal } from './ShareModal'
 import { WorkspaceToolbar } from './WorkspaceToolbar'
 import { AiPromptBar } from './AiPromptBar'
-import { CursorOverlay } from './CursorOverlay'
+import { CursorOverlay, getPirateIcon } from './CursorOverlay'
 import { CursorPositionReadout } from './CursorPositionReadout'
 import { GridOverlay } from './GridOverlay'
 import { MapBorderOverlay } from './MapBorderOverlay'
@@ -32,6 +34,7 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
   const [selectionStroke, setSelectionStroke] = useState<SelectionStrokeInfo | null>(null)
   const [cursorPosition, setCursorPosition] = useState<{ x: number; y: number } | null>(null)
   const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false })
+  const [presenceHovered, setPresenceHovered] = useState(false)
   const canvasContainerRef = useRef<HTMLDivElement>(null)
   const canvasZoomRef = useRef<FabricCanvasZoomHandle>(null)
   const gridRef = useRef<HTMLDivElement>(null)
@@ -147,7 +150,7 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
             {board.title}
           </h1>
         )}
-        <AiPromptBar boardId={board.id} />
+        <AiPromptBar boardId={board.id} getSelectedObjectIds={() => canvasZoomRef.current?.getSelectedObjectIds() ?? []} />
         <button
           type="button"
           onClick={() => setShareOpen(true)}
@@ -163,10 +166,31 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
           />
         )}
         {others.length > 0 && (
-          <span style={styles.presence} title={`Viewing with: ${others.map((o) => o.name).join(', ')}`}>
-            {others.length} {others.length === 1 ? 'other' : 'others'} viewing
-            <span style={styles.presenceNames}> — {others.map((o) => o.name).join(', ')}</span>
-          </span>
+          <div
+            style={styles.presenceCluster}
+            onMouseEnter={() => setPresenceHovered(true)}
+            onMouseLeave={() => setPresenceHovered(false)}
+          >
+            {presenceHovered && (
+              <span style={styles.presenceCount}>
+                {others.length} {others.length === 1 ? 'other' : 'others'}
+              </span>
+            )}
+            {others.slice(0, MAX_PRESENCE_ICONS).map((o) => (
+              <button
+                key={o.userId}
+                type="button"
+                title={o.name}
+                style={styles.presenceIconBtn}
+                onClick={() => canvasZoomRef.current?.panToScene(o.x, o.y)}
+              >
+                {getPirateIcon(o.userId)}
+              </button>
+            ))}
+            {others.length > MAX_PRESENCE_ICONS && (
+              <span style={styles.presenceOverflow}>+{others.length - MAX_PRESENCE_ICONS}</span>
+            )}
+          </div>
         )}
       </header>
       <WorkspaceToolbar
@@ -277,21 +301,44 @@ const styles: Record<string, React.CSSProperties> = {
     color: '#374151',
     cursor: 'pointer',
   },
-  presence: {
+  presenceCluster: {
     marginLeft: 'auto',
-    fontSize: 12,
-    color: '#6b7280',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 2,
   },
-  presenceNames: {
-    marginLeft: 4,
-    fontWeight: 500,
-    color: '#4b5563',
-    maxWidth: 240,
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
+  presenceCount: {
+    fontSize: 11,
+    color: '#6b7280',
     whiteSpace: 'nowrap',
-    display: 'inline-block',
-    verticalAlign: 'bottom',
+    marginRight: 4,
+  },
+  presenceIconBtn: {
+    width: 28,
+    height: 28,
+    padding: 0,
+    border: '1.5px solid #e5e7eb',
+    borderRadius: '50%',
+    background: '#f9fafb',
+    fontSize: 15,
+    lineHeight: 1,
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  presenceOverflow: {
+    width: 28,
+    height: 28,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: 11,
+    fontWeight: 600,
+    color: '#6b7280',
+    border: '1.5px solid #e5e7eb',
+    borderRadius: '50%',
+    background: '#f3f4f6',
   },
   canvas: {
     flex: 1,

@@ -27,4 +27,4 @@ export {
 } from './api/aiCanvasOpsEdgeApi'
 
 /** AI interpret — natural language to canvas commands. */
-export { invokeAiInterpret, type AiInterpretResponse, type AiCommand } from './api/aiInterpretApi'
+export { invokeAiInterpret, type AiInterpretResponse, type AiCommand, type AiInterpretOptions } from './api/aiInterpretApi'

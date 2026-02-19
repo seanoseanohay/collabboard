@@ -12,21 +12,10 @@ import {
 import { parseBoardIdFromShareInput, getShareUrl } from '@/shared/lib/shareLinks'
 import type { BoardMeta } from '@/features/boards/api/boardsApi'
 import { ParrotMascot } from './ParrotMascot'
+import { usePirateJokes } from '../hooks/usePirateJokes'
 
-const PARROT_GREETINGS = [
-  "Ahoy, Captain! Ready to plunder some brilliant ideas today?",
-  "Squawk! Welcome back to yer treasure map canvas, Captain!",
-  "Why did the pirate go to art school? To improve his ARRRRT! 🎨",
-  "A pirate's favorite letter? Ye think it be R, but it be the C! 🌊",
-  "What's a pirate's favorite social network? Instagramarrr!",
-  "Batten down the hatches — great ideas are ahead, Captain!",
-  "Blimey! Your boards await. Which treasure shall we chart today?",
-  "Why do pirates make great designers? They always think outside the BOAX! 📦",
-]
-
-function pickGreeting(): string {
-  return PARROT_GREETINGS[Math.floor(Math.random() * PARROT_GREETINGS.length)]
-}
+const WELCOME_MESSAGE =
+  "Ahoy, new crew member! MeBoard is yer real-time pirate canvas. Hit '+ New Board' to chart yer first treasure map, then share the link with yer crew to draw, plan, and plunder ideas together! 🏴‍☠️"
 
 export function BoardListPage() {
   const { user } = useAuth()
@@ -43,10 +32,24 @@ export function BoardListPage() {
   const [deleting, setDeleting] = useState(false)
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
-  const [parrotMsg, setParrotMsg] = useState<string | undefined>(pickGreeting)
+  const parrotInitialized = useRef(false)
+  const [parrotMsg, setParrotMsg] = useState<string | undefined>(undefined)
   const [showParrot, setShowParrot] = useState(true)
+  const { pickJoke, loading: jokesLoading } = usePirateJokes()
 
   const userId = user?.uid ?? ''
+
+  useEffect(() => {
+    if (parrotInitialized.current || loading || jokesLoading || !userId) return
+    parrotInitialized.current = true
+    const welcomeKey = `meboard:welcomed:${userId}`
+    if (!localStorage.getItem(welcomeKey) && boards.length === 0) {
+      setParrotMsg(WELCOME_MESSAGE)
+      localStorage.setItem(welcomeKey, '1')
+    } else {
+      setParrotMsg(pickJoke())
+    }
+  }, [loading, jokesLoading, userId, boards.length, pickJoke])
 
   useEffect(() => {
     if (!menuBoardId) return
@@ -326,7 +329,7 @@ export function BoardListPage() {
         <ParrotMascot
           message={parrotMsg}
           onDismiss={() => setShowParrot(false)}
-          onNewMessage={() => setParrotMsg(pickGreeting())}
+          onNewMessage={() => setParrotMsg(pickJoke())}
         />
       )}
     </div>

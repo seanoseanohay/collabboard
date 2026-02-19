@@ -16,13 +16,23 @@ export type AiCommand =
   | { action: 'queryObjects'; criteria?: { type?: string; fill?: string }; storeAs?: string }
   | { action: 'deleteObjects'; objectIds?: string[]; objectIdsFromPreviousQuery?: boolean }
   | { action: 'updateObject'; objectId: string; partialProps: Record<string, unknown> }
+  | { action: 'arrangeInGrid'; objectIds: string[]; cols?: number }
+  | { action: 'spaceEvenly'; objectIds: string[]; direction?: 'horizontal' | 'vertical' }
 
-export async function invokeAiInterpret(boardId: string, prompt: string): Promise<AiInterpretResponse> {
+export interface AiInterpretOptions {
+  selectedObjectIds?: string[]
+}
+
+export async function invokeAiInterpret(
+  boardId: string,
+  prompt: string,
+  options?: AiInterpretOptions
+): Promise<AiInterpretResponse> {
   const supabase = getSupabaseClient()
 
   const { data, error } = await supabase.functions.invoke<AiInterpretResponse & { error?: string }>(
     FUNCTION_NAME,
-    { body: { boardId, prompt } }
+    { body: { boardId, prompt, selectedObjectIds: options?.selectedObjectIds } }
   )
 
   if (error) {

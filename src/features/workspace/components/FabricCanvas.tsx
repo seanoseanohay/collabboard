@@ -1,6 +1,6 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { Z_INDEX } from '@/shared/constants/zIndex'
-import { Canvas, Group, ActiveSelection, Point, util, type FabricObject } from 'fabric'
+import { Canvas, Group, ActiveSelection, Point, Polyline, util, type FabricObject } from 'fabric'
 import { createHistoryManager, type HistoryManager } from '../lib/historyManager'
 
 /** IText has enterEditing; FabricText does not. Check by method presence. */
@@ -33,6 +33,22 @@ import {
   type LockStateCallbackRef,
 } from '../lib/boardSync'
 import { createSticker, type StickerKind } from '../lib/pirateStickerFactory'
+import { applyConnectorControls, applyConnectorWaypointControls, clearConnectorWaypointControls } from '../lib/connectorControls'
+import {
+  createConnector,
+  isConnector,
+  getConnectorData,
+  floatConnectorEndpoint,
+  updateConnectorEndpoints,
+  removeWaypoint as removeConnectorWaypoint,
+  setConnectorArrowMode,
+  setConnectorStrokeDash,
+  type ArrowMode,
+  type StrokeDash,
+} from '../lib/connectorFactory'
+import { getPortScenePoint, getNearestPort, type ConnectorPort } from '../lib/connectorPortUtils'
+import { drawConnectorArrows } from '../lib/connectorArrows'
+import { ConnectorDropMenu, type ConnectorDropShapeType } from './ConnectorDropMenu'
 import { bringToFront, sendToBack, bringForward, sendBackward } from '../lib/fabricCanvasZOrder'
 import { drawCanvasGrid } from '../lib/drawCanvasGrid'
 import { createHistoryEventHandlers } from '../lib/fabricCanvasHistoryHandlers'
@@ -51,6 +67,12 @@ export interface SelectionStrokeInfo {
   isStickyNote: boolean
   /** Font family when selection has text (standalone or in group). */
   fontFamily: string | null
+  /** True when the selected object is a connector. */
+  isConnector: boolean
+  /** Arrow mode for connector (null when not a connector). */
+  arrowMode: ArrowMode | null
+  /** Stroke dash style for connector (null when not a connector). */
+  strokeDash: StrokeDash | null
 }
 
 export interface FabricCanvasZoomHandle {
@@ -61,6 +83,8 @@ export interface FabricCanvasZoomHandle {
   setActiveObjectFill: (fill: string) => void
   setActiveObjectStrokeColor: (stroke: string) => void
   setActiveObjectFontFamily: (fontFamily: string) => void
+  setActiveConnectorArrowMode: (mode: ArrowMode) => void
+  setActiveConnectorStrokeDash: (dash: StrokeDash) => void
   bringToFront: () => void
   sendToBack: () => void
   bringForward: () => void
@@ -69,6 +93,16 @@ export interface FabricCanvasZoomHandle {
   redo: () => void
   groupSelected: () => void
   ungroupSelected: () => void
+  getSelectedObjectIds: () => string[]
+  panToScene: (sceneX: number, sceneY: number) => void
+}
+
+interface ConnectorDropState {
+  screenX: number
+  screenY: number
+  scenePoint: { x: number; y: number }
+  sourceId: string
+  sourcePort: ConnectorPort
 }
 
 interface FabricCanvasProps {
@@ -113,6 +147,7 @@ const FabricCanvasInner = (
 ) => {
   const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<Canvas | null>(null)
+  const [connectorDropMenuState, setConnectorDropMenuState] = useState<ConnectorDropState | null>(null)
   const zoomApiRef = useRef<Pick<FabricCanvasZoomHandle, 'setZoom' | 'zoomToFit'> | null>(null)
   const toolRef = useRef(selectedTool)
   toolRef.current = selectedTool
@@ -187,6 +222,24 @@ const FabricCanvasInner = (
       canvas.fire('object:modified', { target: active })
       canvas.requestRenderAll()
     },
+    setActiveConnectorArrowMode: (mode: ArrowMode) => {
+      const canvas = canvasRef.current
+      if (!canvas) return
+      const active = canvas.getActiveObject()
+      if (!active || !isConnector(active)) return
+      captureBeforeForHistory(active)
+      setConnectorArrowMode(active, canvas, mode)
+      canvas.fire('object:modified', { target: active })
+    },
+    setActiveConnectorStrokeDash: (dash: StrokeDash) => {
+      const canvas = canvasRef.current
+      if (!canvas) return
+      const active = canvas.getActiveObject()
+      if (!active || !isConnector(active)) return
+      captureBeforeForHistory(active)
+      setConnectorStrokeDash(active, dash)
+      canvas.fire('object:modified', { target: active })
+    },
     undo: () => void historyRef.current?.undo(),
     redo: () => void historyRef.current?.redo(),
     bringToFront: () => { if (canvasRef.current) bringToFront(canvasRef.current) },
@@ -231,6 +284,28 @@ const FabricCanvasInner = (
         ...removeActions,
         { type: 'add', objectId: getObjectId(group)!, snapshot: history.snapshot(group) },
       ])
+    },
+    getSelectedObjectIds: () => {
+      const canvas = canvasRef.current
+      if (!canvas) return []
+      const active = canvas.getActiveObject()
+      if (!active) return []
+      if (active.type === 'activeselection') {
+        const objs = (active as unknown as { getObjects(): FabricObject[] }).getObjects()
+        return objs.map((o) => getObjectId(o)).filter((id): id is string => !!id)
+      }
+      const id = getObjectId(active)
+      return id ? [id] : []
+    },
+    panToScene: (sceneX: number, sceneY: number) => {
+      const canvas = canvasRef.current
+      if (!canvas) return
+      const zoom = canvas.getZoom()
+      const vpt = canvas.viewportTransform ?? [1, 0, 0, 1, 0, 0]
+      vpt[4] = width / 2 - sceneX * zoom
+      vpt[5] = height / 2 - sceneY * zoom
+      canvas.requestRenderAll()
+      onViewportChangeRef.current?.(vpt)
     },
     ungroupSelected: () => {
       const canvas = canvasRef.current
@@ -283,6 +358,33 @@ const FabricCanvasInner = (
     },
   }), [])
 
+  const handleConnectorDropSelect = useCallback((shapeType: ConnectorDropShapeType) => {
+    const state = connectorDropMenuState
+    const canvas = canvasRef.current
+    if (!state || !canvas) { setConnectorDropMenuState(null); return }
+    const { scenePoint, sourceId, sourcePort } = state
+    const SIZE = 80
+    const shape = createShape(
+      shapeType === 'sticky' ? 'sticky' : shapeType,
+      scenePoint.x - SIZE / 2,
+      scenePoint.y - SIZE / 2,
+      scenePoint.x + SIZE / 2,
+      scenePoint.y + SIZE / 2,
+      { zoom: canvas.getZoom() }
+    )
+    if (shape) {
+      canvas.add(shape)
+      const targetId = getObjectId(shape)
+      if (targetId) {
+        const targetPort = getNearestPort(shape, scenePoint)
+        const connector = createConnector(canvas, sourceId, sourcePort, targetId, targetPort)
+        if (connector) canvas.add(connector)
+      }
+      canvas.requestRenderAll()
+    }
+    setConnectorDropMenuState(null)
+  }, [connectorDropMenuState])
+
   useEffect(() => {
     const el = containerRef.current
     if (!el) return
@@ -324,6 +426,9 @@ const FabricCanvasInner = (
     let drawEnd: { x: number; y: number } | null = null
     let previewObj: FabricObject | null = null
     let objectWasTransformed = false  // Track if object was rotated/scaled/moved
+    let connectorDrawState: { sourceObj: FabricObject; port: ConnectorPort } | null = null
+    let connectorPreviewLine: Polyline | null = null
+    let lastConnectorDrawPoint: { x: number; y: number } | null = null
 
     const getScenePoint = (opt: {
       scenePoint?: { x: number; y: number }
@@ -444,6 +549,26 @@ const FabricCanvasInner = (
         return
       }
 
+      if (connectorDrawState && sp) {
+        lastConnectorDrawPoint = sp
+        const from = getPortScenePoint(connectorDrawState.sourceObj, connectorDrawState.port)
+        if (!connectorPreviewLine) {
+          connectorPreviewLine = new Polyline([from, { x: sp.x, y: sp.y }], {
+            stroke: '#2563eb',
+            strokeWidth: 2,
+            fill: '',
+            selectable: false,
+            evented: false,
+          })
+          fabricCanvas.add(connectorPreviewLine)
+        } else {
+          connectorPreviewLine.set('points', [from, { x: sp.x, y: sp.y }])
+          connectorPreviewLine.setCoords()
+        }
+        fabricCanvas.requestRenderAll()
+        return
+      }
+
       if (isPanning && lastPointer) {
         const dx = ev.clientX - lastPointer.x
         const dy = ev.clientY - lastPointer.y
@@ -459,7 +584,46 @@ const FabricCanvasInner = (
       if (vpt) onViewportChangeRef.current([...vpt])
     }
 
-    const handleMouseUp = () => {
+    const handleMouseUp = (opt?: { target?: unknown }) => {
+      if (connectorDrawState) {
+        const target = opt?.target as FabricObject | undefined
+        const sourceId = getObjectId(connectorDrawState.sourceObj)
+        if (connectorPreviewLine) {
+          fabricCanvas.remove(connectorPreviewLine)
+          connectorPreviewLine = null
+        }
+        if (target && sourceId && getObjectId(target) && target !== connectorDrawState.sourceObj) {
+          const targetRoot = (target.group ?? target) as FabricObject
+          const targetId = getObjectId(targetRoot)
+          if (targetId && targetRoot !== connectorDrawState.sourceObj) {
+            const dropPoint = lastConnectorDrawPoint ?? { x: 0, y: 0 }
+            const targetPort = getNearestPort(targetRoot, dropPoint)
+            const connector = createConnector(
+              fabricCanvas,
+              sourceId,
+              connectorDrawState.port,
+              targetId,
+              targetPort,
+            )
+            if (connector) {
+              fabricCanvas.add(connector)
+              fabricCanvas.setActiveObject(connector)
+            }
+          }
+        } else if (sourceId && lastConnectorDrawPoint) {
+          // Dropped on empty space: show create-and-connect menu
+          const dropPt = lastConnectorDrawPoint
+          const vpt = fabricCanvas.viewportTransform
+          const screenX = dropPt.x * (vpt?.[0] ?? 1) + (vpt?.[4] ?? 0)
+          const screenY = dropPt.y * (vpt?.[0] ?? 1) + (vpt?.[5] ?? 0)
+          const capturedSourcePort = connectorDrawState.port
+          setConnectorDropMenuState({ screenX, screenY, scenePoint: dropPt, sourceId, sourcePort: capturedSourcePort })
+        }
+        lastConnectorDrawPoint = null
+        connectorDrawState = null
+        fabricCanvas.requestRenderAll()
+        return
+      }
       if (isDrawing && drawStart && previewObj) {
         const tool = toolRef.current
         const end = drawEnd ?? drawStart
@@ -572,9 +736,30 @@ const FabricCanvasInner = (
       return null
     }
 
-    const handleDblClick = (opt: { target?: unknown }) => {
+    const handleDblClick = (opt: { target?: unknown; scenePoint?: { x: number; y: number }; viewportPoint?: { x: number; y: number } }) => {
       const target = opt.target as FabricObject | undefined
       if (!target) return
+
+      // Double-click on a connector waypoint → delete that waypoint
+      if (isConnector(target)) {
+        const data = getConnectorData(target)
+        const clickPt = opt.scenePoint ?? getScenePoint(opt)
+        if (data && clickPt && data.waypoints.length > 0) {
+          const threshold = 12 / fabricCanvas.getZoom()
+          for (let i = 0; i < data.waypoints.length; i++) {
+            const wp = data.waypoints[i]!
+            const d = Math.sqrt((wp.x - clickPt.x) ** 2 + (wp.y - clickPt.y) ** 2)
+            if (d < threshold) {
+              removeConnectorWaypoint(target, fabricCanvas, i)
+              applyConnectorWaypointControls(target, fabricCanvas)
+              fabricCanvas.requestRenderAll()
+              return
+            }
+          }
+        }
+        return  // Don't enter text edit for connectors
+      }
+
       const text = getTextToEdit(target)
       if (text) tryEnterTextEditing(text)
     }
@@ -724,8 +909,19 @@ const FabricCanvasInner = (
       if (e.key === 'Delete' || e.key === 'Backspace') {
         if (active) {
           e.preventDefault()
-          // Capture snapshot(s) before removal so undo can re-add
+          // Float connectors whose endpoints reference the objects being deleted
           const objs = getObjectsToHistorize(active)
+          objs.forEach((obj) => {
+            const deletedId = getObjectId(obj)
+            if (!deletedId) return
+            fabricCanvas.getObjects().forEach((o) => {
+              if (isConnector(o)) {
+                floatConnectorEndpoint(o, fabricCanvas, deletedId)
+                updateConnectorEndpoints(o, fabricCanvas)
+              }
+            })
+          })
+          // Capture snapshot(s) before removal so undo can re-add
           objs.forEach((obj) => {
             const id = getObjectId(obj)
             if (id) history.pushRemove(id, history.snapshot(obj))
@@ -793,6 +989,7 @@ const FabricCanvasInner = (
     const handleObjectAdded = (e: { target?: FabricObject }) => {
       const obj = e.target
       if (!obj) return
+      applyConnectorControls(obj)
       if (isEditableText(obj) || (obj.type === 'group' && getTextToEdit(obj))) {
         attachTextEditOnDblClick(obj)
       }
@@ -824,6 +1021,8 @@ const FabricCanvasInner = (
       const isTextOnly = isTextOnlySelection(active)
       const isStickyNote = isStickyGroup(active)
       const hasText = hasEditableText(active)
+      const isConnectorObj = isConnector(active)
+      const connectorInfo = isConnectorObj ? getConnectorData(active) : null
       onSelectionChangeRef.current?.({
         strokeWidth: getStrokeWidthFromObject(active) ?? 0,
         strokeColor: getStrokeColorFromObject(active),
@@ -833,6 +1032,9 @@ const FabricCanvasInner = (
         isTextOnly,
         isStickyNote,
         fontFamily: hasText ? getFontFamilyFromObject(active) ?? 'Arial' : null,
+        isConnector: isConnectorObj,
+        arrowMode: connectorInfo?.arrowMode ?? null,
+        strokeDash: connectorInfo?.strokeDash ?? null,
       })
     }
 
@@ -848,15 +1050,35 @@ const FabricCanvasInner = (
         fabricCanvas.discardActiveObject()
         fabricCanvas.setActiveObject(obj.group)
         fabricCanvas.requestRenderAll()
+        notifySelectionChange()
+        return
+      }
+      // Apply waypoint handles when a connector is selected
+      if (obj && isConnector(obj)) {
+        applyConnectorWaypointControls(obj, fabricCanvas)
+        fabricCanvas.requestRenderAll()
       }
       notifySelectionChange()
     }
 
-    const handleSelectionUpdated = () => {
+    const handleSelectionUpdated = (e: { selected?: FabricObject[]; deselected?: FabricObject[] }) => {
+      // Apply/clear waypoint controls on connector selection change
+      const selected = e.selected ?? []
+      const deselected = e.deselected ?? []
+      for (const obj of selected) {
+        if (isConnector(obj)) applyConnectorWaypointControls(obj, fabricCanvas)
+      }
+      for (const obj of deselected) {
+        if (isConnector(obj)) clearConnectorWaypointControls(obj)
+      }
       notifySelectionChange()
     }
 
-    const handleSelectionCleared = () => {
+    const handleSelectionCleared = (e: { deselected?: FabricObject[] }) => {
+      const deselected = e.deselected ?? []
+      for (const obj of deselected) {
+        if (isConnector(obj)) clearConnectorWaypointControls(obj)
+      }
       notifySelectionChange()
     }
 
@@ -876,8 +1098,17 @@ const FabricCanvasInner = (
     }
 
     const drawGrid = () => drawCanvasGrid(fabricCanvas)
+    const drawArrows = () => drawConnectorArrows(fabricCanvas)
     fabricCanvas.on('before:render', drawGrid)
+    fabricCanvas.on('after:render', drawArrows)
 
+    const handleConnectorDrawStart = (opt: { sourceObj?: FabricObject; port?: ConnectorPort }) => {
+      if (opt.sourceObj && opt.port) {
+        connectorDrawState = { sourceObj: opt.sourceObj, port: opt.port }
+        fabricCanvas.discardActiveObject()
+      }
+    }
+    fabricCanvas.on('connector:draw:start' as never, handleConnectorDrawStart)
     fabricCanvas.on('object:added', handleObjectAdded)
     fabricCanvas.on('object:modified', handleObjectModified)
     fabricCanvas.on('selection:created', handleSelectionCreated)
@@ -933,6 +1164,8 @@ const FabricCanvasInner = (
       history.clear()
       cleanupDocSync()
       fabricCanvas.off('before:render', drawGrid)
+      fabricCanvas.off('after:render', drawArrows)
+      fabricCanvas.off('connector:draw:start' as never, handleConnectorDrawStart)
       fabricCanvas.off('object:modified', handleObjectModified)
       fabricCanvas.off('object:added', handleObjectAdded)
       fabricCanvas.off('selection:created', handleSelectionCreated)
@@ -985,18 +1218,33 @@ const FabricCanvasInner = (
   }, [boardId, userId, userName])
 
   return (
-    <div
-      ref={containerRef}
-      className={className}
-      style={{
-        ...styles.container,
-        cursor: selectedTool === 'hand' ? 'grab' : undefined,
-      }}
-    />
+    <div style={styles.wrapper}>
+      <div
+        ref={containerRef}
+        className={className}
+        style={{
+          ...styles.container,
+          cursor: selectedTool === 'hand' ? 'grab' : undefined,
+        }}
+      />
+      {connectorDropMenuState && (
+        <ConnectorDropMenu
+          screenX={connectorDropMenuState.screenX}
+          screenY={connectorDropMenuState.screenY}
+          onSelect={handleConnectorDropSelect}
+          onCancel={() => setConnectorDropMenuState(null)}
+        />
+      )}
+    </div>
   )
 }
 
 const styles: Record<string, React.CSSProperties> = {
+  wrapper: {
+    position: 'relative',
+    width: '100%',
+    height: '100%',
+  },
   container: {
     width: '100%',
     height: '100%',

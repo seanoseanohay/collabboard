@@ -1,6 +1,6 @@
 # START HERE - Next Agent Context
 
-**Date:** 2026-02-18
+**Date:** 2026-02-19
 
 ## Current State
 
@@ -24,6 +24,20 @@
 - **Sticky notes** ✅ — No placeholder text; on create, edit mode opens automatically (blinking cursor). shapeFactory: [bg, mainText]; handleMouseUp → setTimeout(50) → tryEnterTextEditing(mainText); hiddenTextarea?.focus().
 - **Toolbar aesthetic** ✅ — Icon-based tool groups (tldraw-like), header aligned
 - **Zoom range** ✅ — 0.001%–10000% (MIN_ZOOM 0.00001, MAX_ZOOM 100); stroke in design units (automatic)
+
+## Connectors Phase 1 DONE (2026-02-19)
+Full implementation: waypoints (drag midpoint handles to reshape, double-click to delete), arrowheads (none/end/both, via `after:render`), stroke dash (solid/dashed/dotted), create-on-drop popup, floating endpoints on delete, toolbar controls, full sync.
+
+Files changed: `connectorFactory.ts` (rewrite), `connectorControls.ts` (rewrite + waypoint handles), new `connectorArrows.ts` (after:render arrowheads), new `ConnectorDropMenu.tsx` (shape picker popup), `FabricCanvas.tsx` (integrated + drop menu state), `WorkspaceToolbar.tsx` (arrow mode + dash controls), `boardSync.ts` (serialize waypoints/arrowMode/strokeDash/floatPoints). TypeScript: 0 errors, 0 lint errors.
+
+## Connector Rotation/Scale Fix DONE (2026-02-19)
+Connector endpoints now update in real-time when connected objects are **rotated** or **scaled**. Previously only `object:moving` triggered `updateConnectorsForObjects`; `object:scaling` and `object:rotating` only called `emitModifyThrottled`.
+
+**Fix in `boardSync.ts`:**
+- Added `getTransformIds` helper (mirrors move's `getObjectsToSync` pattern).
+- `object:scaling` and `object:rotating` now call `updateConnectorsForObjects(ids)` before `emitModifyThrottled`.
+- `applyRemote`: both the group path and regular-object path now call `updateConnectorsForObjects` after applying remote property changes, so remote rotate/scale propagates to connector endpoints on all clients. Guard: `!isConnector(existing)` prevents redundant updates when a connector itself is remotely modified.
+- Port positions were already correct (they use `calcTransformMatrix()` which includes full rotation + scale matrix) — only the trigger was missing.
 
 ## Next Items (suggested)
 
@@ -61,9 +75,14 @@
 **Fixed this session:**
 - ~~**Multi-selection move drift**~~ ✅ — Root cause: originX/originY vs calcTransformMatrix center mismatch. Three fixes in boardSync.ts (payloadWithSceneCoords uses addTransformToObject; move-delta receiver uses obj.left+dx; applyRemote skips active selection echo). See systemPatterns for the pattern doc.
 
+**Recently completed (2026-02-19):**
+- ~~**`usePirateJokes` hook + Edge Function**~~ ✅ — `supabase/functions/pirate-jokes/index.ts` (OpenAI gpt-4o-mini, 5 jokes/call, temperature 0.95, no auth). `src/features/boards/hooks/usePirateJokes.ts`: checks `meboard:jokes:YYYY-MM-DD` localStorage cache, fetches Edge Function on miss, falls back to 8 hardcoded jokes on error; exposes stable `pickJoke()` via `useCallback` + `useRef`. `BoardListPage` waits for both `loading` and `jokesLoading` before showing parrot message. First-time welcome message (`meboard:welcomed:${userId}` localStorage flag) shown when no boards exist.
+
 **Planned (documented in PRD + memory bank):**
+- **Presence icon avatars in workspace header** — Replace "X others viewing — Alice, Bob" text with pirate emoji icons. Up to 4 icons, then "+N" overflow. Hover → name tooltip. Click → pan/zoom canvas to that user's cursor. Count text on hover of cluster only. Files: `WorkspacePage.tsx`; export `getPirateIcon` from `CursorOverlay.tsx` or move to `src/shared/lib/pirateIcon.ts`.
 - **Viewport persistence** — TODO: Persist zoom/pan per board so returning users see where they left off. Currently resets to (0,0) at 100% on reload. localStorage + debounced save; optional "Reset view" control. See docs/PLANNED_CANVAS_FEATURES.md §0.
 - **Canvas features** — docs/PLANNED_CANVAS_FEATURES.md: Object grouping (Group ✅, Ungroup ⚠️ **bug: objects move + unselectable — being fixed**), Free draw (pencil), Lasso selection, Multi-scale map vision.
+- **Finished-product requirements** — Connectors (Miro-style, required), Frames, Duplicate, Copy & Paste, Marquee mode (box-select over large objects). See docs/PLANNED_CANVAS_FEATURES.md §5–9.
 - ~~**Bring forward / send backward**~~ ✅ — Done. bringForward/sendBackward in FabricCanvas + toolbar buttons.
 - ~~**Boards page cleanup**~~ ✅ — Done (Figma-inspired: header, loading, empty, card rows, copy link, delete, rename, sort).
 - **Boards grid (last-opened order)** ✅ — Grid of cards (not list), ordered by last_accessed_at. Migration 20260218100000_user_boards_last_accessed.sql; BoardMeta.lastAccessedAt; joinBoard upserts last_accessed_at; subscribeToUserBoards orders by last_accessed_at desc. formatLastAccessed: "Opened 2h ago", etc. Grid layout: gridAutoRows 130, columnGap 16, rowGap 20; gridItem display flex; boardCard flex 1 minHeight 100. Log cleanup: removed verbose [LOCKS]/[FABRIC]/[APPLYLOCK]; only log CHANNEL_ERROR/TIMED_OUT (skip CLOSED).
@@ -103,3 +122,5 @@
 - **Lines:** shapeFactory creates lines as Polyline (not Fabric Line). No legacy Line boards to support.
 - **AI agent:** ai-interpret Edge Function (OpenAI gpt-4o-mini). AiPromptBar in WorkspacePage. invokeAiInterpret → executeAiCommands → aiClientApi. OPENAI_API_KEY secret required. **Deploy MUST use `--no-verify-jwt`** (Supabase gateway rejects ES256 user JWTs otherwise). Auth in function uses `supabase.auth.getUser(token)` (explicit token — required in Deno). Client uses `supabase.functions.invoke()`. ✅ OpenAI key permissions fixed — AI agent working.
 - **BoardListPage:** Grid of cards (repeat(auto-fill, minmax(220px, 1fr))), gridAutoRows 130, columnGap 16, rowGap 20. Ordered by last_accessed_at. boardsApi: recordBoardAccess, BoardMeta.lastAccessedAt.
+- **usePirateJokes:** `src/features/boards/hooks/usePirateJokes.ts`. Cache key `meboard:jokes:YYYY-MM-DD`. Edge Function `pirate-jokes` (deploy: `supabase functions deploy pirate-jokes --no-verify-jwt`). FALLBACK_JOKES array used when offline/error. `pickJoke()` stable ref.
+- **Parrot welcome:** `meboard:welcomed:${userId}` localStorage flag. Set on first show (no boards). After that, always jokes.

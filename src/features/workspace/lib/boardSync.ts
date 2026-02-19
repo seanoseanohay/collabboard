@@ -78,6 +78,13 @@ import {
   type LockEntry,
 } from '../api/locksApi'
 import { updateStickyTextFontSize, updateStickyPlaceholderVisibility } from './shapeFactory'
+import {
+  updateConnectorEndpoints,
+  getConnectorData,
+  isConnector,
+  getStrokeDashArray,
+  type StrokeDash,
+} from './connectorFactory'
 
 const OBJ_ID_KEY = 'id'
 
@@ -250,6 +257,7 @@ export function setupDocumentSync(
               ensureTextEditable(existing)
               applyLockStateCallbackRef.current?.()
               sortCanvasByZIndex(canvas)
+              updateConnectorsForObjects(new Set([objectId]))
               canvas.requestRenderAll()
             }
           } catch {
@@ -271,6 +279,7 @@ export function setupDocumentSync(
             ensureTextEditable(existing)
             applyLockStateCallbackRef.current?.()
             sortCanvasByZIndex(canvas)
+            if (!isConnector(existing)) updateConnectorsForObjects(new Set([objectId]))
             canvas.requestRenderAll()
           }
         } catch {
@@ -280,10 +289,27 @@ export function setupDocumentSync(
       }
       try {
         const subtype = (clean.subtype as string | undefined) ?? undefined
-        const objData = { ...clean, data: { id: objectId, ...(subtype && { subtype }) } }
+        const connectorData =
+          subtype === 'connector'
+            ? {
+                sourceObjectId: (clean.sourceObjectId as string | null) ?? null,
+                sourcePort: (clean.sourcePort as string) ?? 'mt',
+                targetObjectId: (clean.targetObjectId as string | null) ?? null,
+                targetPort: (clean.targetPort as string) ?? 'mt',
+                arrowMode: (clean.arrowMode as string) ?? 'end',
+                strokeDash: (clean.strokeDash as string) ?? 'solid',
+                waypoints: (clean.waypoints as { x: number; y: number }[]) ?? [],
+                ...(clean.sourceFloatPoint ? { sourceFloatPoint: clean.sourceFloatPoint } : {}),
+                ...(clean.targetFloatPoint ? { targetFloatPoint: clean.targetFloatPoint } : {}),
+              }
+            : {}
+        const objData = {
+          ...clean,
+          data: { id: objectId, ...(subtype && { subtype }), ...connectorData },
+        }
         const [revived] = await util.enlivenObjects<FabricObject>([objData])
         if (revived) {
-          revived.set('data', { id: objectId, ...(subtype && { subtype }) })
+          revived.set('data', { id: objectId, ...(subtype && { subtype }), ...connectorData })
           applyZIndex(revived, clean)
           if (revived.type === 'group') {
             const revivedData = revived.get('data') as { subtype?: string } | undefined
@@ -294,6 +320,11 @@ export function setupDocumentSync(
           }
           ensureGroupChildrenNotSelectable(revived)
           ensureTextEditable(revived)
+          if (subtype === 'connector') {
+            updateConnectorEndpoints(revived, canvas)
+            const cDash = (connectorData as { strokeDash?: string }).strokeDash
+            if (cDash) revived.set('strokeDashArray', getStrokeDashArray(cDash as StrokeDash))
+          }
           isApplyingRemote = true
           canvas.add(revived)
           revived.setCoords()
@@ -327,9 +358,21 @@ export function setupDocumentSync(
     if (!id || isApplyingRemote) return
     let payload = obj.toObject(['data', 'objects']) as Record<string, unknown>
     payload = payloadWithSceneCoords(obj, payload)
-    const data = payload.data as { subtype?: string } | undefined
+    const data = payload.data as { subtype?: string; sourceObjectId?: string | null; sourcePort?: string; targetObjectId?: string | null; targetPort?: string; hasArrow?: boolean; arrowMode?: string; strokeDash?: string; waypoints?: unknown[]; sourceFloatPoint?: unknown; targetFloatPoint?: unknown } | undefined
     if (obj.type === 'group' && data?.subtype === 'container') {
       payload.subtype = 'container'
+    }
+    if (data?.subtype === 'connector') {
+      payload.subtype = 'connector'
+      payload.sourceObjectId = data.sourceObjectId ?? null
+      payload.sourcePort = data.sourcePort
+      payload.targetObjectId = data.targetObjectId ?? null
+      payload.targetPort = data.targetPort
+      payload.arrowMode = data.arrowMode ?? 'end'
+      payload.strokeDash = data.strokeDash ?? 'solid'
+      payload.waypoints = data.waypoints ?? []
+      if (data.sourceFloatPoint) payload.sourceFloatPoint = data.sourceFloatPoint
+      if (data.targetFloatPoint) payload.targetFloatPoint = data.targetFloatPoint
     }
     delete payload.data
     delete (payload as { layoutManager?: unknown }).layoutManager
@@ -359,9 +402,21 @@ export function setupDocumentSync(
     if (!id || isApplyingRemote) return
     let payload = obj.toObject(['data', 'objects']) as Record<string, unknown>
     payload = payloadWithSceneCoords(obj, payload)
-    const data = payload.data as { subtype?: string } | undefined
+    const data = payload.data as { subtype?: string; sourceObjectId?: string | null; sourcePort?: string; targetObjectId?: string | null; targetPort?: string; hasArrow?: boolean; arrowMode?: string; strokeDash?: string; waypoints?: unknown[]; sourceFloatPoint?: unknown; targetFloatPoint?: unknown } | undefined
     if (obj.type === 'group' && data?.subtype === 'container') {
       payload.subtype = 'container'
+    }
+    if (data?.subtype === 'connector') {
+      payload.subtype = 'connector'
+      payload.sourceObjectId = data.sourceObjectId ?? null
+      payload.sourcePort = data.sourcePort
+      payload.targetObjectId = data.targetObjectId ?? null
+      payload.targetPort = data.targetPort
+      payload.arrowMode = data.arrowMode ?? 'end'
+      payload.strokeDash = data.strokeDash ?? 'solid'
+      payload.waypoints = data.waypoints ?? []
+      if (data.sourceFloatPoint) payload.sourceFloatPoint = data.sourceFloatPoint
+      if (data.targetFloatPoint) payload.targetFloatPoint = data.targetFloatPoint
     }
     delete payload.data
     delete (payload as { layoutManager?: unknown }).layoutManager
@@ -404,6 +459,20 @@ export function setupDocumentSync(
     deleteDocument(boardId, id).catch(console.error)
   }
 
+  const updateConnectorsForObjects = (objectIds: Set<string>) => {
+    canvas.getObjects().forEach((obj) => {
+      if (!isConnector(obj)) return
+      const data = getConnectorData(obj)
+      if (!data) return
+      const srcId = data.sourceObjectId
+      const tgtId = data.targetObjectId
+      if ((srcId && objectIds.has(srcId)) || (tgtId && objectIds.has(tgtId))) {
+        updateConnectorEndpoints(obj, canvas)
+      }
+    })
+    canvas.requestRenderAll()
+  }
+
   const unsub = subscribeToDocuments(boardId, {
     onAdded: (objectId, data) => applyRemote(objectId, data),
     onChanged: (objectId, data) => applyRemote(objectId, data),
@@ -435,7 +504,7 @@ export function setupDocumentSync(
           obj.setCoords()
         }
       }
-      canvas.requestRenderAll()
+      updateConnectorsForObjects(new Set(p.objectIds))
     })
     .subscribe((status) => {
       moveChannelReady = status === 'SUBSCRIBED'
@@ -493,13 +562,36 @@ export function setupDocumentSync(
     if (e.target) emitAdd(e.target)
   })
   canvas.on('object:moving', (e) => {
-    if (e.target) emitMoveDeltaThrottled(e.target)
+    if (e.target) {
+      const ids = new Set(
+        getObjectsToSync(e.target)
+          .map((o) => getObjectId(o))
+          .filter((id): id is string => !!id)
+      )
+      if (ids.size > 0) updateConnectorsForObjects(ids)
+      emitMoveDeltaThrottled(e.target)
+    }
   })
+  const getTransformIds = (target: FabricObject): Set<string> =>
+    new Set(
+      getObjectsToSync(target)
+        .map((o) => getObjectId(o))
+        .filter((id): id is string => !!id)
+    )
+
   canvas.on('object:scaling', (e) => {
-    if (e.target) emitModifyThrottled(e.target)
+    if (e.target) {
+      const ids = getTransformIds(e.target)
+      if (ids.size > 0) updateConnectorsForObjects(ids)
+      emitModifyThrottled(e.target)
+    }
   })
   canvas.on('object:rotating', (e) => {
-    if (e.target) emitModifyThrottled(e.target)
+    if (e.target) {
+      const ids = getTransformIds(e.target)
+      if (ids.size > 0) updateConnectorsForObjects(ids)
+      emitModifyThrottled(e.target)
+    }
   })
   canvas.on('text:editing:exited', (e) => {
     if (e.target) {
