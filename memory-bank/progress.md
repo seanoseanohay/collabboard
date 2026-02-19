@@ -49,7 +49,7 @@
 - ~~**Inline board rename**~~ ✅ — Click board title in workspace header (e.g. "Untitled Board") to edit inline. Blur or Enter saves; Escape cancels. WorkspacePage: titleEditing state, updateBoardTitle, onBoardTitleChange callback. BoardPage wires callback to setBoard.
 - ~~**Presence icon avatars in header**~~ ✅ — Replaced text "X others viewing — Alice, Bob" with up to 4 circular pirate emoji icon buttons (+N overflow). Hover tooltip = name. Click = `panToScene()` jump to cursor. Count text on cluster hover only. `getPirateIcon` exported from `CursorOverlay.tsx`. `panToScene(sceneX, sceneY)` added to `FabricCanvasZoomHandle`.
 - ~~**Presence stale cleanup fix**~~ ✅ — `usePresence.ts` stale timer now resets `lastActive → 0` (stub, hides canvas cursor) instead of removing entries. Icons in header persist while user is connected; removed only on Presence `leave` (real disconnect). `CursorOverlay` already skips `lastActive === 0` for cursor rendering.
-- **Viewport persistence** — TODO: Persist zoom/pan per board so returning users see where they left off. Currently viewport always resets to (0,0) at 100% on reload. Use localStorage keyed by boardId (optionally userId). Debounce saves on pan/zoom; restore on canvas mount. Optional: "Reset view" / "Center canvas" control for explicit reset. See docs/PLANNED_CANVAS_FEATURES.md.
+- ~~**Viewport persistence**~~ ✅ — viewportPersistence.ts (meboard:viewport:{boardId}); debounced save (400ms) on pan/zoom; restore on FabricCanvas mount; Reset view in zoom dropdown.
 
 ### Post-MVP
 - ~~**AI agent**~~ ✅ — ai-interpret Edge Function (OpenAI gpt-4o-mini), AiPromptBar, invokeAiInterpret + executeAiCommands. Natural language → createObject/updateObject/deleteObjects via aiClientApi. OPENAI_API_KEY secret. Deploy: `supabase functions deploy ai-interpret --no-verify-jwt`. OpenAI key permissions fixed (model.request scope confirmed working).
@@ -65,7 +65,7 @@
   - ✅ Cursor icon fix — color dot removed; only pirate emoji shown
   - ✅ **Parrot mascot** — `ParrotMascot.tsx`: flat SVG green parrot perched on a branch, fixed upper-right of BoardListPage; parchment speech bubble below parrot (pointer-up triangle); bobbing CSS animation (3s ease-in-out, speeds up on hover); 🦜 button cycles to next joke; ✕ dismiss; BoardListPage toolbar + grid use `paddingRight: 245` to keep content clear of parrot+bubble zone; BoardListPage header updated "CollabBoard" → "⚓ MeBoard".
   - ✅ **AI pirate jokes** — `pirate-jokes` Edge Function (OpenAI gpt-4o-mini, temperature 0.95, 5 jokes/call, no auth required). `usePirateJokes` hook: checks `localStorage` for `meboard:jokes:YYYY-MM-DD` cache first; fetches Edge Function on miss; falls back to 8 hardcoded jokes on error; exposes stable `pickJoke()`. First-time welcome message (onboarding) shown when no boards + `meboard:welcomed:${userId}` key absent; key set on show so subsequent visits get jokes.
-  - **Remaining branding items** — Welcome animation, hero illustration, Features/Pricing placeholder pages, Google hover state, captain cursor icon, NavBar/Footer on BoardListPage, easter eggs (wave, empty-canvas X).
+  - **Remaining branding items** — hero illustration, Google hover state, captain cursor icon. Done: WelcomeToast, NavBar/Footer on BoardListPage, Features/Pricing pages, EmptyCanvasX easter egg.
 - **Planned canvas features** — docs/PLANNED_CANVAS_FEATURES.md: Object grouping, Free draw, Lasso selection, Multi-scale map vision. **Finished-product:** Connectors (Miro-style, required), Frames, Duplicate, Copy & Paste, Marquee mode (box-select when starting on large objects). See doc for implementation notes and effort estimates.
 - ~~Rotation (Task G)~~ ✅ — object:rotating hooked to emitModifyThrottled in boardSync.ts; rotation syncs live
 - ~~**Per-object stroke width (border thickness)**~~ ✅ — StrokeControl in toolbar when selection has stroke (1/2/4/8px); strokeUtils + FabricCanvas ref; sync via existing object:modified.
@@ -88,8 +88,8 @@
 - ~~**Boards page cleanup**~~ ✅ — Done. Then redesigned as **grid of cards** (not list): ordered by last_accessed_at; user_boards.last_accessed_at migration (20260218100000); joinBoard upserts it; formatLastAccessed "Opened X ago". Grid: gridAutoRows 130, columnGap 16, rowGap 20. Alignment fixes. Kebab menu: copy link, rename, delete.
 
 ## Current Status
-**Phase:** MVP + post-MVP complete. Board list page fully featured (search, sort, tabs, thumbnails, member management). Drawing tools fixed.
-**Next:** Viewport persistence, canvas features (free draw, grouping, lasso), remaining branding polish, Connector Phase 2.
+**Phase:** MVP + post-MVP complete. Board list page fully featured. Viewport persistence + branding polish done (2026-02-19).
+**Next:** Canvas features (free draw, grouping, lasso), Connector Phase 2, remaining branding (hero illustration).
 
 ## ~~🔴 Blocking Issue: AI Agent OpenAI Key Permissions~~ ✅ RESOLVED
 OpenAI key permissions confirmed fixed. AI agent and parrot joke generation (usePirateJokes) are now unblocked.

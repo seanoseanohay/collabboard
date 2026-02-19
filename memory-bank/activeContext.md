@@ -9,10 +9,10 @@
 1. ~~**Fix OpenAI key**~~ ✅
 2. ~~**`usePirateJokes` hook**~~ ✅
 3. ~~**Presence icon avatars in workspace header**~~ ✅
-4. **Viewport persistence** — persist zoom/pan per board in localStorage; restore on canvas mount. See docs/PLANNED_CANVAS_FEATURES.md §0.
+4. ~~**Viewport persistence**~~ ✅ — viewportPersistence.ts (load/save), FabricCanvas restore on mount, WorkspacePage debounced save (400ms), Reset view in zoom dropdown.
 5. **Canvas features** — Object grouping, Free draw, Lasso selection. See docs/PLANNED_CANVAS_FEATURES.md.
 6. **Connector Phase 2** — Nice-to-haves: port hover glow, double-click segment for waypoint, right-click context menu (Reset route, Reverse direction), auto-route.
-7. **Branding polish** — Welcome animation, hero illustration, NavBar/Footer on BoardListPage, easter eggs (wave, empty-canvas X). See docs/MeBoard_BRANDING_SPEC.md.
+7. ~~**Branding polish**~~ ✅ — NavBar + Footer on BoardListPage, Features/Pricing placeholder pages, WelcomeToast, EmptyCanvasX easter egg. See docs/MeBoard_BRANDING_SPEC.md.
 
 **Parrot mascot layout pattern:**
 - `ParrotMascot` is `position: fixed, right: 20, top: 58`. Flex column, parrot on top, bubble below.
