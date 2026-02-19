@@ -77,6 +77,9 @@
 - **App.tsx loading** ✅ — "Hoisting the sails…" with ⚓ anchor icon on navy gradient.
 - **Pirate cursor icons** ✅ — `CursorOverlay.tsx`: dot replaced with emoji icon (⚓🦜🧭☠️🔱) assigned deterministically via `hash(userId) % 5`. Color dot removed — icon only.
 
+**Fixed this session (2026-02-19):**
+- ~~**Cursor lag**~~ ✅ — Switched cursor positions from Presence API (DB round-trip) to **Supabase Broadcast** (same path as move-deltas, no DB). Debounce → 33ms throttle so positions stream during movement. CursorOverlay: `left/top` → `transform: translate(x,y)` + `transition: transform 80ms linear` for GPU-composited interpolation. Stale cursor cleanup 3s in usePresence. Files: `presenceApi.ts`, `usePresence.ts`, `CursorOverlay.tsx`.
+
 **Fixed this session:**
 - ~~**Multi-selection move drift**~~ ✅ — Root cause: originX/originY vs calcTransformMatrix center mismatch. Three fixes in boardSync.ts (payloadWithSceneCoords uses addTransformToObject; move-delta receiver uses obj.left+dx; applyRemote skips active selection echo). See systemPatterns for the pattern doc.
 

@@ -152,6 +152,8 @@ export function createShape(
       const textFontSize = Math.max(MIN_TEXT_FONT_SIZE, BASE_TEXT_FONT_SIZE / zoom)
       return withId(new IText('Text', {
         ...baseOpts,
+        stroke: '',
+        strokeWidth: 0,
         left,
         top,
         fontSize: textFontSize,

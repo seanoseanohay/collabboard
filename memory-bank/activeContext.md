@@ -33,6 +33,15 @@
 5. ~~**Board loading performance**~~ ✅ — Paginated fetch in documentsApi (50 per batch, order by object_id).
 6. ~~**Stroke width (border thickness)**~~ ✅ — PRD §4. strokeUtils (getStrokeWidthFromObject, setStrokeWidthOnObject), StrokeControl in toolbar when selection has stroke (1/2/4/8px). Sync uses Fabric strokeWidth in payload. FabricCanvas: onSelectionChange, setActiveObjectStrokeWidth on ref.
 
+## Recent Changes (2026-02-19)
+
+**Cursor lag fix — Broadcast + CSS interpolation:**
+- ✅ **Root cause 1:** Cursor positions were going through postgres_changes → Presence API → now through Supabase **Broadcast** (same zero-DB path as object move-deltas). Channel `cursor:${boardId}` uses `channel.send({ type:'broadcast', event:'cursor' })` for positions and `channel.track({ userId, name, color })` (Presence) for join/leave only.
+- ✅ **Root cause 2:** Debounce only sent after user stopped moving. Switched to **33ms throttle** so positions stream continuously during movement.
+- ✅ **Root cause 3:** Cursor divs used `left/top` style props (layout reflow per update). Switched to `transform: translate(x,y)` (GPU compositing) + `transition: transform 80ms linear` (interpolation bridges the network gap visually — cursor glides rather than jumps).
+- ✅ **Stale cleanup:** `usePresence` 1s interval purges cursors not seen in 3s. Handles disconnect without Presence `leave`.
+- Files changed: `presenceApi.ts`, `usePresence.ts`, `CursorOverlay.tsx`, `usePresence.test.ts`.
+
 ## Recent Changes (2026-02-18)
 
 **FabricCanvas refactor (successful):**

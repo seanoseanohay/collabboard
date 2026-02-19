@@ -50,12 +50,14 @@
 5. Single atomic multi-path `.update()` (objects + metadata + checks)
 6. Return summary
 
-## Presence
-- Supabase table `presence`: `{ board_id, user_id, x, y, name, color, last_active }`
-- Update 50ms debounce; use payload directly on postgres_changes (no refetch)
-- **Who's on board:** Subscribe to presence node → show list of names in header or sidebar
-- **Cursors:** Overlay canvas or absolute divs for cursor dots + name labels
-- `onDisconnect()` cleanup
+## Presence / Cursors
+- **Cursor positions: Supabase Broadcast** — same low-latency WebSocket path as object move-deltas. `channel.send({ type: 'broadcast', event: 'cursor', payload: { userId, x, y, name, color, lastActive } })`. Fire-and-forget, no server-side state reconciliation.
+- **Online presence (join/leave): Supabase Presence** — `channel.track({ userId, name, color })` on same channel. Presence `leave` fires automatically on disconnect → removes peer cursor. Presence `sync`/`join` populates a stub entry (x:0, y:0, lastActive:0) so the "X others viewing" header shows all online users even before they move.
+- **Channel:** single `cursor:${boardId}` channel with both Broadcast + Presence listeners. Same pattern as `move_deltas:${boardId}`.
+- **Throttle:** 33ms (~30fps) with immediate first send — not debounce. Cursor updates stream during movement.
+- **Stale cleanup:** 1s interval purges entries where `lastActive < Date.now() - 3000`. Handles crashes/network loss that Presence `leave` may not catch immediately.
+- **CursorOverlay rendering:** Uses `transform: translate(x, y)` (GPU compositing, no layout reflow) + `transition: transform 80ms linear` for interpolation — cursor glides smoothly between broadcast positions, hiding network gap visually. Skips entries with `lastActive === 0` (Presence stubs with no broadcast yet).
+- `presenceApi.ts` / `usePresence.ts` — single file pair owns cursor channel lifecycle.
 
 ## Code Structure
 - Feature-sliced folder structure

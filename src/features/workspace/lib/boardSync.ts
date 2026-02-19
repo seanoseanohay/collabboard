@@ -210,6 +210,10 @@ export function setupDocumentSync(
         if (existing.group && existing.group === active) return
         if (existing.type === 'group') {
           try {
+            const isContainerGroup = (obj: FabricObject) => {
+              const d = obj.get('data') as { subtype?: string } | undefined
+              return d?.subtype === 'container'
+            }
             const objData = { ...clean, data: { id: objectId } }
             const [revived] = await util.enlivenObjects<FabricObject>([objData])
             if (revived) {
@@ -223,7 +227,8 @@ export function setupDocumentSync(
                 flipY: revived.flipY,
               })
               existing.setCoords()
-              if ('getObjects' in existing && 'getObjects' in revived) {
+              // Only sync text content for sticky groups (not container groups)
+              if (!isContainerGroup(existing) && 'getObjects' in existing && 'getObjects' in revived) {
                 const existingChildren = (existing as { getObjects: () => FabricObject[] }).getObjects()
                 const revivedChildren = (revived as { getObjects: () => FabricObject[] }).getObjects()
                 const existingTexts = existingChildren.filter((c) => c.type === 'i-text')
@@ -236,8 +241,10 @@ export function setupDocumentSync(
                 }
               }
               applyZIndex(existing, clean)
-              updateStickyTextFontSize(existing)
-              updateStickyPlaceholderVisibility(existing)
+              if (!isContainerGroup(existing)) {
+                updateStickyTextFontSize(existing)
+                updateStickyPlaceholderVisibility(existing)
+              }
               ensureGroupChildrenNotSelectable(existing)
               ensureTextEditable(existing)
               applyLockStateCallbackRef.current?.()
@@ -277,8 +284,11 @@ export function setupDocumentSync(
           revived.set('data', { id: objectId })
           applyZIndex(revived, clean)
           if (revived.type === 'group') {
-            updateStickyTextFontSize(revived)
-            updateStickyPlaceholderVisibility(revived)
+            const revivedData = revived.get('data') as { subtype?: string } | undefined
+            if (revivedData?.subtype !== 'container') {
+              updateStickyTextFontSize(revived)
+              updateStickyPlaceholderVisibility(revived)
+            }
           }
           ensureGroupChildrenNotSelectable(revived)
           ensureTextEditable(revived)

@@ -11,10 +11,15 @@ import type { Canvas, FabricObject } from 'fabric'
 import { util } from 'fabric'
 import { getObjectId } from './boardSync'
 
-type HistoryAction =
+type AtomicAction =
   | { type: 'add'; objectId: string; snapshot: Record<string, unknown> }
   | { type: 'remove'; objectId: string; snapshot: Record<string, unknown> }
   | { type: 'modify'; objectId: string; before: Record<string, unknown>; after: Record<string, unknown> }
+
+/** Compound groups multiple atomic actions into a single undo/redo step. */
+type HistoryAction =
+  | AtomicAction
+  | { type: 'compound'; actions: AtomicAction[] }
 
 const MAX_HISTORY = 100
 
@@ -122,6 +127,12 @@ export function createHistoryManager(
       pushAction({ type: 'modify', objectId, before, after })
     },
 
+    /** Push multiple atomic actions as a single undo/redo step (e.g. group/ungroup). */
+    pushCompound(actions: AtomicAction[]) {
+      if (actions.length === 0) return
+      pushAction({ type: 'compound', actions })
+    },
+
     canUndo: () => undoStack.length > 0,
     canRedo: () => redoStack.length > 0,
 
@@ -132,7 +143,13 @@ export function createHistoryManager(
       notify()
       paused = true
       try {
-        if (action.type === 'add') removeObject(action.objectId)
+        if (action.type === 'compound') {
+          for (const a of [...action.actions].reverse()) {
+            if (a.type === 'add') removeObject(a.objectId)
+            else if (a.type === 'remove') await reAddObject(a.objectId, a.snapshot)
+            else if (a.type === 'modify') await restoreModify(a.objectId, a.before)
+          }
+        } else if (action.type === 'add') removeObject(action.objectId)
         else if (action.type === 'remove') await reAddObject(action.objectId, action.snapshot)
         else if (action.type === 'modify') await restoreModify(action.objectId, action.before)
       } finally {
@@ -147,7 +164,13 @@ export function createHistoryManager(
       notify()
       paused = true
       try {
-        if (action.type === 'add') await reAddObject(action.objectId, action.snapshot)
+        if (action.type === 'compound') {
+          for (const a of action.actions) {
+            if (a.type === 'add') await reAddObject(a.objectId, a.snapshot)
+            else if (a.type === 'remove') removeObject(a.objectId)
+            else if (a.type === 'modify') await restoreModify(a.objectId, a.after)
+          }
+        } else if (action.type === 'add') await reAddObject(action.objectId, action.snapshot)
         else if (action.type === 'remove') removeObject(action.objectId)
         else if (action.type === 'modify') await restoreModify(action.objectId, action.after)
       } finally {

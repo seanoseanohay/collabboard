@@ -6,6 +6,7 @@ import type { SelectionStrokeInfo } from './FabricCanvas'
 import { StrokeControl } from './StrokeControl'
 import { FillControl } from './FillControl'
 import { StrokeColorControl } from './StrokeColorControl'
+import { FontControl } from './FontControl'
 import { STICKER_DEFS, STICKER_KINDS, type StickerKind } from '../lib/pirateStickerFactory'
 
 interface WorkspaceToolbarProps {
@@ -270,7 +271,7 @@ export function WorkspaceToolbar({
       <div style={styles.right}>
         {selectionStroke != null && canvasRef && (
           <>
-            {selectionStroke.strokeWidth > 0 && (
+            {!selectionStroke.isTextOnly && selectionStroke.strokeWidth > 0 && (
               <>
                 <StrokeControl
                   strokeWidth={selectionStroke.strokeWidth}
@@ -284,11 +285,52 @@ export function WorkspaceToolbar({
                 )}
               </>
             )}
+            {selectionStroke.fontFamily != null && (
+              <FontControl
+                fontFamily={selectionStroke.fontFamily}
+                canvasRef={canvasRef}
+              />
+            )}
             {selectionStroke.fill != null && (
               <FillControl
                 fill={selectionStroke.fill}
                 canvasRef={canvasRef}
               />
+            )}
+            {(selectionStroke.canGroup || selectionStroke.canUngroup) && (
+              <div style={styles.layerGroup}>
+                {selectionStroke.canGroup && (
+                  <button
+                    type="button"
+                    style={styles.layerBtn}
+                    onClick={() => canvasRef.current?.groupSelected()}
+                    title="Group (⌘G)"
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="2" y="2" width="8" height="8" rx="1" />
+                      <rect x="14" y="2" width="8" height="8" rx="1" />
+                      <rect x="2" y="14" width="8" height="8" rx="1" />
+                      <rect x="14" y="14" width="8" height="8" rx="1" />
+                      <path d="M6 10v4M18 10v4M10 6h4M10 18h4" />
+                    </svg>
+                  </button>
+                )}
+                {selectionStroke.canUngroup && (
+                  <button
+                    type="button"
+                    style={styles.layerBtn}
+                    onClick={() => canvasRef.current?.ungroupSelected()}
+                    title="Ungroup (⌘⇧G)"
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="2" y="2" width="8" height="8" rx="1" />
+                      <rect x="14" y="2" width="8" height="8" rx="1" />
+                      <rect x="2" y="14" width="8" height="8" rx="1" />
+                      <rect x="14" y="14" width="8" height="8" rx="1" />
+                    </svg>
+                  </button>
+                )}
+              </div>
             )}
             <div style={styles.layerGroup}>
               <button

@@ -1,6 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
 import { Z_INDEX } from '@/shared/constants/zIndex'
-import { Canvas, Point, type FabricObject } from 'fabric'
+import { Canvas, Group, ActiveSelection, Point, util, type FabricObject } from 'fabric'
 import { createHistoryManager, type HistoryManager } from '../lib/historyManager'
 
 /** IText has enterEditing; FabricText does not. Check by method presence. */
@@ -16,12 +16,19 @@ import {
   getStrokeColorFromObject,
   setStrokeColorOnObject,
 } from '../lib/strokeUtils'
+import {
+  getFontFamilyFromObject,
+  setFontFamilyOnObject,
+  isTextOnlySelection,
+  hasEditableText,
+} from '../lib/fontUtils'
 import { getFillFromObject, setFillOnObject } from '../lib/fillUtils'
 import { updateStickyTextFontSize, hideStickyPlaceholderForEditing } from '../lib/shapeFactory'
 import {
   setupDocumentSync,
   setupLockSync,
   getObjectId,
+  setObjectZIndex,
   type LockStateCallbackRef,
 } from '../lib/boardSync'
 import { createSticker, type StickerKind } from '../lib/pirateStickerFactory'
@@ -34,6 +41,12 @@ export interface SelectionStrokeInfo {
   strokeWidth: number
   strokeColor: string | null
   fill: string | null
+  canGroup: boolean
+  canUngroup: boolean
+  /** True when selection is standalone text (no stroke/border controls). */
+  isTextOnly: boolean
+  /** Font family when selection has text (standalone or in group). */
+  fontFamily: string | null
 }
 
 export interface FabricCanvasZoomHandle {
@@ -43,12 +56,15 @@ export interface FabricCanvasZoomHandle {
   setActiveObjectStrokeWidth: (strokeWidth: number) => void
   setActiveObjectFill: (fill: string) => void
   setActiveObjectStrokeColor: (stroke: string) => void
+  setActiveObjectFontFamily: (fontFamily: string) => void
   bringToFront: () => void
   sendToBack: () => void
   bringForward: () => void
   sendBackward: () => void
   undo: () => void
   redo: () => void
+  groupSelected: () => void
+  ungroupSelected: () => void
 }
 
 interface FabricCanvasProps {
@@ -157,12 +173,108 @@ const FabricCanvasInner = (
       canvas.fire('object:modified', { target: active })
       canvas.requestRenderAll()
     },
+    setActiveObjectFontFamily: (fontFamily: string) => {
+      const canvas = canvasRef.current
+      if (!canvas) return
+      const active = canvas.getActiveObject()
+      if (!active || !hasEditableText(active)) return
+      captureBeforeForHistory(active)
+      setFontFamilyOnObject(active, fontFamily)
+      canvas.fire('object:modified', { target: active })
+      canvas.requestRenderAll()
+    },
     undo: () => void historyRef.current?.undo(),
     redo: () => void historyRef.current?.redo(),
     bringToFront: () => { if (canvasRef.current) bringToFront(canvasRef.current) },
     sendToBack: () => { if (canvasRef.current) sendToBack(canvasRef.current) },
     bringForward: () => { if (canvasRef.current) bringForward(canvasRef.current) },
     sendBackward: () => { if (canvasRef.current) sendBackward(canvasRef.current) },
+    groupSelected: () => {
+      const canvas = canvasRef.current
+      const history = historyRef.current
+      if (!canvas) return
+      const active = canvas.getActiveObject()
+      if (!active || active.type !== 'activeselection') return
+      const sel = active as unknown as { getObjects(): FabricObject[] }
+      const objects = [...sel.getObjects()]
+      if (objects.length < 2) return
+
+      // Collect remove-action data before modifying canvas
+      const removeActions = objects.map((obj) => ({
+        type: 'remove' as const,
+        objectId: getObjectId(obj)!,
+        snapshot: history?.snapshot(obj) ?? {},
+      })).filter((a) => a.objectId)
+
+      // discardActiveObject restores scene coords to each child
+      canvas.discardActiveObject()
+      // Remove individual objects — fires object:removed → boardSync deletes each document
+      objects.forEach((obj) => canvas.remove(obj))
+
+      // Create container group with a new UUID
+      const group = new Group(objects, { originX: 'left', originY: 'top' })
+      group.set('data', { id: crypto.randomUUID(), subtype: 'container' })
+      setObjectZIndex(group, Date.now())
+
+      // Add to canvas — fires object:added → boardSync writes the group document
+      canvas.add(group)
+      canvas.setActiveObject(group)
+      group.setCoords()
+      canvas.requestRenderAll()
+
+      // Record as atomic compound action so Cmd+Z restores all children at once
+      history?.pushCompound([
+        ...removeActions,
+        { type: 'add', objectId: getObjectId(group)!, snapshot: history.snapshot(group) },
+      ])
+    },
+    ungroupSelected: () => {
+      const canvas = canvasRef.current
+      const history = historyRef.current
+      if (!canvas) return
+      const active = canvas.getActiveObject()
+      if (!active || active.type !== 'group') return
+      const data = active.get('data') as { id?: string; subtype?: string } | undefined
+      if (data?.subtype !== 'container') return
+
+      const groupId = getObjectId(active)!
+      const groupSnapshot = history?.snapshot(active) ?? {}
+      const groupMatrix = active.calcOwnMatrix()
+      const children = (active as unknown as { getObjects(): FabricObject[] }).getObjects()
+
+      // Remove the group — fires object:removed → boardSync deletes the group document
+      canvas.discardActiveObject()
+      canvas.remove(active)
+
+      // Add each child with scene coordinates and a fresh UUID
+      const addActions: Array<{ type: 'add'; objectId: string; snapshot: Record<string, unknown> }> = []
+      const restoredObjects: FabricObject[] = []
+      children.forEach((child) => {
+        // Apply the group's world transform so left/top become scene coordinates
+        util.addTransformToObject(child, groupMatrix)
+        child.set('data', { id: crypto.randomUUID() })
+        setObjectZIndex(child, Date.now())
+        canvas.add(child)
+        child.setCoords()
+        restoredObjects.push(child)
+        const id = getObjectId(child)!
+        addActions.push({ type: 'add', objectId: id, snapshot: history?.snapshot(child) ?? {} })
+      })
+
+      // Restore multi-selection so user can immediately move the ungrouped objects
+      if (restoredObjects.length > 1) {
+        const sel = new ActiveSelection(restoredObjects, { canvas })
+        canvas.setActiveObject(sel)
+      } else if (restoredObjects.length === 1) {
+        canvas.setActiveObject(restoredObjects[0])
+      }
+      canvas.requestRenderAll()
+
+      history?.pushCompound([
+        { type: 'remove', objectId: groupId, snapshot: groupSnapshot },
+        ...addActions,
+      ])
+    },
   }), [])
 
   useEffect(() => {
@@ -520,6 +632,81 @@ const FabricCanvasInner = (
         return
       }
 
+      // Cmd/Ctrl+G = Group; Cmd/Ctrl+Shift+G = Ungroup
+      if (isMod && e.key === 'g' && !e.shiftKey) {
+        e.preventDefault()
+        const active = fabricCanvas.getActiveObject()
+        if (active?.type === 'activeselection') {
+          const sel = active as unknown as { getObjects(): FabricObject[] }
+          const objects = [...sel.getObjects()]
+          if (objects.length >= 2) {
+            const removeActions = objects.map((obj) => ({
+              type: 'remove' as const,
+              objectId: getObjectId(obj)!,
+              snapshot: history.snapshot(obj),
+            })).filter((a) => a.objectId)
+            fabricCanvas.discardActiveObject()
+            objects.forEach((obj) => fabricCanvas.remove(obj))
+            const group = new Group(objects, { originX: 'left', originY: 'top' })
+            group.set('data', { id: crypto.randomUUID(), subtype: 'container' })
+            setObjectZIndex(group, Date.now())
+            fabricCanvas.add(group)
+            fabricCanvas.setActiveObject(group)
+            group.setCoords()
+            fabricCanvas.requestRenderAll()
+            const groupId = getObjectId(group)
+            if (groupId) {
+              history.pushCompound([
+                ...removeActions,
+                { type: 'add', objectId: groupId, snapshot: history.snapshot(group) },
+              ])
+            }
+          }
+        }
+        return
+      }
+      if (isMod && e.key === 'g' && e.shiftKey) {
+        e.preventDefault()
+        const active = fabricCanvas.getActiveObject()
+        if (active?.type === 'group') {
+          const data = active.get('data') as { id?: string; subtype?: string } | undefined
+          if (data?.subtype === 'container') {
+            const groupId = getObjectId(active)!
+            const groupSnapshot = history.snapshot(active)
+            const groupMatrix = active.calcOwnMatrix()
+            const children = (active as unknown as { getObjects(): FabricObject[] }).getObjects()
+            fabricCanvas.discardActiveObject()
+            fabricCanvas.remove(active)
+            const addActions: Array<{ type: 'add'; objectId: string; snapshot: Record<string, unknown> }> = []
+            const restoredObjects: FabricObject[] = []
+            children.forEach((child) => {
+              util.addTransformToObject(child, groupMatrix)
+              child.set('data', { id: crypto.randomUUID() })
+              setObjectZIndex(child, Date.now())
+              fabricCanvas.add(child)
+              child.setCoords()
+              restoredObjects.push(child)
+              const id = getObjectId(child)
+              if (id) addActions.push({ type: 'add', objectId: id, snapshot: history.snapshot(child) })
+            })
+            if (restoredObjects.length > 1) {
+              const sel = new ActiveSelection(restoredObjects, { canvas: fabricCanvas })
+              fabricCanvas.setActiveObject(sel)
+            } else if (restoredObjects.length === 1) {
+              fabricCanvas.setActiveObject(restoredObjects[0])
+            }
+            fabricCanvas.requestRenderAll()
+            if (groupId) {
+              history.pushCompound([
+                { type: 'remove', objectId: groupId, snapshot: groupSnapshot },
+                ...addActions,
+              ])
+            }
+          }
+        }
+        return
+      }
+
       if (e.key === ' ') {
         spacePressed = true
         fabricCanvas.selection = false
@@ -604,15 +791,29 @@ const FabricCanvasInner = (
 
     const notifySelectionChange = () => {
       const active = fabricCanvas.getActiveObject()
-      onSelectionChangeRef.current?.(
-        active
-          ? {
-              strokeWidth: getStrokeWidthFromObject(active) ?? 0,
-              strokeColor: getStrokeColorFromObject(active),
-              fill: getFillFromObject(active),
-            }
-          : null
-      )
+      if (!active) {
+        onSelectionChangeRef.current?.(null)
+        return
+      }
+      const isActiveSelection = active.type === 'activeselection'
+      const isGroup = active.type === 'group'
+      const groupData = isGroup ? (active.get('data') as { subtype?: string } | undefined) : undefined
+      const isContainerGroup = isGroup && groupData?.subtype === 'container'
+      const canGroup = isActiveSelection && 'getObjects' in active
+        ? (active as unknown as { getObjects(): FabricObject[] }).getObjects().length >= 2
+        : false
+      const canUngroup = isContainerGroup
+      const isTextOnly = isTextOnlySelection(active)
+      const hasText = hasEditableText(active)
+      onSelectionChangeRef.current?.({
+        strokeWidth: getStrokeWidthFromObject(active) ?? 0,
+        strokeColor: getStrokeColorFromObject(active),
+        fill: getFillFromObject(active),
+        canGroup,
+        canUngroup,
+        isTextOnly,
+        fontFamily: hasText ? getFontFamilyFromObject(active) ?? 'Arial' : null,
+      })
     }
 
     const handleSelectionCreated = (e: { selected?: FabricObject[] }) => {
@@ -646,7 +847,8 @@ const FabricCanvasInner = (
     const handleObjectModified = (e: { target?: FabricObject }) => {
       const target = e.target
       if (target?.type === 'group' && 'getObjects' in target) {
-        updateStickyTextFontSize(target)
+        const groupData = target.get('data') as { subtype?: string } | undefined
+        if (groupData?.subtype !== 'container') updateStickyTextFontSize(target)
       }
     }
 
