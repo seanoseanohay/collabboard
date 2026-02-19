@@ -35,31 +35,9 @@
 **Done this session:**
 - **AI agent** ✅ — ai-interpret Edge Function (OpenAI gpt-4o-mini), AiPromptBar in workspace, invokeAiInterpret + executeAiCommands. User types natural language ("add a blue rectangle at 100, 100"); client executes via aiClientApi. Requires OPENAI_API_KEY secret. Deploy: `supabase functions deploy ai-interpret --no-verify-jwt`.
 
-## 🔴 BLOCKING: OpenAI API Key Missing Scope
+## ~~🔴 BLOCKING: OpenAI API Key Missing Scope~~ ✅ RESOLVED
 
-**Status:** The `ai-interpret` function is deployed and auth works, but OpenAI is rejecting the API key.
-
-**Error from OpenAI:**
-```
-"You have insufficient permissions for this operation. Missing scopes: model.request."
-```
-
-**Root cause:** The OpenAI API key set in Supabase secrets (`Project Settings → Edge Functions → Secrets → OPENAI_API_KEY`) was created as a "restricted" key but was NOT given the **"Model capabilities"** permission (which maps to the `model.request` scope needed for chat completions).
-
-**What was already fixed in this session:**
-1. ✅ Edge Function `supabase.auth.getUser()` → changed to `supabase.auth.getUser(token)` (explicit token required in Deno/Edge context)
-2. ✅ Supabase gateway "Invalid JWT" (ES256 user tokens rejected by default) → redeployed with `--no-verify-jwt` flag: `supabase functions deploy ai-interpret --no-verify-jwt`
-3. ✅ Frontend `aiInterpretApi.ts` → switched from manual `fetch()` to `supabase.functions.invoke()` for correct auth handling
-
-**What the user needs to do (ONLY REMAINING STEP):**
-1. Go to [OpenAI Platform → API Keys](https://platform.openai.com/api-keys)
-2. Find the restricted key used for CollabBoard (or create a new one)
-3. Edit permissions → enable **"Model capabilities"** (or just make it unrestricted)
-4. Copy the key value
-5. In Supabase Dashboard → Project Settings → Edge Functions → Secrets → find `OPENAI_API_KEY` → update its value with the new key
-6. No redeployment needed — secrets are injected at runtime
-
-**Once the user updates the OpenAI key, the AI modal should work end-to-end.**
+**Status:** OpenAI key permissions confirmed fixed. AI agent (`ai-interpret`) and parrot joke generation (usePirateJokes) are now unblocked.
 
 **Post-MVP / polish:**
 - ~~Undo/Redo~~ ✅ DONE.
@@ -85,7 +63,7 @@
 
 **Planned (documented in PRD + memory bank):**
 - **Viewport persistence** — TODO: Persist zoom/pan per board so returning users see where they left off. Currently resets to (0,0) at 100% on reload. localStorage + debounced save; optional "Reset view" control. See docs/PLANNED_CANVAS_FEATURES.md §0.
-- **Canvas features** — docs/PLANNED_CANVAS_FEATURES.md: Object grouping (Group/Ungroup), Free draw (pencil), Lasso selection, Multi-scale map vision.
+- **Canvas features** — docs/PLANNED_CANVAS_FEATURES.md: Object grouping (Group ✅, Ungroup ⚠️ **bug: objects move + unselectable — being fixed**), Free draw (pencil), Lasso selection, Multi-scale map vision.
 - ~~**Bring forward / send backward**~~ ✅ — Done. bringForward/sendBackward in FabricCanvas + toolbar buttons.
 - ~~**Boards page cleanup**~~ ✅ — Done (Figma-inspired: header, loading, empty, card rows, copy link, delete, rename, sort).
 - **Boards grid (last-opened order)** ✅ — Grid of cards (not list), ordered by last_accessed_at. Migration 20260218100000_user_boards_last_accessed.sql; BoardMeta.lastAccessedAt; joinBoard upserts last_accessed_at; subscribeToUserBoards orders by last_accessed_at desc. formatLastAccessed: "Opened 2h ago", etc. Grid layout: gridAutoRows 130, columnGap 16, rowGap 20; gridItem display flex; boardCard flex 1 minHeight 100. Log cleanup: removed verbose [LOCKS]/[FABRIC]/[APPLYLOCK]; only log CHANNEL_ERROR/TIMED_OUT (skip CLOSED).
@@ -123,5 +101,5 @@
 - **Sticky notes:** No placeholder. Create → box completes → edit mode opens (blinking cursor). shapeFactory sticky = [bg, mainText]; FabricCanvas handleMouseUp auto-enters edit after 50ms.
 - **documentsApi:** subscribeToDocuments fetchInitial uses .range(offset, offset + PAGE_SIZE - 1) in a loop.
 - **Lines:** shapeFactory creates lines as Polyline (not Fabric Line). No legacy Line boards to support.
-- **AI agent:** ai-interpret Edge Function (OpenAI gpt-4o-mini). AiPromptBar in WorkspacePage. invokeAiInterpret → executeAiCommands → aiClientApi. OPENAI_API_KEY secret required. **Deploy MUST use `--no-verify-jwt`** (Supabase gateway rejects ES256 user JWTs otherwise). Auth in function uses `supabase.auth.getUser(token)` (explicit token — required in Deno). Client uses `supabase.functions.invoke()`. **🔴 Blocked by OpenAI key missing `model.request` scope — user must update key in Supabase secrets.**
+- **AI agent:** ai-interpret Edge Function (OpenAI gpt-4o-mini). AiPromptBar in WorkspacePage. invokeAiInterpret → executeAiCommands → aiClientApi. OPENAI_API_KEY secret required. **Deploy MUST use `--no-verify-jwt`** (Supabase gateway rejects ES256 user JWTs otherwise). Auth in function uses `supabase.auth.getUser(token)` (explicit token — required in Deno). Client uses `supabase.functions.invoke()`. ✅ OpenAI key permissions fixed — AI agent working.
 - **BoardListPage:** Grid of cards (repeat(auto-fill, minmax(220px, 1fr))), gridAutoRows 130, columnGap 16, rowGap 20. Ordered by last_accessed_at. boardsApi: recordBoardAccess, BoardMeta.lastAccessedAt.

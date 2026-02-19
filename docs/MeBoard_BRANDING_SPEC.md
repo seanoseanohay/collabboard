@@ -2,8 +2,8 @@
 
 > Pirate-themed rebrand of CollabBoard. CollabBoard → MeBoard with treasure map / nautical aesthetic.
 
-**Status:** Phase 1 (login, nav, footer, index) + Phase 2 (map border, pirate cursors, Pirate Plunder stickers) implemented.  
-**Last updated:** 2026-02-18
+**Status:** Phase 1 (login, nav, footer, index) + Phase 2 (map border, pirate cursors, Pirate Plunder stickers) + Phase 3 (parrot mascot) implemented.  
+**Last updated:** 2026-02-19
 
 ---
 
@@ -202,21 +202,46 @@ Add "Pirate Plunder" section in toolbar with draggable/stampable pirate-themed s
 
 ## Suggested Implementation Order
 
-1. Hero & copy in `LoginPage`, favicon, `index.html` title
-2. Parchment card + background on login
-3. Top nav + footer (shared layout)
-4. Supporting content ("Why MeBoard?")
-5. Map border on canvas + toggle
-6. Loading state ("Hoisting the sails…")
-7. Welcome animation
-8. Pirate presence icons (CursorOverlay)
-9. Pirate Plunder stickers
-10. Easter eggs (landing animation, empty-canvas X)
-11. Demo board (if guest access allowed)
+1. ~~Hero & copy in `LoginPage`, favicon, `index.html` title~~ ✅
+2. ~~Parchment card + background on login~~ ✅
+3. ~~Top nav + footer (shared layout)~~ ✅
+4. ~~Supporting content ("Why MeBoard?")~~ ✅
+5. ~~Map border on canvas + toggle~~ ✅
+6. ~~Loading state ("Hoisting the sails…")~~ ✅
+7. Welcome animation (post-MVP)
+8. ~~Pirate presence icons (CursorOverlay)~~ ✅
+9. ~~Pirate Plunder stickers~~ ✅
+10. ~~Parrot mascot (Boards page)~~ ✅
+11. Easter eggs (landing animation, empty-canvas X) (post-MVP)
+12. AI joke generation for parrot (`usePirateJokes` hook + Edge Function) — OpenAI key fixed, ready to implement
+13. Demo board (if guest access allowed)
 
 ---
 
-## 10. Canvas Features for Map Drawing (Cross-Reference)
+## 10. Parrot Mascot (Boards Page) — ✅ IMPLEMENTED
+
+### Goal
+A friendly SVG parrot perched in the upper-right corner of the Boards page, delivering pirate jokes and greetings in a speech bubble.
+
+### Implementation (current)
+- **Component:** `src/features/boards/components/ParrotMascot.tsx`
+- **SVG parrot:** Flat design green macaw, viewBox 0 0 90 153. Body + belly + wing + crest feathers + cheek patch + eye + beak + tail feathers + legs + claws + branch. Inline SVG, no image assets.
+- **Animation:** CSS `parrot-bob` keyframe (3s ease-in-out bob), speeds up to 0.8s on hover. `transform-origin: bottom center`.
+- **Speech bubble:** Drops below the parrot (`flexDirection: column`). Parchment style (`#fdf6e3`, gold border). Up-pointing triangle pointer (right: 28). Shows `message` prop in italic.
+- **Controls:** 🦜 button cycles to next joke (`onNewMessage`); ✕ button dismisses (`onDismiss`).
+- **Layout:** `position: fixed, right: 20, top: 58` (just below 56px header). `pointerEvents: none` on root; `auto` on bubble + bird.
+- **Jokes:** `PARROT_GREETINGS` (8 hardcoded entries) in BoardListPage. `pickGreeting()` picks randomly. `parrotMsg` state initialised via `useState(pickGreeting)`.
+- **Layout guard:** `toolbar` and `grid` in BoardListPage use `paddingRight: 245` to keep all buttons and board cards clear of the parrot+bubble zone (parrot 90px + margin 20px + bubble 220px + buffer = ~245px).
+- **Header:** BoardListPage header updated "CollabBoard" → "⚓ MeBoard".
+
+### Next Step (AI joke generation)
+Once OpenAI key scope is fixed, replace `PARROT_GREETINGS` with a `usePirateJokes` hook:
+- New `pirate-jokes` Edge Function: prompt GPT-4o-mini for 5 short pirate jokes/greetings, return `string[]`.
+- Client caches in `localStorage` keyed `meboard:jokes:YYYY-MM-DD`.
+- On mount: check cache; if stale or missing → fetch fresh batch → cache → pick random.
+- `onNewMessage` cycles within the cached array.
+
+## 11. Canvas Features for Map Drawing (Cross-Reference)
 
 For free draw (coastlines, paths), grouping, and multi-scale map content, see **docs/PLANNED_CANVAS_FEATURES.md**. The MeBoard border (§3) frames the canvas; that doc covers tools to draw maps at multiple zoom levels (continents → cities → blocks).
 

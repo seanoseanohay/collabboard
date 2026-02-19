@@ -11,6 +11,22 @@ import {
 } from '@/features/boards/api/boardsApi'
 import { parseBoardIdFromShareInput, getShareUrl } from '@/shared/lib/shareLinks'
 import type { BoardMeta } from '@/features/boards/api/boardsApi'
+import { ParrotMascot } from './ParrotMascot'
+
+const PARROT_GREETINGS = [
+  "Ahoy, Captain! Ready to plunder some brilliant ideas today?",
+  "Squawk! Welcome back to yer treasure map canvas, Captain!",
+  "Why did the pirate go to art school? To improve his ARRRRT! 🎨",
+  "A pirate's favorite letter? Ye think it be R, but it be the C! 🌊",
+  "What's a pirate's favorite social network? Instagramarrr!",
+  "Batten down the hatches — great ideas are ahead, Captain!",
+  "Blimey! Your boards await. Which treasure shall we chart today?",
+  "Why do pirates make great designers? They always think outside the BOAX! 📦",
+]
+
+function pickGreeting(): string {
+  return PARROT_GREETINGS[Math.floor(Math.random() * PARROT_GREETINGS.length)]
+}
 
 export function BoardListPage() {
   const { user } = useAuth()
@@ -27,6 +43,8 @@ export function BoardListPage() {
   const [deleting, setDeleting] = useState(false)
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+  const [parrotMsg, setParrotMsg] = useState<string | undefined>(pickGreeting)
+  const [showParrot, setShowParrot] = useState(true)
 
   const userId = user?.uid ?? ''
 
@@ -122,7 +140,7 @@ export function BoardListPage() {
   return (
     <div style={styles.container}>
       <header style={styles.header}>
-        <h1 style={styles.title}>CollabBoard</h1>
+        <h1 style={styles.title}>⚓ MeBoard</h1>
         <div style={styles.userRow}>
           <span style={styles.email}>{user?.email ?? 'Signed in'}</span>
           <button
@@ -304,6 +322,13 @@ export function BoardListPage() {
           </div>
         </div>
       )}
+      {showParrot && (
+        <ParrotMascot
+          message={parrotMsg}
+          onDismiss={() => setShowParrot(false)}
+          onNewMessage={() => setParrotMsg(pickGreeting())}
+        />
+      )}
     </div>
   )
 }
@@ -363,12 +388,13 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
   },
   main: {
-    padding: 24,
+    padding: '40px 24px 24px',
     maxWidth: 1200,
     margin: '0 auto',
   },
   toolbar: {
     marginBottom: 20,
+    paddingRight: 245,
     display: 'flex',
     flexDirection: 'column',
     gap: 12,
@@ -421,6 +447,7 @@ const styles: Record<string, React.CSSProperties> = {
     listStyle: 'none',
     margin: 0,
     padding: 0,
+    paddingRight: 245,
   },
   gridItem: {
     minWidth: 0,

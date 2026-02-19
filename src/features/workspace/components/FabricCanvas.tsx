@@ -37,6 +37,7 @@ import { bringToFront, sendToBack, bringForward, sendBackward } from '../lib/fab
 import { drawCanvasGrid } from '../lib/drawCanvasGrid'
 import { createHistoryEventHandlers } from '../lib/fabricCanvasHistoryHandlers'
 import { createZoomHandlers, ZOOM_STEP, MIN_ZOOM, MAX_ZOOM } from '../lib/fabricCanvasZoom'
+import { normalizeScaleFlips } from '../lib/fabricCanvasScaleFlips'
 
 export interface SelectionStrokeInfo {
   strokeWidth: number
@@ -242,19 +243,21 @@ const FabricCanvasInner = (
 
       const groupId = getObjectId(active)!
       const groupSnapshot = history?.snapshot(active) ?? {}
-      const groupMatrix = active.calcOwnMatrix()
+      const groupMatrix = active.calcTransformMatrix()
       const children = (active as unknown as { getObjects(): FabricObject[] }).getObjects()
 
       // Remove the group — fires object:removed → boardSync deletes the group document
       canvas.discardActiveObject()
       canvas.remove(active)
 
-      // Add each child with scene coordinates and a fresh UUID
+      // Add each child with scene coordinates and a fresh UUID. Restore selectable/evented
+      // (group children are set to false by ensureGroupChildrenNotSelectable).
       const addActions: Array<{ type: 'add'; objectId: string; snapshot: Record<string, unknown> }> = []
       const restoredObjects: FabricObject[] = []
       children.forEach((child) => {
         // Apply the group's world transform so left/top become scene coordinates
         util.addTransformToObject(child, groupMatrix)
+        child.set({ selectable: true, evented: true })
         child.set('data', { id: crypto.randomUUID() })
         setObjectZIndex(child, Date.now())
         canvas.add(child)
@@ -357,6 +360,7 @@ const FabricCanvasInner = (
 
       // Sticker tool: click-to-place at cursor position (no drag needed)
       if (tool === 'sticker' && 'button' in ev && ev.button === 0) {
+        if (target) return // Clicked on existing object: let Fabric handle select/resize
         const sp = getScenePoint(opt)
         if (sp) {
           fabricCanvas.discardActiveObject()
@@ -372,8 +376,9 @@ const FabricCanvasInner = (
         return
       }
 
-      // With a shape tool active, pointer-down always starts drawing (never selects).
+      // With a shape tool active, pointer-down starts drawing unless clicking on existing object.
       if (isShapeTool(tool) && 'button' in ev && ev.button === 0) {
+        if (target) return // Clicked on existing object: let Fabric handle select/resize
         const sp = getScenePoint(opt)
         if (sp) {
           fabricCanvas.discardActiveObject()
@@ -676,7 +681,7 @@ const FabricCanvasInner = (
           if (data?.subtype === 'container') {
             const groupId = getObjectId(active)!
             const groupSnapshot = history.snapshot(active)
-            const groupMatrix = active.calcOwnMatrix()
+            const groupMatrix = active.calcTransformMatrix()
             const children = (active as unknown as { getObjects(): FabricObject[] }).getObjects()
             fabricCanvas.discardActiveObject()
             fabricCanvas.remove(active)
@@ -684,6 +689,7 @@ const FabricCanvasInner = (
             const restoredObjects: FabricObject[] = []
             children.forEach((child) => {
               util.addTransformToObject(child, groupMatrix)
+              child.set({ selectable: true, evented: true })
               child.set('data', { id: crypto.randomUUID() })
               setObjectZIndex(child, Date.now())
               fabricCanvas.add(child)
@@ -792,6 +798,14 @@ const FabricCanvasInner = (
       }
     }
 
+    const hasITextChild = (obj: FabricObject): boolean => {
+      if (obj.type === 'i-text') return true
+      if (obj.type === 'group' && 'getObjects' in obj) {
+        return (obj as unknown as { getObjects(): FabricObject[] }).getObjects().some(hasITextChild)
+      }
+      return false
+    }
+
     const notifySelectionChange = () => {
       const active = fabricCanvas.getActiveObject()
       if (!active) {
@@ -801,7 +815,8 @@ const FabricCanvasInner = (
       const isActiveSelection = active.type === 'activeselection'
       const isGroup = active.type === 'group'
       const groupData = isGroup ? (active.get('data') as { subtype?: string } | undefined) : undefined
-      const isContainerGroup = isGroup && groupData?.subtype === 'container'
+      const isSticky = isGroup && hasITextChild(active)
+      const isContainerGroup = isGroup && (groupData?.subtype === 'container' || (!isSticky && 'getObjects' in active && (active as unknown as { getObjects(): FabricObject[] }).getObjects().length >= 2))
       const canGroup = isActiveSelection && 'getObjects' in active
         ? (active as unknown as { getObjects(): FabricObject[] }).getObjects().length >= 2
         : false
@@ -851,9 +866,12 @@ const FabricCanvasInner = (
 
     const handleObjectModified = (e: { target?: FabricObject }) => {
       const target = e.target
-      if (target?.type === 'group' && 'getObjects' in target) {
-        const groupData = target.get('data') as { subtype?: string } | undefined
-        if (groupData?.subtype !== 'container') updateStickyTextFontSize(target)
+      if (target) {
+        normalizeScaleFlips(target)
+        if (target.type === 'group' && 'getObjects' in target) {
+          const groupData = target.get('data') as { subtype?: string } | undefined
+          if (groupData?.subtype !== 'container') updateStickyTextFontSize(target)
+        }
       }
     }
 

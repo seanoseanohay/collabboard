@@ -29,21 +29,35 @@ On reload or navigating back to a board, the user should return to the same zoom
 
 ## 1. Object Grouping (Containing Objects)
 
+**Status:** Implemented with known bug. Group works correctly. Ungroup partially broken.
+
 ### Goal
 Select multiple objects and group them into a persistent unit. Moving one object moves all. Like Figma/tldraw grouping.
 
 ### Behavior
-- **Group:** Select 2+ objects (box-select, shift-click, or lasso) → click "Group" → they become one Fabric Group
-- **Ungroup:** Select a group → click "Ungroup" → children become standalone objects again
-- **Sync:** Group = 1 document row (serialized with `toObject(['data','objects'])`); children embedded, not separate rows
-- **Locking:** Lock the group, not individual children
+- **Group:** Select 2+ objects (box-select, shift-click, or lasso) → click "Group" → they become one Fabric Group ✅
+- **Ungroup:** Select a group → click "Ungroup" → children become standalone objects again ⚠️ *Bug: objects move and become unselectable*
+- **Sync:** Group = 1 document row (serialized with `toObject(['data','objects'])`); children embedded, not separate rows ✅
+- **Locking:** Lock the group, not individual children ✅
+
+### Known Bug: Ungroup
+When ungrouping a container group:
+1. **Objects move** — Children end up in wrong positions (coordinate conversion from group-relative to scene-space incorrect or overwritten).
+2. **Objects become unselectable** — After adding back to canvas, children remain `selectable: false`, `evented: false` (inherited from group-child state) despite explicit `child.set({ selectable: true, evented: true })` before `canvas.add()`.
+
+**Mitigations tried:**
+- `calcTransformMatrix()` instead of `calcOwnMatrix()` for group→canvas coordinate conversion
+- Explicit `child.set({ selectable: true, evented: true })` before adding each child to canvas
+- Issue persists; root cause under investigation (Fabric.js v6 Group internals, `applyLockStateCallback` timing, or postgres_changes echo overwriting state).
+
+**Code locations:** `FabricCanvas.tsx` — `ungroupSelected()`, Cmd+Shift+G keyboard handler.
 
 ### Implementation Notes
-- Fabric.js `ActiveSelection.toGroup()` or manual `new Group(selectedObjects)`
-- boardSync already handles groups (sticky notes); extend with subtype `sticky` vs `container` to distinguish
-- On Group: delete N child document rows, write 1 group row
-- On Ungroup: delete group row, write N child rows with new UUIDs
-- Effort: ~2–4 hours with AI assist
+- Fabric.js manual `new Group(selectedObjects)` (not `toGroup()` — need control over ID/subtype and event sequencing)
+- boardSync: subtype `container` vs sticky (no subtype) distinguishes container groups
+- On Group: remove N children from canvas (emitRemove), create Group with subtype, add (emitAdd), compound history
+- On Ungroup: remove group, apply `util.addTransformToObject(child, groupMatrix)`, set selectable/evented, add each child with new UUID, compound history — *bug above*
+- Effort to fix ungroup: TBD
 
 ---
 

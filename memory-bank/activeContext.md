@@ -1,17 +1,26 @@
 # Active Context
 
 ## Current Focus (for next agent)
-**Multi-selection move drift: FIXED (2026-02-18).** Root cause was originX/originY vs calcTransformMatrix center mismatch — see systemPatterns for the pattern doc. All three fixes in boardSync.ts. No remaining high-priority bugs.
+**Parrot mascot added (2026-02-19).** `ParrotMascot.tsx` live on BoardListPage — SVG green parrot, parchment bubble below, bobbing animation, 8 static pirate jokes. No remaining high-priority bugs.
 
-**Current state:** All planned MVP + post-MVP features complete. Touch handling ✅, Undo/Redo ✅, AI agent ✅. Revocable invite links removed from scope.
+**Current state:** All planned MVP + post-MVP features complete. MeBoard branding mostly done — parrot mascot is the latest addition.
 
-**Remaining work:** MeBoard branding (docs/MeBoard_BRANDING_SPEC.md) and planned canvas features (docs/PLANNED_CANVAS_FEATURES.md) — both optional polish/stretch. **Viewport persistence** — TODO: persist zoom/pan per board so returning users see where they left off; optional "Reset view" / "Center canvas" control.
+**Remaining work:**
+1. ~~**Fix OpenAI key**~~ ✅ — Confirmed done. AI agent + parrot joke generation now unblocked.
+2. **`usePirateJokes` hook** — fetch 5 AI-generated jokes/day from new `pirate-jokes` Edge Function; cache in `localStorage` keyed by date (`meboard:jokes:YYYY-MM-DD`); replace static `PARROT_GREETINGS` in BoardListPage.
+3. **Viewport persistence** — persist zoom/pan per board in localStorage; restore on canvas mount. See docs/PLANNED_CANVAS_FEATURES.md §0.
+4. **Canvas features** — Object grouping, Free draw, Lasso selection. See docs/PLANNED_CANVAS_FEATURES.md.
+5. **Branding polish** — Welcome animation, hero illustration, NavBar/Footer on BoardListPage, easter eggs (wave, empty-canvas X). See docs/MeBoard_BRANDING_SPEC.md.
 
-**Inline board rename in workspace** ✅ — Click the board title (e.g. "Untitled Board") in the workspace header to edit inline. Blur or Enter saves; Escape cancels. Uses updateBoardTitle; BoardPage passes onBoardTitleChange to keep local state in sync.
+**Parrot mascot layout pattern:**
+- `ParrotMascot` is `position: fixed, right: 20, top: 58`. Flex column, parrot on top, bubble below.
+- Speech bubble has `maxWidth: 220`, drops below parrot with up-pointing triangle.
+- BoardListPage toolbar + grid both use `paddingRight: 245` to reserve space for parrot+bubble zone (parrot 90px + margin 20px + bubble 220px + buffer = ~245px).
+- `pickGreeting()` picks randomly from `PARROT_GREETINGS[]` on mount and on 🦜 click.
 
-**MeBoard branding** ✅ — Phase 1 + Phase 2 done. Login, nav, footer, index.html, App loading, pirate cursor icons, map border overlay + toggle, Pirate Plunder stickers (emoji fabric.Text, 96×96, non-editable). Spec: docs/MeBoard_BRANDING_SPEC.md. §9 Pirate Plunder implemented with emoji (not SVG/Path).
+**MeBoard branding** ✅ — Phase 1 + Phase 2 + Parrot mascot done. Login, nav, footer, index.html, App loading, pirate cursor icons, map border overlay + toggle, Pirate Plunder stickers, Parrot mascot. Spec: docs/MeBoard_BRANDING_SPEC.md.
 
-**Planned canvas features** — See docs/PLANNED_CANVAS_FEATURES.md: Object grouping (Group/Ungroup), Free draw (pencil), Lasso selection, Multi-scale map vision (with MeBoard border).
+**Planned canvas features** — See docs/PLANNED_CANVAS_FEATURES.md: Object grouping (Group ✅, Ungroup ⚠️ bug: objects move + unselectable — being fixed), Free draw (pencil), Lasso selection, Multi-scale map vision (with MeBoard border).
 
 ### What Was Fixed (2026-02-17)
 1. **Locking never enabled** — Effect ran before auth loaded; `userId`/`userName` were empty. Added `userId`/`userName` to effect deps so sync re-ran when auth ready.
@@ -33,7 +42,31 @@
 5. ~~**Board loading performance**~~ ✅ — Paginated fetch in documentsApi (50 per batch, order by object_id).
 6. ~~**Stroke width (border thickness)**~~ ✅ — PRD §4. strokeUtils (getStrokeWidthFromObject, setStrokeWidthOnObject), StrokeControl in toolbar when selection has stroke (1/2/4/8px). Sync uses Fabric strokeWidth in payload. FabricCanvas: onSelectionChange, setActiveObjectStrokeWidth on ref.
 
-## Recent Changes (2026-02-19)
+## Recent Changes (2026-02-19 — Parrot mascot)
+
+**Parrot mascot (`ParrotMascot.tsx`):**
+- ✅ New component at `src/features/boards/components/ParrotMascot.tsx`
+- Flat SVG parrot: green body + belly, orange cheek, crest feathers, hooked beak, tail feathers, claws on branch. viewBox 0 0 90 153.
+- CSS `parrot-bob` keyframe: 3s ease-in-out float, speeds up to 0.8s on hover.
+- Props: `message`, `onDismiss`, `onNewMessage`.
+- Speech bubble drops below parrot (flex column), up-pointing gold triangle pointer (right: 28).
+- 🦜 button = cycle to new joke; ✕ = dismiss.
+- Added to `BoardListPage` — `position: fixed, right: 20, top: 58`.
+- `PARROT_GREETINGS` array (8 items) + `pickGreeting()` in BoardListPage.
+- `showParrot` + `parrotMsg` state; `parrotMsg` initialised via `useState(pickGreeting)`.
+- BoardListPage header: "CollabBoard" → "⚓ MeBoard".
+- `toolbar` and `grid` styles: `paddingRight: 245` — keeps all buttons + cards clear of parrot+bubble zone.
+- **Next:** replace static greetings with `usePirateJokes` hook (Edge Function + localStorage cache) — OpenAI key fixed, ready to implement.
+
+## Recent Changes (2026-02-19 — Other)
+
+**Shape flip/mirror fix:**
+- ✅ **Fabric default + normalize only on object:modified** — Removed custom flip-aware control handlers. Use Fabric's default scaling during drag. At `object:modified`, `normalizeScaleFlips` converts negative scale → positive + flipX/flipY. `applyRemote` now skips when `existing === active` (single selection) so our own postgres_changes echo doesn't overwrite the in-progress transform. boardSync.ts, FabricCanvas.tsx, fabricCanvasScaleFlips.ts (simplified to only `normalizeScaleFlips`).
+
+**Zoom slider max alignment fix:**
+- ✅ `ZOOM_SLIDER_MAX` was `100` (10000%) but `MAX_ZOOM` in `fabricCanvasZoom.ts` is `10` (1000%). At max zoom (1000%), the slider was only ~86% across instead of fully right. Fixed by setting `ZOOM_SLIDER_MAX = 10` in WorkspaceToolbar.tsx.
+
+
 
 **LangSmith AI observability:**
 - ✅ **ai-interpret** Edge Function uses OpenAI SDK + `wrapOpenAI` for tracing. All LLM calls (inputs, outputs, tokens, latency, errors) visible at smith.langchain.com.

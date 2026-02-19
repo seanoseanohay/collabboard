@@ -40,7 +40,7 @@ const TOOLS: { id: ToolType; label: string }[] = [
 
 const ZOOM_PRESETS = [0.00001, 0.001, 0.01, 0.25, 0.5, 1, 2, 4, 10, 100]
 const ZOOM_SLIDER_MIN = 0.00001  // 0.001%
-const ZOOM_SLIDER_MAX = 100      // 10000%
+const ZOOM_SLIDER_MAX = 10       // 1000% — must match MAX_ZOOM in fabricCanvasZoom.ts
 
 function zoomToLabel(z: number): string {
   const pct = z * 100

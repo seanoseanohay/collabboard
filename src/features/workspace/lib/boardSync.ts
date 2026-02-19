@@ -202,11 +202,12 @@ export function setupDocumentSync(
       const clean = stripSyncFields(data)
       const existing = canvas.getObjects().find((o) => getObjectId(o) === objectId)
       if (existing) {
-        // Skip objects that are in our active selection (multi-select). The sender's own
-        // document writes echo back via postgres_changes; applying scene-space left/top to
-        // a group-relative child would corrupt its position. Locking ensures only we write
-        // to these objects while selected.
+        // Skip objects that we are currently transforming. Our own document writes echo back
+        // via postgres_changes; applying stale data would overwrite the in-progress transform
+        // and cause flicker (especially during scale flip). Single selection: existing === active.
+        // Multi-select: existing is a child of active (existing.group === active).
         const active = canvas.getActiveObject()
+        if (existing === active) return
         if (existing.group && existing.group === active) return
         if (existing.type === 'group') {
           try {
@@ -278,10 +279,11 @@ export function setupDocumentSync(
         return
       }
       try {
-        const objData = { ...clean, data: { id: objectId } }
+        const subtype = (clean.subtype as string | undefined) ?? undefined
+        const objData = { ...clean, data: { id: objectId, ...(subtype && { subtype }) } }
         const [revived] = await util.enlivenObjects<FabricObject>([objData])
         if (revived) {
-          revived.set('data', { id: objectId })
+          revived.set('data', { id: objectId, ...(subtype && { subtype }) })
           applyZIndex(revived, clean)
           if (revived.type === 'group') {
             const revivedData = revived.get('data') as { subtype?: string } | undefined
@@ -325,6 +327,10 @@ export function setupDocumentSync(
     if (!id || isApplyingRemote) return
     let payload = obj.toObject(['data', 'objects']) as Record<string, unknown>
     payload = payloadWithSceneCoords(obj, payload)
+    const data = payload.data as { subtype?: string } | undefined
+    if (obj.type === 'group' && data?.subtype === 'container') {
+      payload.subtype = 'container'
+    }
     delete payload.data
     delete (payload as { layoutManager?: unknown }).layoutManager
     const z = (payload.zIndex as number) ?? Date.now()
@@ -353,6 +359,10 @@ export function setupDocumentSync(
     if (!id || isApplyingRemote) return
     let payload = obj.toObject(['data', 'objects']) as Record<string, unknown>
     payload = payloadWithSceneCoords(obj, payload)
+    const data = payload.data as { subtype?: string } | undefined
+    if (obj.type === 'group' && data?.subtype === 'container') {
+      payload.subtype = 'container'
+    }
     delete payload.data
     delete (payload as { layoutManager?: unknown }).layoutManager
     if (payload.zIndex === undefined) payload.zIndex = getObjectZIndex(obj)

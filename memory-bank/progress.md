@@ -50,7 +50,7 @@
 - **Viewport persistence** — TODO: Persist zoom/pan per board so returning users see where they left off. Currently viewport always resets to (0,0) at 100% on reload. Use localStorage keyed by boardId (optionally userId). Debounce saves on pan/zoom; restore on canvas mount. Optional: "Reset view" / "Center canvas" control for explicit reset. See docs/PLANNED_CANVAS_FEATURES.md.
 
 ### Post-MVP
-- ~~**AI agent**~~ ✅ (code done, awaiting OpenAI key fix) — ai-interpret Edge Function (OpenAI gpt-4o-mini), AiPromptBar, invokeAiInterpret + executeAiCommands. Natural language → createObject/updateObject/deleteObjects via aiClientApi. OPENAI_API_KEY secret. Deploy: `supabase functions deploy ai-interpret --no-verify-jwt`. **🔴 User must update OpenAI key in Supabase secrets — restricted key is missing `model.request` scope (Model capabilities permission).**
+- ~~**AI agent**~~ ✅ — ai-interpret Edge Function (OpenAI gpt-4o-mini), AiPromptBar, invokeAiInterpret + executeAiCommands. Natural language → createObject/updateObject/deleteObjects via aiClientApi. OPENAI_API_KEY secret. Deploy: `supabase functions deploy ai-interpret --no-verify-jwt`. OpenAI key permissions fixed (model.request scope confirmed working).
 - Undo/Redo
 - **MeBoard branding** — Phase 1 ✅ done (safe parallel items); Phase 2 deferred until Undo/Redo merges. Spec: docs/MeBoard_BRANDING_SPEC.md.
   - ✅ LoginPage rebrand — hero copy ("MeBoard", "Ahoy Captain"), parchment card, gold Google button ("Join the Crew with Google"), "Enter the Ship" submit, "New to the crew?" toggle, "Why MeBoard?" section, testimonial, CTA
@@ -61,6 +61,8 @@
   - ✅ Map border overlay + toggle — `MapBorderOverlay.tsx` (4 sepia gradient strips, zoom-aware opacity, compass corners); 🗺️ toggle in toolbar; `showMapBorder` in WorkspacePage
   - ✅ Pirate Plunder stickers — `pirateStickerFactory.ts` (9 emoji stickers via fabric.Text: ⚓☠️⛵🎩🧭🦜💰🗡️🛢️ at 96×96); non-editable, select like images; click-to-place; 🏴‍☠️ dropdown in WorkspaceToolbar; sword = single blade 🗡️
   - ✅ Cursor icon fix — color dot removed; only pirate emoji shown
+  - ✅ **Parrot mascot** — `ParrotMascot.tsx`: flat SVG green parrot perched on a branch, fixed upper-right of BoardListPage; parchment speech bubble below parrot (pointer-up triangle); bobbing CSS animation (3s ease-in-out, speeds up on hover); 8 hardcoded pirate greetings/jokes picked randomly on mount; 🦜 button cycles to next joke; ✕ dismiss; BoardListPage toolbar + grid use `paddingRight: 245` to keep content clear of parrot+bubble zone; BoardListPage header updated "CollabBoard" → "⚓ MeBoard".
+  - **Remaining branding items** — Welcome animation, hero illustration, Features/Pricing placeholder pages, Google hover state, captain cursor icon, NavBar/Footer on BoardListPage, easter eggs (wave, empty-canvas X). AI joke generation (replace static greetings with usePirateJokes hook + Edge Function + localStorage cache) — OpenAI key fixed, ready to implement.
 - **Planned canvas features** — docs/PLANNED_CANVAS_FEATURES.md: Object grouping, Free draw, Lasso selection, Multi-scale map vision. See doc for implementation notes and effort estimates.
 - ~~Rotation (Task G)~~ ✅ — object:rotating hooked to emitModifyThrottled in boardSync.ts; rotation syncs live
 - ~~**Per-object stroke width (border thickness)**~~ ✅ — StrokeControl in toolbar when selection has stroke (1/2/4/8px); strokeUtils + FabricCanvas ref; sync via existing object:modified.
@@ -76,20 +78,23 @@
 - ~~**Boards page cleanup**~~ ✅ — Done. Then redesigned as **grid of cards** (not list): ordered by last_accessed_at; user_boards.last_accessed_at migration (20260218100000); joinBoard upserts it; formatLastAccessed "Opened X ago". Grid: gridAutoRows 130, columnGap 16, rowGap 20. Alignment fixes. Kebab menu: copy link, rename, delete.
 
 ## Current Status
-**Phase:** MVP complete. zIndex layering (bring to front / send to back), stroke width, toolbar, sync, locking, presence.
-**Next:** Fix OpenAI key permissions (user action) → AI agent fully working. Then: Undo/Redo, or polish (revocable invites, etc.).
+**Phase:** MVP + post-MVP complete. MeBoard branding mostly done (parrot mascot added 2026-02-19).
+**Next:** usePirateJokes hook (AI-generated parrot jokes), viewport persistence, canvas features (free draw, grouping, lasso), remaining branding polish.
 
-## 🔴 Blocking Issue: AI Agent OpenAI Key Permissions
-The AI agent function is deployed and auth is working, but the OpenAI API key stored in Supabase secrets is missing the `model.request` scope.
-- **Error:** `"Missing scopes: model.request. Check that you have the correct role..."`
-- **Fix:** User must edit their OpenAI restricted API key → enable "Model capabilities" → update value in Supabase Project Settings → Edge Functions → Secrets → `OPENAI_API_KEY`
-- No code changes needed, no redeployment needed — just update the secret value.
+## ~~🔴 Blocking Issue: AI Agent OpenAI Key Permissions~~ ✅ RESOLVED
+OpenAI key permissions confirmed fixed. AI agent and parrot joke generation (usePirateJokes) are now unblocked.
 
 ## Known Issues
+- **Ungroup bug (being fixed)** — When ungrouping a container group, ungrouped objects (1) move from their correct position and (2) become unselectable. Root cause under investigation (Fabric.js group→canvas coordinate conversion, and/or selectable/evented state not persisting after ungroup). Partial mitigations tried: `calcTransformMatrix()` instead of `calcOwnMatrix()`, explicit `child.set({ selectable: true, evented: true })` before adding to canvas; issue persists. See docs/PLANNED_CANVAS_FEATURES.md §1.
+- ~~**Zoom slider misaligned at max**~~ ✅ FIXED — `ZOOM_SLIDER_MAX` was `100` (10000%) but `MAX_ZOOM` is `10` (1000%). Slider was only ~86% right at max zoom. Fixed: `ZOOM_SLIDER_MAX = 10` in WorkspaceToolbar.tsx to match `MAX_ZOOM` in fabricCanvasZoom.ts.
 - ~~**Multi-selection move drift**~~ ✅ FIXED — See Recently Fixed below.
 - ~~**StrictMode (Task C)**~~ ✅ FIXED — Re-added conditionally: `import.meta.env.PROD ? <StrictMode>{app}</StrictMode> : app` in main.tsx. Dev skips StrictMode (avoids Realtime channel churn). Prod gets StrictMode safety checks. Previously removed because in dev, React StrictMode double-invokes effects: the document/lock/presence subscriptions run → cleanup (unsubscribe, removeChannel) → run again. That teardown/re-setup causes "channel churn": you briefly drop the Realtime subscription and re-create it, which can miss position updates from other users or cause reconnection lag when multiple people are moving objects. With StrictMode removed, effects run once in dev so no churn. **Production is unaffected** — StrictMode does not double-invoke in production builds, so re-adding `<React.StrictMode>` for prod is safe and gives StrictMode’s other benefits (e.g. detecting impure render side effects) without any churn.
 
-## Recently Fixed (2026-02-17 / 2026-02-18)
+## Recently Added (2026-02-19)
+- ✅ **Parrot mascot** — `ParrotMascot.tsx` (SVG parrot + parchment speech bubble). Bobbing animation. 8 hardcoded pirate greetings/jokes; random pick on mount; 🦜 cycle button; ✕ dismiss. Fixed in upper-right of BoardListPage via `position: fixed`. Bubble drops below parrot (pointer-up), not to the left, to avoid covering toolbar. Toolbar + grid `paddingRight: 245` reserves space for full bubble width (220px) + parrot (90px) + margin (20px). BoardListPage header: "CollabBoard" → "⚓ MeBoard". **Next step:** replace static `PARROT_GREETINGS` array with `usePirateJokes` hook (5 AI-generated jokes/day via Edge Function, cached in localStorage keyed by date) — OpenAI key fixed, ready to implement.
+
+## Recently Fixed (2026-02-17 / 2026-02-18 / 2026-02-19)
+- ✅ **Shape flip/mirror on scale handle cross** — When dragging a scale handle past its opposite (e.g. top past bottom), Fabric produces negative scale. Fix: (1) Use Fabric's default scaling during drag (removed custom control overrides). (2) Normalize only at `object:modified`: `normalizeScaleFlips` converts negative scale → positive scale + flipX/flipY in `fabricCanvasScaleFlips.ts`. (3) Skip `applyRemote` when object is the active selection (`existing === active` or `existing.group === active`) so our own postgres_changes echo doesn't overwrite the in-progress transform and cause flicker. boardSync.ts, FabricCanvas.tsx, fabricCanvasScaleFlips.ts.
 - ✅ **Pirate Plunder stickers** — Replaced SVG Path with fabric.Text emoji (96×96); non-editable, selects like image; sword = single blade 🗡️; 9 stickers: anchor, skull, ship, hat, compass, parrot, chest, sword, barrel.
 - ✅ **FabricCanvas refactor** — Was 1013 LOC (exceeded 1000 hard max). Extracted fabricCanvasZOrder.ts, fabricCanvasZoom.ts, fabricCanvasHistoryHandlers.ts, drawCanvasGrid.ts. FabricCanvas now 777 LOC; all tests pass. App.test.tsx fixed for MeBoard rebrand (heading matcher level: 1).
 - ✅ **Cursor lag fix** — Broadcast for positions (like object moves), Presence for join/leave only. 33ms throttle replaces debounce. CursorOverlay CSS transform + 80ms linear transition for interpolation. Stale cleanup 3s.

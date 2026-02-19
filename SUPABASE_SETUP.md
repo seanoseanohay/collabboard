@@ -112,11 +112,12 @@ Natural language → canvas commands via OpenAI. Requires these secrets:
 ```bash
 supabase functions deploy ai-interpret
 supabase secrets set OPENAI_API_KEY=sk-proj-xxxx      # from platform.openai.com
-supabase secrets set LANGSMITH_TRACING=true           # enable tracing
+supabase secrets set LANGSMITH_TRACING=true            # enable tracing
 supabase secrets set LANGSMITH_API_KEY=lsv2_pt_xxxx   # from smith.langchain.com → Settings → API Keys
+supabase secrets set LANGSMITH_TRACING_BACKGROUND=false  # ensure traces flush before Edge Function exits
 ```
 
-**Observability:** Traces appear at [smith.langchain.com](https://smith.langchain.com) (inputs, outputs, tokens, latency, errors).
+**Observability:** Traces appear at [smith.langchain.com](https://smith.langchain.com) (inputs, outputs, tokens, latency, errors). `LANGSMITH_TRACING_BACKGROUND=false` ensures traces are sent before the function terminates (avoids lost traces in short-lived serverless).
 
 ## 8. Run locally
 
