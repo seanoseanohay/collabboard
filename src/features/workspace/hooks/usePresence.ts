@@ -1,6 +1,7 @@
 /**
- * Presence hook: subscribe to others' cursors via Realtime Presence (WebSocket).
- * Uses throttle (not debounce) so cursor positions update smoothly during movement.
+ * Presence hook: broadcast cursor positions, track who's online.
+ * Positions go over Broadcast (same low-latency path as object moves).
+ * Join/leave goes over Presence for automatic cleanup on disconnect.
  */
 
 import { useEffect, useRef, useCallback, useState } from 'react'
@@ -24,8 +25,11 @@ function hashToColor(userId: string): string {
   return PRESENCE_COLORS[idx]
 }
 
-/** Throttle interval for cursor updates (ms). ~30fps for smooth movement. */
+/** Send at most this often (ms). ~30fps — plenty for smooth cursor display. */
 const THROTTLE_MS = 33
+
+/** Remove a peer's cursor if they haven't broadcast in this long (ms). */
+const STALE_MS = 3000
 
 export interface UsePresenceOptions {
   boardId: string
@@ -83,21 +87,35 @@ export function usePresence({ boardId, userId, userName }: UsePresenceOptions): 
   useEffect(() => {
     if (!boardId || !userId) return () => {}
 
+    let latestEntries: PresenceEntry[] = []
+
     const handle = setupPresenceChannel(
       boardId,
       userId,
-      {
-        name: userName,
-        color: colorRef.current,
-      },
+      { name: userName, color: colorRef.current },
       (entries) => {
-        setOthers(entries.filter((e) => e.userId !== userId))
+        latestEntries = entries.filter((e) => e.userId !== userId)
+        setOthers(latestEntries)
       }
     )
     channelRef.current = handle
 
+    // Stale cursor cleanup: purge entries that haven't broadcast recently.
+    // Handles tab crash / network loss without waiting for Presence leave.
+    const staleTimer = setInterval(() => {
+      const cutoff = Date.now() - STALE_MS
+      const filtered = latestEntries.filter(
+        (e) => e.lastActive === 0 || e.lastActive > cutoff
+      )
+      if (filtered.length !== latestEntries.length) {
+        latestEntries = filtered
+        setOthers(filtered)
+      }
+    }, 1000)
+
     return () => {
       channelRef.current = null
+      clearInterval(staleTimer)
       if (scheduledRef.current) {
         clearTimeout(scheduledRef.current)
         scheduledRef.current = null

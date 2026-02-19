@@ -56,9 +56,9 @@
   - ✅ NavBar + Footer — `src/shared/components/NavBar.tsx` + `Footer.tsx`; rendered in LoginPage
   - ✅ index.html — "MeBoard – Pirate-Themed Collaborative Whiteboard"; OG tags; anchor emoji favicon
   - ✅ App.tsx loading — "Hoisting the sails…" with ⚓ icon on navy gradient
-  - ✅ Pirate cursor icons — CursorOverlay: emoji badge (⚓🦜🧭☠️🔱) hash-assigned per userId; color dot badge in corner
+  - ✅ Pirate cursor icons — CursorOverlay: emoji icon only (⚓🦜🧭☠️🔱) hash-assigned per userId; color dot removed
   - ✅ Map border overlay + toggle — `MapBorderOverlay.tsx` (4 sepia gradient strips, zoom-aware opacity, compass corners); 🗺️ toggle in toolbar; `showMapBorder` in WorkspacePage
-  - ✅ Pirate Plunder stickers — `pirateStickerFactory.ts` (9 SVG Path stickers, 48×48); `ToolType` + `'sticker'`; FabricCanvas click-to-place; 🏴‍☠️ dropdown in WorkspaceToolbar
+  - ✅ Pirate Plunder stickers — `pirateStickerFactory.ts` (9 emoji stickers via fabric.Text: ⚓☠️⛵🎩🧭🦜💰🗡️🛢️ at 96×96); non-editable, select like images; click-to-place; 🏴‍☠️ dropdown in WorkspaceToolbar; sword = single blade 🗡️
   - ✅ Cursor icon fix — color dot removed; only pirate emoji shown
 - **Planned canvas features** — docs/PLANNED_CANVAS_FEATURES.md: Object grouping, Free draw, Lasso selection, Multi-scale map vision. See doc for implementation notes and effort estimates.
 - ~~Rotation (Task G)~~ ✅ — object:rotating hooked to emitModifyThrottled in boardSync.ts; rotation syncs live
@@ -89,6 +89,8 @@ The AI agent function is deployed and auth is working, but the OpenAI API key st
 - ~~**StrictMode (Task C)**~~ ✅ FIXED — Re-added conditionally: `import.meta.env.PROD ? <StrictMode>{app}</StrictMode> : app` in main.tsx. Dev skips StrictMode (avoids Realtime channel churn). Prod gets StrictMode safety checks. Previously removed because in dev, React StrictMode double-invokes effects: the document/lock/presence subscriptions run → cleanup (unsubscribe, removeChannel) → run again. That teardown/re-setup causes "channel churn": you briefly drop the Realtime subscription and re-create it, which can miss position updates from other users or cause reconnection lag when multiple people are moving objects. With StrictMode removed, effects run once in dev so no churn. **Production is unaffected** — StrictMode does not double-invoke in production builds, so re-adding `<React.StrictMode>` for prod is safe and gives StrictMode’s other benefits (e.g. detecting impure render side effects) without any churn.
 
 ## Recently Fixed (2026-02-17 / 2026-02-18)
+- ✅ **Pirate Plunder stickers** — Replaced SVG Path with fabric.Text emoji (96×96); non-editable, selects like image; sword = single blade 🗡️; 9 stickers: anchor, skull, ship, hat, compass, parrot, chest, sword, barrel.
+- ✅ **FabricCanvas refactor** — Was 1013 LOC (exceeded 1000 hard max). Extracted fabricCanvasZOrder.ts, fabricCanvasZoom.ts, fabricCanvasHistoryHandlers.ts, drawCanvasGrid.ts. FabricCanvas now 777 LOC; all tests pass. App.test.tsx fixed for MeBoard rebrand (heading matcher level: 1).
 - ✅ **Canvas UX polish** — Grid overlay (GridOverlay.tsx, 20px tldraw-style), cursor position readout (bottom-left x/y), zoom slider (25%–400%, log scale) alongside dropdown.
 - ✅ **Boards grid redesign** — Grid of cards (not list), ordered by last_accessed_at. Migration 20260218100000_user_boards_last_accessed.sql; BoardMeta.lastAccessedAt; joinBoard upserts last_accessed_at; formatLastAccessed "Opened X ago". Grid: gridAutoRows 130, columnGap 16, rowGap 20. Alignment fixes for row spacing.
 - ✅ **Lock log cleanup** — Removed verbose [LOCKS], [FABRIC], [APPLYLOCK] logs. Only log CHANNEL_ERROR/TIMED_OUT (skip CLOSED when intentional). locksApi.ts, boardSync.ts, FabricCanvas.tsx.

@@ -2,7 +2,7 @@
 
 > Pirate-themed rebrand of CollabBoard. CollabBoard → MeBoard with treasure map / nautical aesthetic.
 
-**Status:** Spec only — implementation pending.  
+**Status:** Phase 1 (login, nav, footer, index) + Phase 2 (map border, pirate cursors, Pirate Plunder stickers) implemented.  
 **Last updated:** 2026-02-18
 
 ---
@@ -42,7 +42,7 @@
 
 ---
 
-## 3. Treasure Map Border on the Canvas (Post-Login Workspace)
+## 3. Treasure Map Border on the Canvas (Post-Login Workspace) — ✅ IMPLEMENTED
 
 ### Scope
 - Apply **only to the borders/edges** of the infinite canvas view
@@ -59,12 +59,12 @@
 - No bright colors, no icons in active zones, no waves/X marks in the border — just framing texture
 - **Settings toggle:** "Hide Map Border" or "Clean Canvas" for users who prefer plain edges
 
-### Implementation notes
-- Wrap `canvasContainerRef` in WorkspacePage or add a sibling `MapBorderOverlay` component
-- Pass `viewportTransform`/zoom for zoom-aware opacity
-- Store toggle in local state or user preferences (future: profile)
+### Implementation notes (implemented)
+- `MapBorderOverlay.tsx` — 4 sepia gradient strips at edges, zoom-aware opacity, compass emoji in corners
+- 🗺️ toggle button in WorkspaceToolbar; `showMapBorder` state in WorkspacePage
+- Pass zoom from viewport for fade behavior
 
-### Files to update
+### Files (updated)
 - `src/features/workspace/components/WorkspacePage.tsx`
 - New: `src/features/workspace/components/MapBorderOverlay.tsx` (or similar)
 - `WorkspaceToolbar` or header for toggle button
@@ -168,44 +168,35 @@ Use monochrome pirate overlays/badges on cursor presence indicators.
 
 ---
 
-## 9. Drawable Shapes & Stickers (Pirate Plunder)
+## 9. Drawable Shapes & Stickers (Pirate Plunder) — ✅ IMPLEMENTED
 
 ### Goal
 Add "Pirate Plunder" section in toolbar with draggable/stampable pirate-themed shapes.
 
-### Sticker set (monochrome)
-- Treasure chest (closed / open with coins spilling)
-- Skull & crossbones (jolly roger style)
-- Pirate ship / sailing vessel
-- Anchor
-- Compass rose
-- Parrot
-- Pirate hat
-- Sword / crossed swords (optional)
-- Barrel (simple outline)
+### Sticker set (implemented with emoji)
+| Kind     | Emoji | Label       |
+|----------|-------|-------------|
+| anchor   | ⚓    | Anchor      |
+| skull    | ☠️    | Skull       |
+| ship     | ⛵    | Ship        |
+| hat      | 🎩    | Pirate Hat  |
+| compass  | 🧭    | Compass     |
+| parrot   | 🦜    | Parrot      |
+| chest    | 💰    | Chest       |
+| sword    | 🗡️    | Sword       |
+| barrel   | 🛢️    | Barrel      |
 
-### Properties
-- Resizable, rotatable, groupable, colorable
-- Start monochrome black outline (`#1a1a2e`) for consistency
+### Implementation (current)
+- **Fabric representation:** `fabric.Text` with single emoji char — crisp native rendering, non-editable, selects like image
+- **Size:** 96×96 scene units (centered at click)
+- **Tool type:** `sticker` with `stickerKind` in pirateStickerFactory
+- **Creation:** Click-to-place (no drag)
+- **Toolbar:** 🏴‍☠️ dropdown "Pirate Plunder" 3-col grid in WorkspaceToolbar
+- **Sync:** Same as existing objects — Text toObject/enlivenObjects
+- **Files:** `pirateStickerFactory.ts`, `tools.ts`, `WorkspaceToolbar.tsx`, `FabricCanvas.tsx`, `WorkspacePage.tsx`
 
-### Implementation
-- **Fabric representation:** `Path` objects (SVG path data) — serializes like existing shapes
-- **Tool type:** Add `sticker` tool with `stickerKind` (e.g. `'treasure-chest' | 'skull' | 'ship' | ...`)
-- **Creation:** Click-to-place at default size (e.g. 48×48) — simpler than drag for stamps
-- **Toolbar:** Dropdown "Pirate Plunder" to avoid crowding (9 icons)
-- **Sync:** Same as existing objects — Path toObject/enlivenObjects; no schema change
-
-### AI integration
-- `ai-interpret` and `ai-canvas-ops` currently support rect, circle, triangle, line, text, sticky
-- To support "add a treasure chest" via natural language, extend valid types
-
-### Files to update
-- `src/features/workspace/types/tools.ts` — add sticker tool type
-- `src/features/workspace/lib/shapeFactory.ts` or new `pirateStickerFactory.ts` — Path creation from SVG
-- `src/features/workspace/components/WorkspaceToolbar.tsx` — Pirate Plunder dropdown
-- `src/features/workspace/components/FabricCanvas.tsx` — handle sticker tool (click-to-place)
-- `supabase/functions/ai-interpret/index.ts` (optional)
-- `supabase/functions/ai-canvas-ops/index.ts` (optional)
+### AI integration (future)
+- Extend ai-interpret / ai-canvas-ops to support "add a treasure chest" etc.
 
 ---
 

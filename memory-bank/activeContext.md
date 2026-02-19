@@ -9,7 +9,7 @@
 
 **Inline board rename in workspace** ✅ — Click the board title (e.g. "Untitled Board") in the workspace header to edit inline. Blur or Enter saves; Escape cancels. Uses updateBoardTitle; BoardPage passes onBoardTitleChange to keep local state in sync.
 
-**Planned: MeBoard branding** — Pirate-themed rebrand (CollabBoard → MeBoard). Full spec in docs/MeBoard_BRANDING_SPEC.md: hero/copy, parchment visuals, treasure map canvas border, pirate presence icons, Pirate Plunder stickers, nav/footer, easter eggs.
+**MeBoard branding** ✅ — Phase 1 + Phase 2 done. Login, nav, footer, index.html, App loading, pirate cursor icons, map border overlay + toggle, Pirate Plunder stickers (emoji fabric.Text, 96×96, non-editable). Spec: docs/MeBoard_BRANDING_SPEC.md. §9 Pirate Plunder implemented with emoji (not SVG/Path).
 
 **Planned canvas features** — See docs/PLANNED_CANVAS_FEATURES.md: Object grouping (Group/Ungroup), Free draw (pencil), Lasso selection, Multi-scale map vision (with MeBoard border).
 
@@ -34,6 +34,15 @@
 6. ~~**Stroke width (border thickness)**~~ ✅ — PRD §4. strokeUtils (getStrokeWidthFromObject, setStrokeWidthOnObject), StrokeControl in toolbar when selection has stroke (1/2/4/8px). Sync uses Fabric strokeWidth in payload. FabricCanvas: onSelectionChange, setActiveObjectStrokeWidth on ref.
 
 ## Recent Changes (2026-02-18)
+
+**FabricCanvas refactor (successful):**
+- FabricCanvas.tsx was 1013 LOC (over hard max 1000). Extracted four modules to restore compliance with project rules:
+  - `lib/fabricCanvasZOrder.ts` (102 LOC) — bringToFront, sendToBack, bringForward, sendBackward
+  - `lib/fabricCanvasZoom.ts` (93 LOC) — createZoomHandlers (applyZoom, zoomToFit, handleWheel); MIN_ZOOM, MAX_ZOOM, ZOOM_STEP
+  - `lib/fabricCanvasHistoryHandlers.ts` (88 LOC) — createHistoryEventHandlers factory
+  - `lib/drawCanvasGrid.ts` (40 LOC) — tldraw-style 20px grid
+- FabricCanvas.tsx now 777 LOC (under 1000 hard max). All 29 tests pass.
+- App.test.tsx fixed: heading matcher updated to `/meboard/i` with `level: 1` (MeBoard rebrand; "Why MeBoard?" h2 also matched before).
 
 **Canvas UX polish:**
 - ✅ **Grid overlay** — tldraw-style grid (20px cells). GridOverlay.tsx behind FabricCanvas. Canvas background transparent; grid provides #fafafa + SVG pattern. Transform syncs with viewport.

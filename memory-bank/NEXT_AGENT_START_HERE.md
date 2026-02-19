@@ -68,14 +68,14 @@
 **Done this session (MeBoard branding — canvas items, post-merge):**
 - **CursorOverlay fix** ✅ — Removed color dot; only pirate emoji icon shown (⚓🦜🧭☠️🔱 hash-assigned) + name label below.
 - **MapBorderOverlay** ✅ — `src/features/workspace/components/MapBorderOverlay.tsx`: 4 gradient strips at canvas edges (sepia/parchment), zoom-aware opacity (fades when zoomed in), compass rose emoji in corners. Toggle button (🗺️) in WorkspaceToolbar right section. `showMapBorder` state in WorkspacePage.
-- **Pirate Plunder stickers** ✅ — 9 SVG stickers (anchor, skull, ship, hat, compass, parrot, chest, sword, barrel). `pirateStickerFactory.ts`: `StickerKind`, `STICKER_DEFS`, `createSticker(kind, x, y)` — returns Fabric Path at 48×48. `ToolType` + `'sticker'`. FabricCanvas: click-to-place (no drag) in handleMouseDown; `selectedStickerKind` prop + `stickerKindRef`. WorkspaceToolbar: 🏴‍☠️ dropdown "Pirate Plunder" 3-col grid; map border toggle button. WorkspacePage: `selectedStickerKind` + `showMapBorder` state.
+- **Pirate Plunder stickers** ✅ — 9 emoji stickers (anchor ⚓, skull ☠️, ship ⛵, hat 🎩, compass 🧭, parrot 🦜, chest 💰, sword 🗡️, barrel 🛢️). `pirateStickerFactory.ts`: uses `fabric.Text` (not IText) — non-editable, selects like image; 96×96 scene units; emoji font stack. `ToolType` + `'sticker'`. FabricCanvas: click-to-place (no drag) in handleMouseDown; `selectedStickerKind` prop + `stickerKindRef`. WorkspaceToolbar: 🏴‍☠️ dropdown "Pirate Plunder" 3-col grid; map border toggle. Sword is single-blade 🗡️.
 
 **Done this session (MeBoard branding — safe parallel items):**
 - **LoginPage rebrand** ✅ — Full pirate theme: "MeBoard" hero, "Ahoy Captain" copy, parchment card, gold Google button ("Join the Crew with Google"), "Enter the Ship" submit, "New to the crew? Sign up free ⚓" toggle, "Why MeBoard?" feature section, testimonial, CTA.
 - **NavBar + Footer** ✅ — `src/shared/components/NavBar.tsx` (fixed top, MeBoard logo, Features/Pricing links, Log In button) + `src/shared/components/Footer.tsx` ("© MeBoard – All hands on deck"). Used in LoginPage only for now (safe from Undo/Redo conflicts).
 - **index.html** ✅ — Title: "MeBoard – Pirate-Themed Collaborative Whiteboard"; meta description; OG tags; anchor emoji favicon (SVG data URI).
 - **App.tsx loading** ✅ — "Hoisting the sails…" with ⚓ anchor icon on navy gradient.
-- **Pirate cursor icons** ✅ — `CursorOverlay.tsx`: dot replaced with emoji icon (⚓🦜🧭☠️🔱) assigned deterministically via `hash(userId) % 5`. Color dot retained as small badge in corner.
+- **Pirate cursor icons** ✅ — `CursorOverlay.tsx`: dot replaced with emoji icon (⚓🦜🧭☠️🔱) assigned deterministically via `hash(userId) % 5`. Color dot removed — icon only.
 
 **Fixed this session:**
 - ~~**Multi-selection move drift**~~ ✅ — Root cause: originX/originY vs calcTransformMatrix center mismatch. Three fixes in boardSync.ts (payloadWithSceneCoords uses addTransformToObject; move-delta receiver uses obj.left+dx; applyRemote skips active selection echo). See systemPatterns for the pattern doc.
@@ -114,7 +114,8 @@
 - **boardSync.ts:** getObjectsToSync(), pendingMoveIds (Set), object:modified syncs each in selection.
 - **FabricCanvas:** forwardRef with FabricCanvasZoomHandle (setZoom, zoomToFit, getActiveObject, setActiveObjectStrokeWidth). onSelectionChange(strokeInfo). Hand tool: isHandDrag → pan. Shape tool: always draw. Stroke in design units (scales with zoom automatically). **Trackpad:** two-finger scroll = pan (relativePan), pinch = zoom at cursor (ctrlKey branch; sensitivity 0.006). **Touch (mobile):** native touchstart/touchmove/touchend on canvasEl (passive:false) — 2-finger pan + pinch zoom; single-touch routes through Fabric pointer-event mapping to existing mouse:down/move/up. Container has touch-action:none.
 - **strokeUtils.ts:** getStrokeWidthFromObject, setStrokeWidthOnObject, MIN/MAX_STROKE_WEIGHT (1–100), clampStrokeWeight(); StrokeControl uses number input.
-- **WorkspaceToolbar:** Icon groups (Select|Hand | shapes | Text|Sticky), StrokeControl when selectionStroke set, zoom dropdown.
+- **WorkspaceToolbar:** Icon groups (Select|Hand | shapes | Text|Sticky), Pirate Plunder (🏴‍☠️) dropdown, StrokeControl when selectionStroke set, map border toggle (🗺️), zoom dropdown.
+- **Pirate Plunder stickers:** fabric.Text emoji (96×96), non-editable, click-to-place. pirateStickerFactory.ts: STICKER_DEFS (anchor, skull, ship, hat, compass, parrot, chest, sword 🗡️, barrel). ToolType 'sticker'.
 - **Sticky notes:** No placeholder. Create → box completes → edit mode opens (blinking cursor). shapeFactory sticky = [bg, mainText]; FabricCanvas handleMouseUp auto-enters edit after 50ms.
 - **documentsApi:** subscribeToDocuments fetchInitial uses .range(offset, offset + PAGE_SIZE - 1) in a loop.
 - **Lines:** shapeFactory creates lines as Polyline (not Fabric Line). No legacy Line boards to support.

@@ -62,3 +62,4 @@
 - Single Responsibility Principle (SRP)
 - No cross-feature imports except via interfaces
 - File size target <400 LOC (hard max 1000 LOC)
+- **FabricCanvas modules (2026-02-18):** Z-order, zoom/pan, history handlers, and grid drawing extracted from FabricCanvas.tsx into lib/fabricCanvasZOrder.ts, fabricCanvasZoom.ts, fabricCanvasHistoryHandlers.ts, drawCanvasGrid.ts. FabricCanvas composes these; keeps event orchestration and imperative handle.

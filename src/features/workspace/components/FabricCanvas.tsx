@@ -245,7 +245,9 @@ const FabricCanvasInner = (
         const sp = getScenePoint(opt)
         if (sp) {
           fabricCanvas.discardActiveObject()
-          const sticker = createSticker(stickerKindRef.current, sp.x, sp.y)
+          const sticker = createSticker(stickerKindRef.current, sp.x, sp.y, {
+            zoom: fabricCanvas.getZoom(),
+          })
           if (sticker) {
             fabricCanvas.add(sticker)
             fabricCanvas.setActiveObject(sticker)
@@ -262,7 +264,10 @@ const FabricCanvasInner = (
           fabricCanvas.discardActiveObject()
           isDrawing = true
           drawStart = sp
-          const shape = createShape(tool, sp.x, sp.y, sp.x, sp.y, { assignId: false })
+          const shape = createShape(tool, sp.x, sp.y, sp.x, sp.y, {
+            assignId: false,
+            zoom: fabricCanvas.getZoom(),
+          })
           if (shape) {
             previewObj = shape
             shape.selectable = false
@@ -303,7 +308,10 @@ const FabricCanvasInner = (
         const sp = getScenePoint(opt)
         if (sp) {
           drawEnd = sp
-          const shape = createShape(tool, drawStart.x, drawStart.y, sp.x, sp.y, { assignId: false })
+          const shape = createShape(tool, drawStart.x, drawStart.y, sp.x, sp.y, {
+            assignId: false,
+            zoom: fabricCanvas.getZoom(),
+          })
           if (shape) {
             fabricCanvas.remove(previewObj)
             previewObj = shape
@@ -340,7 +348,9 @@ const FabricCanvasInner = (
         const h = Math.abs(end.y - drawStart.y)
         const minSize = 8
         if (w >= minSize || h >= minSize || tool === 'line') {
-          const shape = createShape(tool, drawStart.x, drawStart.y, end.x, end.y)
+          const shape = createShape(tool, drawStart.x, drawStart.y, end.x, end.y, {
+            zoom: fabricCanvas.getZoom(),
+          })
           if (shape) {
             fabricCanvas.add(shape)
             fabricCanvas.setActiveObject(shape)

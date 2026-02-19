@@ -81,15 +81,20 @@ function nextStickyColor(): string {
 
 const OBJ_ID_KEY = 'id'
 
+/** Base text fontSize at 100% zoom. Zoomed out → larger scene units for same apparent size. */
+const BASE_TEXT_FONT_SIZE = 16
+const MIN_TEXT_FONT_SIZE = 8
+
 export function createShape(
   tool: ToolType,
   x1: number,
   y1: number,
   x2: number,
   y2: number,
-  options?: { assignId?: boolean }
+  options?: { assignId?: boolean; zoom?: number }
 ): FabricObject | null {
   const assignId = options?.assignId !== false
+  const zoom = options?.zoom ?? 1
   const id = assignId ? crypto.randomUUID() : ''
   const left = Math.min(x1, x2)
   const top = Math.min(y1, y2)
@@ -144,22 +149,28 @@ export function createShape(
       }))
     }
     case 'text': {
+      const textFontSize = Math.max(MIN_TEXT_FONT_SIZE, BASE_TEXT_FONT_SIZE / zoom)
       return withId(new IText('Text', {
         ...baseOpts,
         left,
         top,
-        fontSize: 16,
+        fontSize: textFontSize,
         fill: STROKE,
         editable: true,
       }))
     }
     case 'sticky': {
+      // Enforce minimum dimensions in screen-space so tiny drags stay visible when zoomed out
+      const minSceneW = 120 / zoom
+      const minSceneH = 80 / zoom
+      const stickyW = Math.max(width, minSceneW)
+      const stickyH = Math.max(height, minSceneH)
       // Create background rect - positioned at 0,0 within group
       const bg = new Rect({
         left: 0,
         top: 0,
-        width,
-        height,
+        width: stickyW,
+        height: stickyH,
         fill: nextStickyColor(),
         stroke: STROKE,
         strokeWidth: 1,
@@ -167,7 +178,7 @@ export function createShape(
         originY: 'top',
       })
       // Text scales with sticky size so it stays readable at any zoom/size. No placeholder text - just empty, cursor on create.
-      const fontSize = stickyFontSizeFromSize(width, height)
+      const fontSize = stickyFontSizeFromSize(stickyW, stickyH)
       const padding = 8
       const mainText = new IText('', {
         left: padding,
