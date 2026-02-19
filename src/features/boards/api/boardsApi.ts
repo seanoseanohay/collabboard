@@ -185,10 +185,10 @@ export async function updateBoardVisibility(
   isPublic: boolean
 ): Promise<void> {
   const supabase = getSupabaseClient()
-  const { error } = await supabase
-    .from('boards')
-    .update({ is_public: isPublic })
-    .eq('id', boardId)
+  const { error } = await supabase.rpc('update_board_visibility', {
+    p_board_id: boardId,
+    p_is_public: isPublic,
+  })
   if (error) throw new Error(error.message)
 }
 

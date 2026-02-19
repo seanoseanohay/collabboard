@@ -238,14 +238,16 @@ export function ShareModal({ board, onClose, onVisibilityChange }: ShareModalPro
                 : 'Only invited members can access this board'}
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => void handleTogglePublic()}
-            disabled={visibilityUpdating}
-            style={isPublic ? toggleBtnPublic : toggleBtnPrivate}
-          >
-            {visibilityUpdating ? '…' : isPublic ? 'Make private' : 'Make public'}
-          </button>
+          {isOwner && (
+            <button
+              type="button"
+              onClick={() => void handleTogglePublic()}
+              disabled={visibilityUpdating}
+              style={isPublic ? toggleBtnPublic : toggleBtnPrivate}
+            >
+              {visibilityUpdating ? '…' : isPublic ? 'Make private' : 'Make public'}
+            </button>
+          )}
         </div>
 
         <div style={divider} />

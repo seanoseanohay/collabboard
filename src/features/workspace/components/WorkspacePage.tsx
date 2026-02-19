@@ -84,21 +84,28 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
     setTitleValue(board.title)
   }, [board.title])
 
-  // Capture thumbnail on unmount (fire-and-forget)
+  // Capture thumbnail while canvas is still alive (before navigation / tab close)
   const boardIdRef = useRef(board.id)
-  const canvasZoomRefCapture = canvasZoomRef
   useEffect(() => {
     boardIdRef.current = board.id
   }, [board.id])
-  useEffect(() => {
-    return () => {
-      const dataUrl = canvasZoomRefCapture.current?.captureDataUrl()
-      if (dataUrl) {
-        void saveBoardThumbnail(boardIdRef.current, dataUrl)
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
+  const captureThumbnail = useCallback(() => {
+    const dataUrl = canvasZoomRef.current?.captureDataUrl()
+    if (dataUrl) void saveBoardThumbnail(boardIdRef.current, dataUrl)
   }, [])
+
+  // beforeunload covers tab close / browser refresh
+  useEffect(() => {
+    const handler = () => captureThumbnail()
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [captureThumbnail])
+
+  const handleBack = useCallback(() => {
+    captureThumbnail() // canvas still alive here — capture before navigating
+    onBack()
+  }, [captureThumbnail, onBack])
 
   const handleTitleClick = () => {
     setTitleValue(board.title)
@@ -141,7 +148,7 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
   return (
     <div style={styles.container}>
       <header style={styles.header}>
-        <button type="button" onClick={onBack} style={styles.backBtn}>
+        <button type="button" onClick={handleBack} style={styles.backBtn}>
           ← Boards
         </button>
         {titleEditing ? (

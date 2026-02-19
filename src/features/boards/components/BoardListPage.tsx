@@ -403,27 +403,31 @@ export function BoardListPage() {
                           >
                             {copiedId === board.id ? 'Copied!' : 'Copy share link'}
                           </button>
-                          <button
-                            type="button"
-                            style={styles.menuItem}
-                            onClick={(e) => handleRenameClick(e, board)}
-                          >
-                            Rename
-                          </button>
-                          <button
-                            type="button"
-                            style={styles.menuItem}
-                            onClick={(e) => void handleTogglePublic(e, board)}
-                          >
-                            {board.isPublic ? '🔒 Make private' : '🌐 Make public'}
-                          </button>
-                          <button
-                            type="button"
-                            style={{ ...styles.menuItem, ...styles.menuItemDanger }}
-                            onClick={(e) => handleDeleteClick(e, board.id)}
-                          >
-                            Delete
-                          </button>
+                          {board.ownerId === userId && (
+                            <>
+                              <button
+                                type="button"
+                                style={styles.menuItem}
+                                onClick={(e) => handleRenameClick(e, board)}
+                              >
+                                Rename
+                              </button>
+                              <button
+                                type="button"
+                                style={styles.menuItem}
+                                onClick={(e) => void handleTogglePublic(e, board)}
+                              >
+                                {board.isPublic ? '🔒 Make private' : '🌐 Make public'}
+                              </button>
+                              <button
+                                type="button"
+                                style={{ ...styles.menuItem, ...styles.menuItemDanger }}
+                                onClick={(e) => handleDeleteClick(e, board.id)}
+                              >
+                                Delete
+                              </button>
+                            </>
+                          )}
                         </div>
                       )}
                     </div>

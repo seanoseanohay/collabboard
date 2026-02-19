@@ -1,4 +1,4 @@
--- RPC: returns user boards with object counts and thumbnail URLs
+-- RPC: returns user boards with object counts (thumbnail_url added in 000003)
 CREATE OR REPLACE FUNCTION get_user_boards_with_counts(p_user_id UUID)
 RETURNS TABLE(
   board_id UUID,
@@ -22,12 +22,12 @@ AS $$
     COALESCE(b.is_public, false) AS is_public,
     b.owner_id,
     COUNT(d.object_id) AS object_count,
-    b.thumbnail_url
+    NULL::TEXT AS thumbnail_url
   FROM user_boards ub
   LEFT JOIN boards b ON b.id = ub.board_id
   LEFT JOIN documents d ON d.board_id = ub.board_id
   WHERE ub.user_id = p_user_id
-  GROUP BY ub.board_id, ub.title, ub.created_at, ub.last_accessed_at, b.is_public, b.owner_id, b.thumbnail_url
+  GROUP BY ub.board_id, ub.title, ub.created_at, ub.last_accessed_at, b.is_public, b.owner_id
   ORDER BY ub.last_accessed_at DESC NULLS LAST;
 $$;
 

@@ -530,9 +530,8 @@ const FabricCanvasInner = (
         return
       }
 
-      // With a shape tool active, pointer-down starts drawing unless clicking on existing object.
+      // With a shape tool active, pointer-down always starts drawing — even over existing objects.
       if (isShapeTool(tool) && 'button' in ev && ev.button === 0) {
-        if (target) return // Clicked on existing object: let Fabric handle select/resize
         const sp = getScenePoint(opt)
         if (sp) {
           fabricCanvas.discardActiveObject()
