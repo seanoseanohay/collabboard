@@ -22,12 +22,13 @@ import {
   setupDocumentSync,
   setupLockSync,
   getObjectId,
-  getObjectZIndex,
-  setObjectZIndex,
-  sortCanvasByZIndex,
   type LockStateCallbackRef,
 } from '../lib/boardSync'
 import { createSticker, type StickerKind } from '../lib/pirateStickerFactory'
+import { bringToFront, sendToBack, bringForward, sendBackward } from '../lib/fabricCanvasZOrder'
+import { drawCanvasGrid } from '../lib/drawCanvasGrid'
+import { createHistoryEventHandlers } from '../lib/fabricCanvasHistoryHandlers'
+import { createZoomHandlers, ZOOM_STEP, MIN_ZOOM, MAX_ZOOM } from '../lib/fabricCanvasZoom'
 
 export interface SelectionStrokeInfo {
   strokeWidth: number
@@ -158,100 +159,10 @@ const FabricCanvasInner = (
     },
     undo: () => void historyRef.current?.undo(),
     redo: () => void historyRef.current?.redo(),
-    bringToFront: () => {
-      const canvas = canvasRef.current
-      if (!canvas) return
-      const active = canvas.getActiveObject()
-      if (!active) return
-      const objects = 'getObjects' in active ? (active as { getObjects: () => FabricObject[] }).getObjects().filter((o) => getObjectId(o)) : [active]
-      if (objects.length === 0) return
-      const all = canvas.getObjects()
-      const maxZ = all.reduce((m, o) => Math.max(m, getObjectZIndex(o)), 0)
-      objects.forEach((obj, i) => {
-        const z = maxZ + 1 + i
-        setObjectZIndex(obj, z)
-        canvas.bringObjectToFront(obj)
-      })
-      canvas.fire('object:modified', { target: active })
-      canvas.requestRenderAll()
-    },
-    sendToBack: () => {
-      const canvas = canvasRef.current
-      if (!canvas) return
-      const active = canvas.getActiveObject()
-      if (!active) return
-      const objects = 'getObjects' in active ? (active as { getObjects: () => FabricObject[] }).getObjects().filter((o) => getObjectId(o)) : [active]
-      if (objects.length === 0) return
-      const all = canvas.getObjects()
-      const minZ = all.reduce((m, o) => Math.min(m, getObjectZIndex(o)), Number.MAX_SAFE_INTEGER)
-      objects.forEach((obj, i) => {
-        const z = Math.max(0, minZ - objects.length + i)
-        setObjectZIndex(obj, z)
-        canvas.sendObjectToBack(obj)
-      })
-      canvas.fire('object:modified', { target: active })
-      canvas.requestRenderAll()
-    },
-    bringForward: () => {
-      const canvas = canvasRef.current
-      if (!canvas) return
-      const active = canvas.getActiveObject()
-      if (!active) return
-      const objects = 'getObjects' in active ? (active as { getObjects: () => FabricObject[] }).getObjects().filter((o) => getObjectId(o)) : [active]
-      if (objects.length === 0) return
-      const all = canvas.getObjects().slice().sort((a, b) => getObjectZIndex(a) - getObjectZIndex(b))
-      const maxZ = all.length > 0 ? getObjectZIndex(all[all.length - 1]!) : 0
-      const currentZ = Math.max(...objects.map((o) => getObjectZIndex(o)))
-      if (currentZ >= maxZ) {
-        objects.forEach((obj, i) => {
-          setObjectZIndex(obj, maxZ + 1 + i)
-          canvas.bringObjectToFront(obj)
-        })
-      } else {
-        const nextIdx = all.findIndex((o) => getObjectZIndex(o) > currentZ)
-        if (nextIdx === -1) return
-        const nextZ = getObjectZIndex(all[nextIdx]!)
-        objects.forEach((obj, i) => {
-          setObjectZIndex(obj, nextZ + 1 + i)
-          canvas.bringObjectToFront(obj)
-        })
-      }
-      sortCanvasByZIndex(canvas)
-      canvas.fire('object:modified', { target: active })
-      canvas.requestRenderAll()
-    },
-    sendBackward: () => {
-      const canvas = canvasRef.current
-      if (!canvas) return
-      const active = canvas.getActiveObject()
-      if (!active) return
-      const objects = 'getObjects' in active ? (active as { getObjects: () => FabricObject[] }).getObjects().filter((o) => getObjectId(o)) : [active]
-      if (objects.length === 0) return
-      const all = canvas.getObjects().slice().sort((a, b) => getObjectZIndex(a) - getObjectZIndex(b))
-      const minZ = all.length > 0 ? getObjectZIndex(all[0]!) : 0
-      const currentZ = Math.min(...objects.map((o) => getObjectZIndex(o)))
-      if (currentZ <= minZ) {
-        objects.forEach((obj, i) => {
-          const z = Math.max(0, minZ - objects.length + i)
-          setObjectZIndex(obj, z)
-          canvas.sendObjectToBack(obj)
-        })
-      } else {
-        const prevIdx = all.findIndex((o) => getObjectZIndex(o) >= currentZ) - 1
-        if (prevIdx < 0) return
-        const prevObj = all[prevIdx]!
-        const prevZ = getObjectZIndex(prevObj)
-        setObjectZIndex(prevObj, currentZ)
-        canvas.bringObjectToFront(prevObj)
-        objects.forEach((obj, i) => {
-          setObjectZIndex(obj, prevZ + i)
-          canvas.sendObjectToBack(obj)
-        })
-      }
-      sortCanvasByZIndex(canvas)
-      canvas.fire('object:modified', { target: active })
-      canvas.requestRenderAll()
-    },
+    bringToFront: () => { if (canvasRef.current) bringToFront(canvasRef.current) },
+    sendToBack: () => { if (canvasRef.current) sendToBack(canvasRef.current) },
+    bringForward: () => { if (canvasRef.current) bringForward(canvasRef.current) },
+    sendBackward: () => { if (canvasRef.current) sendBackward(canvasRef.current) },
   }), [])
 
   useEffect(() => {
@@ -295,8 +206,6 @@ const FabricCanvasInner = (
     let drawEnd: { x: number; y: number } | null = null
     let previewObj: FabricObject | null = null
     let objectWasTransformed = false  // Track if object was rotated/scaled/moved
-    const MIN_ZOOM = 0.00001  // 0.001% - zoom out to 1/1000th percent
-    const MAX_ZOOM = 100      // 10000% - zoom in to 10,000%
 
     const getScenePoint = (opt: {
       scenePoint?: { x: number; y: number }
@@ -316,22 +225,7 @@ const FabricCanvasInner = (
       if (vpt && onViewportChangeRef.current) onViewportChangeRef.current([...vpt])
     }
 
-    const handleWheel = (opt: { e: WheelEvent }) => {
-      const e = opt.e
-      e.preventDefault()
-      // Trackpad: pinch sends ctrl+wheel (zoom); two-finger scroll sends plain wheel (pan).
-      if (e.ctrlKey) {
-        const delta = -e.deltaY * 0.006
-        const zoom = fabricCanvas.getZoom()
-        const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom * (1 + delta)))
-        const pt = new Point(e.offsetX, e.offsetY)
-        fabricCanvas.zoomToPoint(pt, newZoom)
-      } else {
-        fabricCanvas.relativePan(new Point(-e.deltaX, -e.deltaY))
-      }
-      fabricCanvas.requestRenderAll()
-      notifyViewport()
-    }
+    const { applyZoom, zoomToFit, handleWheel } = createZoomHandlers(fabricCanvas, width, height, notifyViewport)
 
     const handleMouseDown = (
       opt: {
@@ -595,57 +489,6 @@ const FabricCanvasInner = (
         ('getObjects' in (active as object) &&
           (active as { getObjects: () => unknown[] }).getObjects().some(hasEditingText)))
 
-    const zoomStep = 1.25
-    const center = new Point(width / 2, height / 2)
-    const applyZoom = (newZoom: number) => {
-      const clamped = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, newZoom))
-      fabricCanvas.zoomToPoint(center, clamped)
-      fabricCanvas.requestRenderAll()
-      notifyViewport()
-    }
-    const zoomToFit = () => {
-      const objs = fabricCanvas.getObjects()
-      if (objs.length === 0) {
-        fabricCanvas.setZoom(1)
-        if (fabricCanvas.viewportTransform) {
-          fabricCanvas.viewportTransform[0] = 1
-          fabricCanvas.viewportTransform[3] = 1
-          fabricCanvas.viewportTransform[4] = 0
-          fabricCanvas.viewportTransform[5] = 0
-        }
-        fabricCanvas.requestRenderAll()
-        notifyViewport()
-        return
-      }
-      const bounds = objs.reduce(
-        (acc, obj) => {
-          const b = (obj as { getBoundingRect: (absolute?: boolean) => { left: number; top: number; width: number; height: number } }).getBoundingRect(true)
-          return {
-            minX: Math.min(acc.minX, b.left),
-            minY: Math.min(acc.minY, b.top),
-            maxX: Math.max(acc.maxX, b.left + b.width),
-            maxY: Math.max(acc.maxY, b.top + b.height),
-          }
-        },
-        { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity }
-      )
-      const padding = 40
-      const contentW = bounds.maxX - bounds.minX + padding * 2
-      const contentH = bounds.maxY - bounds.minY + padding * 2
-      const zoomX = width / contentW
-      const zoomY = height / contentH
-      const fitZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Math.min(zoomX, zoomY)))
-      const cx = (bounds.minX + bounds.maxX) / 2
-      const cy = (bounds.minY + bounds.maxY) / 2
-      const vpt = fabricCanvas.viewportTransform ?? [1, 0, 0, 1, 0, 0]
-      vpt[0] = fitZoom
-      vpt[3] = fitZoom
-      vpt[4] = width / 2 - cx * fitZoom
-      vpt[5] = height / 2 - cy * fitZoom
-      fabricCanvas.requestRenderAll()
-      notifyViewport()
-    }
-
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
@@ -689,10 +532,10 @@ const FabricCanvasInner = (
       // Zoom shortcuts: +/= in, - out, 0 fit, 1 = 100%
       if (e.key === '=' || e.key === '+') {
         e.preventDefault()
-        applyZoom(fabricCanvas.getZoom() * zoomStep)
+        applyZoom(fabricCanvas.getZoom() * ZOOM_STEP)
       } else if (e.key === '-') {
         e.preventDefault()
-        applyZoom(fabricCanvas.getZoom() / zoomStep)
+        applyZoom(fabricCanvas.getZoom() / ZOOM_STEP)
       } else if (e.key === '0') {
         e.preventDefault()
         zoomToFit()
@@ -797,38 +640,7 @@ const FabricCanvasInner = (
       }
     }
 
-    // Grid: drawn in before:render so it's always in sync with the canvas render frame
-    const GRID_SIZE = 20
-    const drawGrid = () => {
-      const ctx = fabricCanvas.getContext()
-      const vpt = fabricCanvas.viewportTransform
-      if (!ctx || !vpt) return
-      const zoom = vpt[0]
-      const panX = vpt[4]
-      const panY = vpt[5]
-      const cellPx = GRID_SIZE * zoom
-      if (cellPx < 2) return  // too zoomed out to show grid
-      const w = fabricCanvas.width ?? width
-      const h = fabricCanvas.height ?? height
-      ctx.save()
-      ctx.strokeStyle = 'rgba(0,0,0,0.08)'
-      ctx.lineWidth = 1
-      ctx.beginPath()
-      const startX = ((panX % cellPx) + cellPx) % cellPx
-      for (let x = startX; x <= w; x += cellPx) {
-        const rx = Math.round(x) + 0.5
-        ctx.moveTo(rx, 0)
-        ctx.lineTo(rx, h)
-      }
-      const startY = ((panY % cellPx) + cellPx) % cellPx
-      for (let y = startY; y <= h; y += cellPx) {
-        const ry = Math.round(y) + 0.5
-        ctx.moveTo(0, ry)
-        ctx.lineTo(w, ry)
-      }
-      ctx.stroke()
-      ctx.restore()
-    }
+    const drawGrid = () => drawCanvasGrid(fabricCanvas)
     fabricCanvas.on('before:render', drawGrid)
 
     fabricCanvas.on('object:added', handleObjectAdded)
@@ -854,62 +666,14 @@ const FabricCanvasInner = (
     window.addEventListener('mouseup', handleWindowMouseUp)
 
     // --- History: record local add / modify / remove (skip remote changes) ---
-
-    // Capture before-state on first moving/scaling/rotating frame so we have a baseline for object:modified
-    const handleMoveForHistory = (e: { target?: FabricObject }) => {
-      if (!e.target || isRemoteChangeRef.current || history.isPaused()) return
-      getObjectsToHistorize(e.target).forEach((obj) => {
-        const id = getObjectId(obj)
-        if (id && !preModifySnapshotsRef.current.has(id)) {
-          preModifySnapshotsRef.current.set(id, history.snapshot(obj))
-        }
-      })
-    }
-
-    // On mouse:up after a transform, object:modified fires — push modify with before/after
-    const handleModifiedForHistory = (e: { target?: FabricObject }) => {
-      if (!e.target || isRemoteChangeRef.current || history.isPaused()) return
-      getObjectsToHistorize(e.target).forEach((obj) => {
-        const id = getObjectId(obj)
-        if (!id) return
-        const before = preModifySnapshotsRef.current.get(id)
-        if (!before) return
-        history.pushModify(id, before, history.snapshot(obj))
-      })
-      preModifySnapshotsRef.current.clear()
-    }
-
-    // Track adds (skip remote, preview objects without ID, and undo/redo re-adds)
-    const handleAddedForHistory = (e: { target?: FabricObject }) => {
-      const obj = e.target
-      if (!obj || isRemoteChangeRef.current || history.isPaused()) return
-      history.pushAdd(obj)
-    }
-
-    // Clear stale before-snapshots when selection drops
-    const handleSelectionClearedForHistory = () => {
-      preModifySnapshotsRef.current.clear()
-    }
-
-    // Text editing history: capture before on enter, push modify on exit
-    let textBeforeSnapshot: { objectId: string; snapshot: Record<string, unknown> } | null = null
-    const handleTextEditingEntered = (e: { target?: FabricObject }) => {
-      const textObj = e.target
-      if (!textObj || isRemoteChangeRef.current) return
-      const parent = (textObj as unknown as { group?: FabricObject }).group || textObj
-      const id = getObjectId(parent)
-      if (!id) return
-      textBeforeSnapshot = { objectId: id, snapshot: history.snapshot(parent) }
-    }
-    const handleTextEditingExited = (e: { target?: FabricObject }) => {
-      const textObj = e.target
-      if (!textObj || !textBeforeSnapshot || history.isPaused()) return
-      const parent = (textObj as unknown as { group?: FabricObject }).group || textObj
-      const id = getObjectId(parent)
-      if (!id || id !== textBeforeSnapshot.objectId) return
-      history.pushModify(id, textBeforeSnapshot.snapshot, history.snapshot(parent))
-      textBeforeSnapshot = null
-    }
+    const {
+      handleMoveForHistory,
+      handleModifiedForHistory,
+      handleAddedForHistory,
+      handleSelectionClearedForHistory,
+      handleTextEditingEntered,
+      handleTextEditingExited,
+    } = createHistoryEventHandlers(history, isRemoteChangeRef, preModifySnapshotsRef, getObjectsToHistorize)
 
     fabricCanvas.on('object:moving', handleMoveForHistory)
     fabricCanvas.on('object:scaling', handleMoveForHistory)

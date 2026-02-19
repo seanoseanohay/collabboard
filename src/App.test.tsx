@@ -6,7 +6,7 @@ describe('App', () => {
     render(<App />)
     await waitFor(() => {
       expect(
-        screen.getByRole('heading', { name: /collabboard/i })
+        screen.getByRole('heading', { name: /meboard/i, level: 1 })
       ).toBeInTheDocument()
     })
   })
