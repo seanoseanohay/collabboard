@@ -13,6 +13,7 @@ export {
   queryObjects,
   type CreateObjectType,
   type CreateObjectProps,
+  type CreateObjectOptions,
   type UpdateObjectProps,
   type QueryObjectsCriteria,
 } from './api/aiClientApi'

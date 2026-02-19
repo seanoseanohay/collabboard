@@ -1,4 +1,7 @@
-# Disable gateway JWT verification for invite-to-board; function validates user internally.
+# Disable gateway JWT verification; functions validate user internally via supabase.auth.getUser(token).
 # Fixes 401 when Supabase gateway has issues with ES256/session tokens.
 [functions.invite-to-board]
+verify_jwt = false
+
+[functions.ai-interpret]
 verify_jwt = false

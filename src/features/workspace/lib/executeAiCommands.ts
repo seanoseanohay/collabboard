@@ -58,13 +58,16 @@ export async function executeAiCommands(
   commands: AiCommand[]
 ): Promise<{ ok: boolean; error?: string }> {
   let lastQueryResults: { objectId: string; data: Record<string, unknown> }[] = []
+  const baseZ = Date.now()
+  let createIndex = 0
 
   for (const cmd of commands) {
     try {
       if (cmd.action === 'createObject') {
         const type = normalizeCreateType(cmd.type)
         const props = toCreateProps(cmd.props ?? {})
-        await createObject(boardId, type, props)
+        await createObject(boardId, type, props, { zIndex: baseZ + createIndex })
+        createIndex++
       } else if (cmd.action === 'queryObjects') {
         const criteria: QueryObjectsCriteria | undefined = cmd.criteria
           ? { type: cmd.criteria.type, fill: cmd.criteria.fill }

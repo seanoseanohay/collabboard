@@ -66,6 +66,11 @@ function shapeToPayload(shape: FabricObject): Record<string, unknown> {
   return payload
 }
 
+export interface CreateObjectOptions {
+  /** zIndex for stacking order. Higher = on top. Default: Date.now() */
+  zIndex?: number
+}
+
 /**
  * Create a canvas object. Writes to Supabase; Realtime sync applies it to all clients.
  * @returns objectId (UUID)
@@ -73,7 +78,8 @@ function shapeToPayload(shape: FabricObject): Record<string, unknown> {
 export async function createObject(
   boardId: string,
   type: CreateObjectType,
-  props: CreateObjectProps
+  props: CreateObjectProps,
+  options?: CreateObjectOptions
 ): Promise<string> {
   if (!SHAPE_TYPE.includes(type as ToolType)) {
     throw new Error(`Invalid type: ${type}. Must be one of ${SHAPE_TYPE.join(', ')}`)
@@ -93,6 +99,7 @@ export async function createObject(
   applyCreateProps(shape, props)
 
   const payload = shapeToPayload(shape)
+  payload.zIndex = options?.zIndex ?? Date.now()
   await writeDocument(boardId, objectId, payload)
   return objectId
 }

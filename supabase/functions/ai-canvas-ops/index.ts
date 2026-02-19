@@ -172,6 +172,7 @@ Deno.serve(async (req: Request) => {
           text: props.text as string | undefined,
           fontSize: props.fontSize as number | undefined,
         })
+        ;(payload as Record<string, unknown>).zIndex = Date.now()
         const { error } = await supabase.from('documents').upsert(
           { board_id: boardId, object_id: objectId, data: payload, updated_at: now },
           { onConflict: 'board_id,object_id' }

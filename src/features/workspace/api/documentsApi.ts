@@ -102,22 +102,26 @@ export function subscribeToDocuments(
   const fetchInitial = async () => {
     let offset = 0
     let hasMore = true
+    let loadIndex = 0
     while (hasMore) {
       const { data } = await supabase
         .from('documents')
         .select('object_id, data')
         .eq('board_id', boardId)
-        .order('object_id', { ascending: true })
+        .order('updated_at', { ascending: true })
         .range(offset, offset + PAGE_SIZE - 1)
       const rows = data ?? []
       for (const row of rows) {
         if (row?.object_id && row.data) {
-          callbacks.onAdded(row.object_id, row.data as Record<string, unknown>)
+          const docData = row.data as Record<string, unknown>
+          if (docData.zIndex == null) {
+            docData.zIndex = loadIndex++
+          }
+          callbacks.onAdded(row.object_id, docData)
         }
       }
       hasMore = rows.length === PAGE_SIZE
       offset += PAGE_SIZE
-      // Yield to UI after first batch so canvas appears responsive
       if (hasMore) await new Promise((r) => setTimeout(r, 0))
     }
   }
