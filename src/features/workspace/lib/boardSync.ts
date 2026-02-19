@@ -78,7 +78,7 @@ import {
   type LockEntry,
 } from '../api/locksApi'
 import { updateStickyTextFontSize, updateStickyPlaceholderVisibility } from './shapeFactory'
-import { isFrame, getFrameChildIds } from './frameUtils'
+import { isFrame, getFrameChildIds, setFrameChildIds } from './frameUtils'
 import {
   updateConnectorEndpoints,
   getConnectorData,
@@ -602,8 +602,68 @@ export function setupDocumentSync(
   // Frame move: track previous position so we can compute delta and propagate to children.
   const framePrevPos = new Map<string, { left: number; top: number }>()
 
+  /** Returns true if the center of obj falls within frame's bounding rect. */
+  const isObjectInsideFrame = (obj: FabricObject, frame: FabricObject): boolean => {
+    obj.setCoords()
+    frame.setCoords()
+    const ob = obj.getBoundingRect()
+    const fb = frame.getBoundingRect()
+    const cx = ob.left + ob.width / 2
+    const cy = ob.top + ob.height / 2
+    return cx >= fb.left && cx <= fb.left + fb.width && cy >= fb.top && cy <= fb.top + fb.height
+  }
+
+  /**
+   * After an object is moved or created, update frame childIds so the object belongs
+   * to whichever frame contains its center (or to no frame if it's outside all frames).
+   */
+  const checkAndUpdateFrameMembership = (obj: FabricObject) => {
+    if (isApplyingRemote) return
+    const objId = getObjectId(obj)
+    if (!objId || isFrame(obj)) return
+
+    const allFrames = canvas.getObjects().filter((o) => isFrame(o))
+    const targetFrame = allFrames.find((f) => isObjectInsideFrame(obj, f)) ?? null
+    const currentFrame = allFrames.find((f) => getFrameChildIds(f).includes(objId)) ?? null
+
+    if (targetFrame === currentFrame) return
+
+    if (currentFrame) {
+      const updated = getFrameChildIds(currentFrame).filter((id) => id !== objId)
+      setFrameChildIds(currentFrame, updated)
+      emitModify(currentFrame)
+    }
+    if (targetFrame) {
+      const updated = [...getFrameChildIds(targetFrame), objId]
+      setFrameChildIds(targetFrame, updated)
+      emitModify(targetFrame)
+    }
+  }
+
   canvas.on('object:added', (e) => {
-    if (e.target) emitAdd(e.target)
+    if (!e.target) return
+    emitAdd(e.target)
+    if (!isApplyingRemote) {
+      if (isFrame(e.target)) {
+        // New frame drawn: auto-capture existing canvas objects whose center is inside it
+        const frame = e.target
+        const frameId = getObjectId(frame)
+        if (frameId) {
+          const childIds = canvas
+            .getObjects()
+            .filter((o) => o !== frame && !isFrame(o) && getObjectId(o) && isObjectInsideFrame(o, frame))
+            .map((o) => getObjectId(o))
+            .filter((id): id is string => !!id)
+          if (childIds.length > 0) {
+            setFrameChildIds(frame, childIds)
+            emitModify(frame)
+          }
+        }
+      } else {
+        // New non-frame object: check if it lands inside a frame
+        checkAndUpdateFrameMembership(e.target)
+      }
+    }
   })
   canvas.on('mouse:down', (e) => {
     const target = e.target as FabricObject | undefined
@@ -689,6 +749,10 @@ export function setupDocumentSync(
     if (e.target) {
       const toSync = getObjectsToSync(e.target)
       toSync.forEach((o) => emitModify(o))
+      // Update frame membership for every non-frame object that was just moved/resized
+      if (!isApplyingRemote) {
+        toSync.filter((o) => !isFrame(o)).forEach((o) => checkAndUpdateFrameMembership(o))
+      }
     }
   })
   canvas.on('object:removed', (e) => {
