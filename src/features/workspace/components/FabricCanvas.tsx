@@ -96,6 +96,7 @@ export interface FabricCanvasZoomHandle {
   getSelectedObjectIds: () => string[]
   groupObjectIds: (ids: string[]) => Promise<void>
   panToScene: (sceneX: number, sceneY: number) => void
+  captureDataUrl: () => string | null
 }
 
 interface ConnectorDropState {
@@ -346,6 +347,14 @@ const FabricCanvasInner = (
       vpt[5] = height / 2 - sceneY * zoom
       canvas.requestRenderAll()
       onViewportChangeRef.current?.(vpt)
+    },
+    captureDataUrl: (): string | null => {
+      const canvas = canvasRef.current
+      if (!canvas || canvas.getObjects().length === 0) return null
+      // Zoom to fit all objects so the thumbnail frames the content
+      zoomApiRef.current?.zoomToFit()
+      canvas.renderAll()
+      return canvas.toDataURL({ format: 'jpeg', quality: 0.7, multiplier: 0.5 })
     },
     ungroupSelected: () => {
       const canvas = canvasRef.current

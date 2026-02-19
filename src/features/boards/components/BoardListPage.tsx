@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { signOutUser } from '@/features/auth/api/authApi'
 import { useAuth } from '@/features/auth/hooks/useAuth'
@@ -8,6 +8,8 @@ import {
   joinBoard,
   deleteBoard,
   updateBoardTitle,
+  fetchPublicBoards,
+  updateBoardVisibility,
 } from '@/features/boards/api/boardsApi'
 import { parseBoardIdFromShareInput, getShareUrl } from '@/shared/lib/shareLinks'
 import type { BoardMeta } from '@/features/boards/api/boardsApi'
@@ -16,6 +18,9 @@ import { usePirateJokes } from '../hooks/usePirateJokes'
 
 const WELCOME_MESSAGE =
   "Ahoy, new crew member! MeBoard is yer real-time pirate canvas. Hit '+ New Board' to chart yer first treasure map, then share the link with yer crew to draw, plan, and plunder ideas together! 🏴‍☠️"
+
+type SortKey = 'recent' | 'name' | 'count'
+type TabKey = 'my' | 'public' | 'all'
 
 export function BoardListPage() {
   const { user } = useAuth()
@@ -31,6 +36,13 @@ export function BoardListPage() {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [sortBy, setSortBy] = useState<SortKey>('recent')
+  const [activeTab, setActiveTab] = useState<TabKey>('my')
+  const [page, setPage] = useState(0)
+  const PAGE_SIZE = 20
+  const [publicBoards, setPublicBoards] = useState<BoardMeta[]>([])
+  const [publicLoading, setPublicLoading] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const parrotInitialized = useRef(false)
   const [parrotMsg, setParrotMsg] = useState<string | undefined>(undefined)
@@ -61,6 +73,36 @@ export function BoardListPage() {
     document.addEventListener('click', close)
     return () => document.removeEventListener('click', close)
   }, [menuBoardId])
+
+  const loadPublicBoards = useCallback(async () => {
+    setPublicLoading(true)
+    try {
+      const data = await fetchPublicBoards()
+      setPublicBoards(data)
+    } catch {
+      // silently fail — public tab just shows empty
+    } finally {
+      setPublicLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (activeTab === 'public' || activeTab === 'all') {
+      void loadPublicBoards()
+    }
+  }, [activeTab, loadPublicBoards])
+
+  const handleTogglePublic = async (e: React.MouseEvent, board: BoardMeta) => {
+    e.stopPropagation()
+    setMenuBoardId(null)
+    const next = !board.isPublic
+    try {
+      await updateBoardVisibility(board.id, next)
+      // publicBoards list will refresh next time the tab is visited
+    } catch {
+      // ignore
+    }
+  }
 
   const handleCreate = async () => {
     setCreating(true)
@@ -140,6 +182,31 @@ export function BoardListPage() {
     }
   }
 
+  // Reset to page 0 whenever the filter/sort/tab changes
+  useEffect(() => { setPage(0) }, [activeTab, searchQuery, sortBy])
+
+  const myBoardIds = new Set(boards.map((b) => b.id))
+  const tabBoards: BoardMeta[] =
+    activeTab === 'my'
+      ? boards
+      : activeTab === 'public'
+        ? publicBoards
+        : // 'all' — user's boards + public boards not already in user's list
+          [...boards, ...publicBoards.filter((b) => !myBoardIds.has(b.id))]
+
+  const filteredBoards = tabBoards.filter((b) =>
+    b.title.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+  const sortedBoards =
+    sortBy === 'name'
+      ? [...filteredBoards].sort((a, b) => a.title.localeCompare(b.title))
+      : sortBy === 'count'
+        ? [...filteredBoards].sort((a, b) => (b.objectCount ?? 0) - (a.objectCount ?? 0))
+        : filteredBoards // 'recent' is already ordered by last_accessed_at from the API
+
+  const totalPages = Math.ceil(sortedBoards.length / PAGE_SIZE)
+  const visibleBoards = sortedBoards.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
+
   return (
     <div style={styles.container}>
       <header style={styles.header}>
@@ -156,19 +223,65 @@ export function BoardListPage() {
         </div>
       </header>
       <main style={styles.main}>
+        <div style={styles.tabBar}>
+          {(['my', 'public', 'all'] as TabKey[]).map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setActiveTab(tab)}
+              style={activeTab === tab ? { ...styles.tabBtn, ...styles.tabBtnActive } : styles.tabBtn}
+            >
+              {tab === 'my' ? 'My Boards' : tab === 'public' ? 'Public' : 'All'}
+            </button>
+          ))}
+        </div>
+
         <div style={styles.toolbar}>
-          <button
-            type="button"
-            onClick={handleCreate}
-            disabled={creating}
-            style={styles.createBtn}
-          >
-            {creating ? 'Creating…' : '+ New Board'}
-          </button>
+          <div style={styles.toolbarTop}>
+            <input
+              type="text"
+              placeholder="Search boards…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={styles.searchInput}
+              aria-label="Search boards"
+            />
+            <div style={styles.sortGroup}>
+              <button
+                type="button"
+                onClick={() => setSortBy('recent')}
+                style={sortBy === 'recent' ? { ...styles.sortBtn, ...styles.sortBtnActive } : styles.sortBtn}
+              >
+                Recent
+              </button>
+              <button
+                type="button"
+                onClick={() => setSortBy('name')}
+                style={sortBy === 'name' ? { ...styles.sortBtn, ...styles.sortBtnActive } : styles.sortBtn}
+              >
+                Name
+              </button>
+              <button
+                type="button"
+                onClick={() => setSortBy('count')}
+                style={sortBy === 'count' ? { ...styles.sortBtn, ...styles.sortBtnActive } : styles.sortBtn}
+              >
+                Count
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={handleCreate}
+              disabled={creating}
+              style={styles.createBtn}
+            >
+              {creating ? 'Creating…' : '+ New Board'}
+            </button>
+          </div>
           <div style={styles.joinRow}>
             <input
               type="text"
-              placeholder="Paste board link or ID"
+              placeholder="Paste board link or ID to join"
               value={joinInput}
               onChange={(e) => {
                 setJoinInput(e.target.value)
@@ -189,27 +302,37 @@ export function BoardListPage() {
           {joinError && <p style={styles.joinError}>{joinError}</p>}
         </div>
 
-        {loading ? (
+        {loading || (publicLoading && activeTab !== 'my') ? (
           <div style={styles.grid}>
             {[1, 2, 3, 4, 5, 6].map((i) => (
               <div key={i} style={styles.skeletonCard} />
             ))}
           </div>
-        ) : boards.length === 0 ? (
+        ) : tabBoards.length === 0 ? (
           <div style={styles.emptyWrap}>
-            <p style={styles.empty}>No boards yet. Create one to get started.</p>
-            <button
-              type="button"
-              onClick={handleCreate}
-              disabled={creating}
-              style={styles.emptyCreateBtn}
-            >
-              + New Board
-            </button>
+            {activeTab === 'public' ? (
+              <p style={styles.empty}>No public boards yet.</p>
+            ) : (
+              <>
+                <p style={styles.empty}>No boards yet. Create one to get started.</p>
+                <button
+                  type="button"
+                  onClick={handleCreate}
+                  disabled={creating}
+                  style={styles.emptyCreateBtn}
+                >
+                  + New Board
+                </button>
+              </>
+            )}
+          </div>
+        ) : visibleBoards.length === 0 ? (
+          <div style={styles.emptyWrap}>
+            <p style={styles.empty}>No boards match &ldquo;{searchQuery}&rdquo;</p>
           </div>
         ) : (
           <div style={styles.grid}>
-            {boards.map((board) => (
+            {visibleBoards.map((board) => (
               <div key={board.id} style={styles.gridItem}>
                 <div
                   role="button"
@@ -220,6 +343,18 @@ export function BoardListPage() {
                   }
                   style={styles.boardCard}
                 >
+                  <div style={styles.boardThumb}>
+                    {board.thumbnailUrl ? (
+                      <img
+                        src={board.thumbnailUrl}
+                        alt={board.title}
+                        style={styles.boardThumbImg}
+                        draggable={false}
+                      />
+                    ) : (
+                      <div style={styles.boardThumbPlaceholder} />
+                    )}
+                  </div>
                   <div style={styles.boardCardHeader}>
                     <div style={styles.boardCardMain}>
                       {renameBoardId === board.id ? (
@@ -277,6 +412,13 @@ export function BoardListPage() {
                           </button>
                           <button
                             type="button"
+                            style={styles.menuItem}
+                            onClick={(e) => void handleTogglePublic(e, board)}
+                          >
+                            {board.isPublic ? '🔒 Make private' : '🌐 Make public'}
+                          </button>
+                          <button
+                            type="button"
                             style={{ ...styles.menuItem, ...styles.menuItemDanger }}
                             onClick={(e) => handleDeleteClick(e, board.id)}
                           >
@@ -286,12 +428,47 @@ export function BoardListPage() {
                       )}
                     </div>
                   </div>
-                  <span style={styles.boardDate}>
-                    {formatLastAccessed(board.lastAccessedAt ?? board.createdAt)}
-                  </span>
+                  <div style={styles.boardMeta}>
+                    <span style={styles.boardDate}>
+                      {formatLastAccessed(board.lastAccessedAt ?? board.createdAt)}
+                    </span>
+                    {board.objectCount !== undefined && board.objectCount > 0 && (
+                      <span style={styles.objectCount}>
+                        {board.objectCount} {board.objectCount === 1 ? 'object' : 'objects'}
+                      </span>
+                    )}
+                    {board.isPublic && (
+                      <span style={styles.publicBadge}>🌐 Public</span>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {totalPages > 1 && (
+          <div style={styles.pagination}>
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              disabled={page === 0}
+              style={page === 0 ? { ...styles.pageBtn, ...styles.pageBtnDisabled } : styles.pageBtn}
+            >
+              ← Prev
+            </button>
+            <span style={styles.pageInfo}>
+              {page + 1} / {totalPages}
+              <span style={styles.pageTotal}> ({sortedBoards.length} boards)</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+              disabled={page >= totalPages - 1}
+              style={page >= totalPages - 1 ? { ...styles.pageBtn, ...styles.pageBtnDisabled } : styles.pageBtn}
+            >
+              Next →
+            </button>
           </div>
         )}
       </main>
@@ -391,16 +568,74 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
   },
   main: {
-    padding: '40px 24px 24px',
+    padding: '24px 24px 24px',
     maxWidth: 1200,
     margin: '0 auto',
+  },
+  tabBar: {
+    display: 'flex',
+    gap: 4,
+    marginBottom: 16,
+    paddingRight: 245,
+  },
+  tabBtn: {
+    padding: '7px 16px',
+    fontSize: 13,
+    fontWeight: 500,
+    border: '1px solid #e5e7eb',
+    borderRadius: 8,
+    background: '#fff',
+    color: '#6b7280',
+    cursor: 'pointer',
+  },
+  tabBtnActive: {
+    background: '#374151',
+    color: '#fff',
+    borderColor: '#374151',
   },
   toolbar: {
     marginBottom: 20,
     paddingRight: 245,
     display: 'flex',
     flexDirection: 'column',
-    gap: 12,
+    gap: 10,
+  },
+  toolbarTop: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    padding: '9px 14px',
+    fontSize: 14,
+    border: '1px solid #e5e7eb',
+    borderRadius: 8,
+    background: '#fff',
+    color: '#374151',
+    outline: 'none',
+  },
+  sortGroup: {
+    display: 'flex',
+    gap: 4,
+    background: '#f3f4f6',
+    borderRadius: 8,
+    padding: 3,
+  },
+  sortBtn: {
+    padding: '5px 12px',
+    fontSize: 13,
+    fontWeight: 500,
+    border: 'none',
+    borderRadius: 6,
+    background: 'transparent',
+    color: '#6b7280',
+    cursor: 'pointer',
+  },
+  sortBtnActive: {
+    background: '#fff',
+    color: '#374151',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
   },
   joinRow: {
     display: 'flex',
@@ -443,7 +678,7 @@ const styles: Record<string, React.CSSProperties> = {
   grid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
-    gridAutoRows: 130,
+    gridAutoRows: 'auto',
     columnGap: 16,
     rowGap: 20,
     alignItems: 'stretch',
@@ -485,21 +720,38 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     flexDirection: 'column',
     flex: 1,
-    minHeight: 100,
-    padding: 16,
     background: '#fff',
     border: '1px solid #e5e7eb',
     borderRadius: 12,
     boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
     cursor: 'pointer',
+    overflow: 'hidden',
+  },
+  boardThumb: {
+    width: '100%',
+    height: 130,
+    flexShrink: 0,
+    background: '#f3f4f6',
+    overflow: 'hidden',
+  },
+  boardThumbImg: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover' as const,
+    display: 'block',
+  },
+  boardThumbPlaceholder: {
+    width: '100%',
+    height: '100%',
+    background: 'linear-gradient(135deg, #e5e7eb 0%, #f3f4f6 100%)',
   },
   boardCardHeader: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     gap: 8,
-    flex: 1,
     minWidth: 0,
+    padding: '10px 12px 0',
   },
   boardCardMain: {
     flex: 1,
@@ -523,10 +775,29 @@ const styles: Record<string, React.CSSProperties> = {
     outline: 'none',
     boxSizing: 'border-box',
   },
+  boardMeta: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 6,
+    marginBottom: 10,
+    padding: '0 12px',
+    flexWrap: 'wrap' as const,
+  },
   boardDate: {
     fontSize: 12,
     color: '#9ca3af',
-    marginTop: 8,
+  },
+  objectCount: {
+    fontSize: 11,
+    color: '#9ca3af',
+  },
+  publicBadge: {
+    fontSize: 11,
+    color: '#059669',
+    background: '#ecfdf5',
+    padding: '1px 6px',
+    borderRadius: 4,
   },
   actionsWrap: {
     position: 'relative',
@@ -613,6 +884,37 @@ const styles: Record<string, React.CSSProperties> = {
     background: '#fff',
     color: '#374151',
     cursor: 'pointer',
+  },
+  pagination: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+    marginTop: 24,
+    paddingRight: 245,
+  },
+  pageBtn: {
+    padding: '7px 16px',
+    fontSize: 13,
+    fontWeight: 500,
+    border: '1px solid #e5e7eb',
+    borderRadius: 8,
+    background: '#fff',
+    color: '#374151',
+    cursor: 'pointer',
+  },
+  pageBtnDisabled: {
+    color: '#d1d5db',
+    cursor: 'not-allowed',
+  },
+  pageInfo: {
+    fontSize: 13,
+    color: '#374151',
+    fontWeight: 500,
+  },
+  pageTotal: {
+    fontWeight: 400,
+    color: '#9ca3af',
   },
   deleteBtn: {
     padding: '8px 16px',

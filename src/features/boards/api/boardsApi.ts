@@ -5,6 +5,10 @@ export interface BoardMeta {
   title: string
   createdAt: number
   lastAccessedAt: number
+  isPublic?: boolean
+  ownerId?: string
+  objectCount?: number
+  thumbnailUrl?: string
 }
 
 export async function createBoard(
@@ -73,7 +77,7 @@ export async function joinBoard(
 
   const { data: board, error } = await supabase
     .from('boards')
-    .select('id, title, created_at')
+    .select('id, title, created_at, is_public, owner_id')
     .eq('id', boardId)
     .single()
 
@@ -95,6 +99,8 @@ export async function joinBoard(
     title: board.title ?? 'Untitled',
     createdAt: new Date(board.created_at).getTime(),
     lastAccessedAt: new Date(now).getTime(),
+    isPublic: board.is_public ?? false,
+    ownerId: board.owner_id,
   }
 }
 
@@ -111,37 +117,118 @@ export async function recordBoardAccess(
     .eq('board_id', boardId)
 }
 
+export interface BoardMember {
+  userId: string
+  displayName: string
+  email: string
+  isOwner: boolean
+  joinedAt: number
+}
+
+export async function getBoardMembers(boardId: string): Promise<BoardMember[]> {
+  const supabase = getSupabaseClient()
+  const { data, error } = await supabase.rpc('get_board_members', {
+    p_board_id: boardId,
+  })
+  if (error) throw new Error(error.message)
+  return (data ?? []).map(
+    (r: {
+      user_id: string
+      display_name: string
+      email: string
+      is_owner: boolean
+      joined_at: string
+    }) => ({
+      userId: r.user_id,
+      displayName: r.display_name,
+      email: r.email,
+      isOwner: r.is_owner,
+      joinedAt: new Date(r.joined_at).getTime(),
+    })
+  )
+}
+
+export async function removeBoardMember(
+  boardId: string,
+  userId: string
+): Promise<void> {
+  const supabase = getSupabaseClient()
+  const { error } = await supabase.rpc('remove_board_member', {
+    p_board_id: boardId,
+    p_user_id: userId,
+  })
+  if (error) throw new Error(error.message)
+}
+
+export async function fetchPublicBoards(): Promise<BoardMeta[]> {
+  const supabase = getSupabaseClient()
+  const { data, error } = await supabase
+    .from('boards')
+    .select('id, title, owner_id, created_at, is_public, thumbnail_url')
+    .eq('is_public', true)
+    .order('created_at', { ascending: false })
+
+  if (error) throw new Error(error.message)
+  return (data ?? []).map((r) => ({
+    id: r.id,
+    title: r.title ?? 'Untitled',
+    createdAt: new Date(r.created_at).getTime(),
+    lastAccessedAt: 0,
+    isPublic: true,
+    ownerId: r.owner_id,
+    thumbnailUrl: r.thumbnail_url ?? undefined,
+  }))
+}
+
+export async function updateBoardVisibility(
+  boardId: string,
+  isPublic: boolean
+): Promise<void> {
+  const supabase = getSupabaseClient()
+  const { error } = await supabase
+    .from('boards')
+    .update({ is_public: isPublic })
+    .eq('id', boardId)
+  if (error) throw new Error(error.message)
+}
+
 export function subscribeToUserBoards(
   userId: string,
   onBoards: (boards: BoardMeta[]) => void
 ): () => void {
   const supabase = getSupabaseClient()
 
-  const mapRow = (r: {
-    board_id: string
-    title?: string
-    created_at?: string
-    last_accessed_at?: string
-  }) => ({
-    id: r.board_id,
-    title: r.title ?? 'Untitled',
-    createdAt: r.created_at ? new Date(r.created_at).getTime() : 0,
-    lastAccessedAt: r.last_accessed_at
-      ? new Date(r.last_accessed_at).getTime()
-      : 0,
-  })
-
-  const fetch = async () => {
-    const { data } = await supabase
-      .from('user_boards')
-      .select('board_id, title, created_at, last_accessed_at')
-      .eq('user_id', userId)
-      .order('last_accessed_at', { ascending: false })
-    const boards = (data ?? []).map(mapRow)
+  const fetchWithCounts = async () => {
+    const { data } = await supabase.rpc('get_user_boards_with_counts', {
+      p_user_id: userId,
+    })
+    const boards: BoardMeta[] = (data ?? []).map(
+      (r: {
+        board_id: string
+        title?: string
+        created_at?: string
+        last_accessed_at?: string
+        is_public?: boolean
+        owner_id?: string
+        object_count?: number
+        thumbnail_url?: string
+      }) => ({
+        id: r.board_id,
+        title: r.title ?? 'Untitled',
+        createdAt: r.created_at ? new Date(r.created_at).getTime() : 0,
+        lastAccessedAt: r.last_accessed_at
+          ? new Date(r.last_accessed_at).getTime()
+          : 0,
+        isPublic: r.is_public ?? false,
+        ownerId: r.owner_id,
+        objectCount: Number(r.object_count ?? 0),
+        thumbnailUrl: r.thumbnail_url ?? undefined,
+      })
+    )
     onBoards(boards)
   }
 
-  fetch()
+  fetchWithCounts()
 
   const channel = supabase
     .channel(`user_boards:${userId}`)
@@ -153,7 +240,7 @@ export function subscribeToUserBoards(
         table: 'user_boards',
         filter: `user_id=eq.${userId}`,
       },
-      () => fetch()
+      () => void fetchWithCounts()
     )
     .subscribe()
 

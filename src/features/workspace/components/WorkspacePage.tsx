@@ -3,6 +3,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 const MAX_PRESENCE_ICONS = 4
 import type { BoardMeta } from '@/features/boards/api/boardsApi'
 import { updateBoardTitle } from '@/features/boards/api/boardsApi'
+import { saveBoardThumbnail } from '../api/thumbnailApi'
 import { useAuth } from '@/features/auth/hooks/useAuth'
 import { FabricCanvas, type FabricCanvasZoomHandle, type SelectionStrokeInfo } from './FabricCanvas'
 import { ShareModal } from './ShareModal'
@@ -82,6 +83,22 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
   useEffect(() => {
     setTitleValue(board.title)
   }, [board.title])
+
+  // Capture thumbnail on unmount (fire-and-forget)
+  const boardIdRef = useRef(board.id)
+  const canvasZoomRefCapture = canvasZoomRef
+  useEffect(() => {
+    boardIdRef.current = board.id
+  }, [board.id])
+  useEffect(() => {
+    return () => {
+      const dataUrl = canvasZoomRefCapture.current?.captureDataUrl()
+      if (dataUrl) {
+        void saveBoardThumbnail(boardIdRef.current, dataUrl)
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handleTitleClick = () => {
     setTitleValue(board.title)
