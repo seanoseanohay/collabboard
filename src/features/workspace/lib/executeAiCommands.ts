@@ -132,19 +132,15 @@ async function spaceEvenly(
   )
 }
 
-export interface ExecuteAiCommandsOptions {
-  groupObjectIds?: (ids: string[]) => Promise<void>
-}
-
 export async function executeAiCommands(
   boardId: string,
-  commands: AiCommand[],
-  options?: ExecuteAiCommandsOptions
-): Promise<{ ok: boolean; error?: string }> {
+  commands: AiCommand[]
+): Promise<{ ok: boolean; error?: string; createdIds: string[]; shouldGroup: boolean }> {
   let lastQueryResults: { objectId: string; data: Record<string, unknown> }[] = []
   const baseZ = Date.now()
   let createIndex = 0
   const createdIds: string[] = []
+  let shouldGroup = false
 
   for (const cmd of commands) {
     try {
@@ -179,15 +175,13 @@ export async function executeAiCommands(
         const dir = cmd.direction === 'vertical' ? 'vertical' : 'horizontal'
         await spaceEvenly(boardId, ids, dir)
       } else if (cmd.action === 'groupCreated') {
-        if (options?.groupObjectIds && createdIds.length >= 2) {
-          await options.groupObjectIds([...createdIds])
-        }
+        shouldGroup = true
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      return { ok: false, error: msg }
+      return { ok: false, error: msg, createdIds, shouldGroup }
     }
   }
 
-  return { ok: true }
+  return { ok: true, createdIds, shouldGroup }
 }

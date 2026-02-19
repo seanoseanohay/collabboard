@@ -40,12 +40,17 @@ export function AiPromptBar({ boardId, getSelectedObjectIds, groupObjectIds }: A
       try {
         const selectedObjectIds = getSelectedObjectIds?.() ?? []
         const { commands } = await invokeAiInterpret(boardId, text, { selectedObjectIds })
-        const result = await executeAiCommands(boardId, commands, { groupObjectIds })
+        const result = await executeAiCommands(boardId, commands)
         if (!result.ok) {
           setError(result.error ?? 'Failed to execute')
         } else {
           setPrompt('')
           setOpen(false)
+          // Group after closing the modal so the canvas is free to process the objects.
+          // shouldGroup is set when the AI emits groupCreated (all template commands do this).
+          if (result.shouldGroup && result.createdIds.length >= 2 && groupObjectIds) {
+            void groupObjectIds(result.createdIds)
+          }
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'AI request failed')

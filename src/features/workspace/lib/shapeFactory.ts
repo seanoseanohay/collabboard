@@ -38,7 +38,7 @@ function getStickyTextChildren(group: FabricObject): { placeholder: FabricObject
   return { placeholder, mainText }
 }
 
-/** Update sticky group's text child(ren) fontSize from the group's current effective size (e.g. after resize/sync). */
+/** Update sticky group's text child(ren) fontSize and wrap-width from the group's current effective size (e.g. after resize/sync). */
 export function updateStickyTextFontSize(group: FabricObject): void {
   const pair = getStickyTextChildren(group)
   if (!pair) return
@@ -50,8 +50,16 @@ export function updateStickyTextFontSize(group: FabricObject): void {
   const effectiveW = w * scaleX
   const effectiveH = h * scaleY
   const fontSize = stickyFontSizeFromSize(effectiveW, effectiveH)
+  const padding = 8
+  // Keep text width matching sticky width so text wraps correctly at the new size.
+  // Children live in local (pre-scale) space, so divide back by scaleX.
+  const textW = Math.max(1, w - padding * 2)
   mainText.set('fontSize', fontSize)
-  if (placeholder) placeholder.set('fontSize', fontSize)
+  mainText.set('width', textW)
+  if (placeholder) {
+    placeholder.set('fontSize', fontSize)
+    placeholder.set('width', textW)
+  }
 }
 
 /** Show placeholder when main text is empty; hide when it has content. Call after edit or when applying sync. */
@@ -185,6 +193,7 @@ export function createShape(
       const mainText = new IText('', {
         left: padding,
         top: padding,
+        width: stickyW - padding * 2,
         fontSize,
         fill: STROKE,
         originX: 'left',

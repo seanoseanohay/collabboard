@@ -54,8 +54,16 @@ function applyCreateProps(shape: FabricObject, props: CreateObjectProps): void {
   if (props.text != null && 'text' in shape) (shape as { set: (k: string, v: string) => void }).set('text', props.text)
   if (shape.type === 'group' && 'getObjects' in shape) {
     const children = (shape as { getObjects: () => FabricObject[] }).getObjects()
-    if (props.fill != null && children[0]) children[0].set('fill', props.fill)
-    if (props.text != null && children[1] && 'set' in children[1]) (children[1] as { set: (k: string, v: string) => void }).set('text', props.text)
+    // children[0] is the bg Rect; apply visual props directly to it
+    if (children[0]) {
+      if (props.fill != null) children[0].set('fill', props.fill)
+      if (props.stroke != null) children[0].set('stroke', props.stroke)
+      if (props.strokeWeight != null) children[0].set('strokeWidth', props.strokeWeight)
+    }
+    // children[1] is the main IText
+    if (props.text != null && children[1] && 'set' in children[1]) {
+      (children[1] as { set: (k: string, v: string) => void }).set('text', props.text)
+    }
   }
 }
 
