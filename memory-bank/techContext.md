@@ -19,8 +19,9 @@
 - **Supabase Auth** (Google + Email)
 
 ### AI Integration
-- **Anthropic Claude** (function calling)
-- Fallback: OpenAI GPT-4o-mini
+- **OpenAI GPT-4o-mini** (primary — ai-interpret Edge Function)
+- Fallback: Anthropic Claude (post-MVP)
+- **Observability:** LangSmith for tracing, token usage, latency, and errors (smith.langchain.com)
 
 ### Deployment
 - **Vercel** (frontend)

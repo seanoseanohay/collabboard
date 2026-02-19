@@ -309,6 +309,7 @@ for server-side serialization.
 ### Logging & Rate Limiting
 
 -   Log: userId, command, token counts (exact), success/failure, summary
+-   **Observability:** LangSmith traces all AI calls (inputs, outputs, tokens, latency, errors) at smith.langchain.com
 -   Rate limit: 5 commands per user per minute
 
 ### Post-MVP Stretch
@@ -388,6 +389,6 @@ for server-side serialization.
 -   Performance targets met
 -   Object rotation fully supported (UI + programmatic + synced)
 -   Undo / Redo implemented
--   AI usage logged with exact token counts
+-   AI usage logged with exact token counts (via LangSmith tracing)
 -   Touch-ready pointer handling
 -   New features addable in \<1 day (modular structure)

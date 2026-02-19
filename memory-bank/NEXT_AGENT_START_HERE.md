@@ -84,6 +84,7 @@
 - ~~**Multi-selection move drift**~~ ✅ — Root cause: originX/originY vs calcTransformMatrix center mismatch. Three fixes in boardSync.ts (payloadWithSceneCoords uses addTransformToObject; move-delta receiver uses obj.left+dx; applyRemote skips active selection echo). See systemPatterns for the pattern doc.
 
 **Planned (documented in PRD + memory bank):**
+- **Viewport persistence** — TODO: Persist zoom/pan per board so returning users see where they left off. Currently resets to (0,0) at 100% on reload. localStorage + debounced save; optional "Reset view" control. See docs/PLANNED_CANVAS_FEATURES.md §0.
 - **Canvas features** — docs/PLANNED_CANVAS_FEATURES.md: Object grouping (Group/Ungroup), Free draw (pencil), Lasso selection, Multi-scale map vision.
 - ~~**Bring forward / send backward**~~ ✅ — Done. bringForward/sendBackward in FabricCanvas + toolbar buttons.
 - ~~**Boards page cleanup**~~ ✅ — Done (Figma-inspired: header, loading, empty, card rows, copy link, delete, rename, sort).

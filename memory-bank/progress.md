@@ -47,6 +47,7 @@
 
 ### Workspace UX
 - ~~**Inline board rename**~~ ✅ — Click board title in workspace header (e.g. "Untitled Board") to edit inline. Blur or Enter saves; Escape cancels. WorkspacePage: titleEditing state, updateBoardTitle, onBoardTitleChange callback. BoardPage wires callback to setBoard.
+- **Viewport persistence** — TODO: Persist zoom/pan per board so returning users see where they left off. Currently viewport always resets to (0,0) at 100% on reload. Use localStorage keyed by boardId (optionally userId). Debounce saves on pan/zoom; restore on canvas mount. Optional: "Reset view" / "Center canvas" control for explicit reset. See docs/PLANNED_CANVAS_FEATURES.md.
 
 ### Post-MVP
 - ~~**AI agent**~~ ✅ (code done, awaiting OpenAI key fix) — ai-interpret Edge Function (OpenAI gpt-4o-mini), AiPromptBar, invokeAiInterpret + executeAiCommands. Natural language → createObject/updateObject/deleteObjects via aiClientApi. OPENAI_API_KEY secret. Deploy: `supabase functions deploy ai-interpret --no-verify-jwt`. **🔴 User must update OpenAI key in Supabase secrets — restricted key is missing `model.request` scope (Model capabilities permission).**

@@ -51,7 +51,6 @@ function zoomToLabel(z: number): string {
   return `${pct.toFixed(3)}%`
 }
 
-/** Map zoom (full range) to slider value (0–100) using log scale */
 function zoomToSliderValue(zoom: number): number {
   const clamped = Math.min(ZOOM_SLIDER_MAX, Math.max(ZOOM_SLIDER_MIN, zoom))
   const logMin = Math.log(ZOOM_SLIDER_MIN)
@@ -59,7 +58,6 @@ function zoomToSliderValue(zoom: number): number {
   return 100 * ((Math.log(clamped) - logMin) / (logMax - logMin))
 }
 
-/** Map slider value (0–100) to zoom */
 function sliderValueToZoom(value: number): number {
   const t = value / 100
   const logMin = Math.log(ZOOM_SLIDER_MIN)
@@ -117,6 +115,8 @@ const ToolIcons: Record<ToolType, React.ReactNode> = {
   ),
 }
 
+const INSERT_TOOLS: ToolType[] = ['rect', 'circle', 'triangle', 'line', 'text', 'sticky']
+
 export function WorkspaceToolbar({
   selectedTool,
   onToolChange,
@@ -135,17 +135,25 @@ export function WorkspaceToolbar({
   onToggleMapBorder,
 }: WorkspaceToolbarProps) {
   const [zoomOpen, setZoomOpen] = useState(false)
-  const [plunderOpen, setPlunderOpen] = useState(false)
+  const [insertOpen, setInsertOpen] = useState(false)
+  const [layersOpen, setLayersOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const zoomButtonRef = useRef<HTMLButtonElement>(null)
-  const plunderRef = useRef<HTMLDivElement>(null)
-  const plunderBtnRef = useRef<HTMLButtonElement>(null)
+  const insertRef = useRef<HTMLDivElement>(null)
+  const insertBtnRef = useRef<HTMLButtonElement>(null)
+  const layersRef = useRef<HTMLDivElement>(null)
+  const layersBtnRef = useRef<HTMLButtonElement>(null)
+
+  const showStrokeControls =
+    selectionStroke != null &&
+    !selectionStroke.isTextOnly &&
+    !selectionStroke.isStickyNote &&
+    selectionStroke.strokeWidth > 0
 
   useEffect(() => {
     if (!zoomOpen) return
     const close = (e: MouseEvent) => {
-      const target = e.target as Node
-      if (menuRef.current?.contains(target) || zoomButtonRef.current?.contains(target)) return
+      if (menuRef.current?.contains(e.target as Node) || zoomButtonRef.current?.contains(e.target as Node)) return
       setZoomOpen(false)
     }
     document.addEventListener('click', close, true)
@@ -153,149 +161,282 @@ export function WorkspaceToolbar({
   }, [zoomOpen])
 
   useEffect(() => {
-    if (!plunderOpen) return
+    if (!insertOpen) return
     const close = (e: MouseEvent) => {
-      const target = e.target as Node
-      if (plunderRef.current?.contains(target) || plunderBtnRef.current?.contains(target)) return
-      setPlunderOpen(false)
+      if (insertRef.current?.contains(e.target as Node) || insertBtnRef.current?.contains(e.target as Node)) return
+      setInsertOpen(false)
     }
     document.addEventListener('click', close, true)
     return () => document.removeEventListener('click', close, true)
-  }, [plunderOpen])
+  }, [insertOpen])
 
-  const toolGroups: ToolType[][] = [
-    ['select', 'hand'],
-    ['rect', 'circle', 'triangle', 'line'],
-    ['text', 'sticky'],
-  ]
+  useEffect(() => {
+    if (!layersOpen) return
+    const close = (e: MouseEvent) => {
+      if (layersRef.current?.contains(e.target as Node) || layersBtnRef.current?.contains(e.target as Node)) return
+      setLayersOpen(false)
+    }
+    document.addEventListener('click', close, true)
+    return () => document.removeEventListener('click', close, true)
+  }, [layersOpen])
+
+  const selectAndClose = (tool: ToolType, stickerKind?: StickerKind) => {
+    onToolChange(tool)
+    if (stickerKind) onStickerKindChange?.(stickerKind)
+    setInsertOpen(false)
+  }
+
+  const insertLabel =
+    selectedTool === 'sticker'
+      ? STICKER_DEFS[selectedStickerKind].label
+      : INSERT_TOOLS.includes(selectedTool)
+        ? TOOLS.find((t) => t.id === selectedTool)?.label ?? 'Insert'
+        : 'Insert'
+  const insertIcon =
+    selectedTool === 'sticker'
+      ? STICKER_DEFS[selectedStickerKind].icon
+      : INSERT_TOOLS.includes(selectedTool)
+        ? ToolIcons[selectedTool]
+        : (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+          )
 
   return (
-    <div style={styles.container}>
-      <div style={styles.toolGroups}>
-        {toolGroups.map((group, i) => (
-          <div key={i} style={styles.toolGroup}>
-            {group.map((id) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => onToolChange(id)}
-                style={{
-                  ...styles.toolBtn,
-                  ...(selectedTool === id ? styles.toolBtnActive : {}),
-                }}
-                title={TOOLS.find((t) => t.id === id)?.label ?? id}
-              >
-                {ToolIcons[id]}
-              </button>
-            ))}
-            {i < toolGroups.length - 1 && <div style={styles.divider} />}
+    <div style={styles.wrapper}>
+      {/* Main toolbar row */}
+      <div style={styles.mainRow}>
+        <div style={styles.toolGroups}>
+          <div style={styles.toolGroup}>
+            <button
+              type="button"
+              onClick={() => onToolChange('select')}
+              style={{ ...styles.toolBtn, ...(selectedTool === 'select' ? styles.toolBtnActive : {}) }}
+              title="Select"
+            >
+              {ToolIcons.select}
+            </button>
+            <button
+              type="button"
+              onClick={() => onToolChange('hand')}
+              style={{ ...styles.toolBtn, ...(selectedTool === 'hand' ? styles.toolBtnActive : {}) }}
+              title="Hand"
+            >
+              {ToolIcons.hand}
+            </button>
           </div>
-        ))}
-        <div style={styles.divider} />
-        <div style={styles.toolGroup}>
-          <button
-            type="button"
-            style={{ ...styles.toolBtn, ...(canUndo ? {} : styles.toolBtnDisabled) }}
-            onClick={onUndo}
-            disabled={!canUndo}
-            title="Undo (⌘Z)"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 14 4 9l5-5" />
-              <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
-            </svg>
-          </button>
-          <button
-            type="button"
-            style={{ ...styles.toolBtn, ...(canRedo ? {} : styles.toolBtnDisabled) }}
-            onClick={onRedo}
-            disabled={!canRedo}
-            title="Redo (⌘⇧Z)"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="m15 14 5-5-5-5" />
-              <path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13" />
-            </svg>
-          </button>
+          <div style={styles.divider} />
+          <div style={{ position: 'relative' }}>
+            <button
+              ref={insertBtnRef}
+              type="button"
+              style={{
+                ...styles.toolBtn,
+                ...(INSERT_TOOLS.includes(selectedTool) || selectedTool === 'sticker' ? styles.toolBtnActive : {}),
+              }}
+              onClick={() => setInsertOpen((o) => !o)}
+              title={insertLabel}
+            >
+              {selectedTool === 'sticker' ? (
+                <span style={{ fontSize: 18, lineHeight: 1 }}>{insertIcon}</span>
+              ) : (
+                insertIcon
+              )}
+              <span style={{ marginLeft: 4, fontSize: 11 }}>{insertLabel}</span>
+            </button>
+            {insertOpen && (
+              <div ref={insertRef} style={styles.insertMenu}>
+                <div style={styles.insertSection}>
+                  <div style={styles.insertHeader}>Shapes</div>
+                  <div style={styles.insertGrid}>
+                    {(['rect', 'circle', 'triangle', 'line'] as const).map((id) => (
+                      <button
+                        key={id}
+                        type="button"
+                        style={{
+                          ...styles.insertItem,
+                          ...(selectedTool === id ? styles.insertItemActive : {}),
+                        }}
+                        title={TOOLS.find((t) => t.id === id)?.label ?? id}
+                        onClick={() => selectAndClose(id)}
+                      >
+                        {ToolIcons[id]}
+                        <span style={styles.insertLabel}>{TOOLS.find((t) => t.id === id)?.label ?? id}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div style={styles.insertSection}>
+                  <div style={styles.insertHeader}>Text</div>
+                  <div style={styles.insertGrid}>
+                    <button
+                      type="button"
+                      style={{
+                        ...styles.insertItem,
+                        ...(selectedTool === 'text' ? styles.insertItemActive : {}),
+                      }}
+                      title="Text"
+                      onClick={() => selectAndClose('text')}
+                    >
+                      {ToolIcons.text}
+                      <span style={styles.insertLabel}>Text</span>
+                    </button>
+                    <button
+                      type="button"
+                      style={{
+                        ...styles.insertItem,
+                        ...(selectedTool === 'sticky' ? styles.insertItemActive : {}),
+                      }}
+                      title="Sticky note"
+                      onClick={() => selectAndClose('sticky')}
+                    >
+                      {ToolIcons.sticky}
+                      <span style={styles.insertLabel}>Sticky note</span>
+                    </button>
+                  </div>
+                </div>
+                <div style={styles.insertSection}>
+                  <div style={styles.insertHeader}>Pirate Plunder</div>
+                  <div style={{ ...styles.insertGrid, gridTemplateColumns: 'repeat(3, 1fr)' }}>
+                    {STICKER_KINDS.map((kind) => {
+                      const def = STICKER_DEFS[kind]
+                      return (
+                        <button
+                          key={kind}
+                          type="button"
+                          style={{
+                            ...styles.insertItem,
+                            ...(selectedStickerKind === kind && selectedTool === 'sticker' ? styles.insertItemActive : {}),
+                          }}
+                          title={def.label}
+                          onClick={() => selectAndClose('sticker', kind)}
+                        >
+                          <span style={styles.stickerIcon}>{def.icon}</span>
+                          <span style={styles.insertLabel}>{def.label}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+          <div style={styles.divider} />
+          <div style={styles.toolGroup}>
+            <button
+              type="button"
+              style={{ ...styles.toolBtn, ...(canUndo ? {} : styles.toolBtnDisabled) }}
+              onClick={onUndo}
+              disabled={!canUndo}
+              title="Undo (⌘Z)"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 14 4 9l5-5" />
+                <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              style={{ ...styles.toolBtn, ...(canRedo ? {} : styles.toolBtnDisabled) }}
+              onClick={onRedo}
+              disabled={!canRedo}
+              title="Redo (⌘⇧Z)"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m15 14 5-5-5-5" />
+                <path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13" />
+              </svg>
+            </button>
+          </div>
         </div>
-        <div style={styles.divider} />
-        {/* Pirate Plunder dropdown */}
-        <div style={{ position: 'relative' }}>
+        <div style={styles.right}>
           <button
-            ref={plunderBtnRef}
             type="button"
             style={{
               ...styles.toolBtn,
-              fontSize: 16,
-              ...(selectedTool === 'sticker' ? styles.toolBtnActive : {}),
+              fontSize: 14,
+              opacity: showMapBorder ? 1 : 0.4,
+              border: showMapBorder ? '1px solid #e5e7eb' : 'none',
             }}
-            onClick={() => setPlunderOpen((o) => !o)}
-            title="Pirate Plunder stickers"
+            onClick={onToggleMapBorder}
+            title={showMapBorder ? 'Hide map border' : 'Show map border'}
           >
-            🏴‍☠️
+            🗺️
           </button>
-          {plunderOpen && (
-            <div ref={plunderRef} style={styles.plunderMenu}>
-              <div style={styles.plunderHeader}>Pirate Plunder</div>
-              <div style={styles.plunderGrid}>
-                {STICKER_KINDS.map((kind) => {
-                  const def = STICKER_DEFS[kind]
-                  return (
+          <div style={styles.divider} />
+          <div style={styles.zoomControls}>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={zoomToSliderValue(zoom)}
+              onChange={(e) => onZoomSet?.(sliderValueToZoom(Number(e.target.value)))}
+              style={styles.zoomSlider}
+              title="Zoom"
+              aria-label="Zoom level"
+            />
+            <div style={styles.zoomWrap}>
+              <button
+                ref={zoomButtonRef}
+                type="button"
+                style={styles.zoomBtn}
+                onClick={() => setZoomOpen((o) => !o)}
+                title="Zoom"
+              >
+                {zoomToLabel(zoom)}
+              </button>
+              {zoomOpen && (
+                <div ref={menuRef} style={styles.zoomMenu}>
+                  {ZOOM_PRESETS.map((z) => (
                     <button
-                      key={kind}
+                      key={z}
                       type="button"
-                      style={{
-                        ...styles.plunderItem,
-                        ...(selectedStickerKind === kind && selectedTool === 'sticker'
-                          ? styles.plunderItemActive
-                          : {}),
-                      }}
-                      title={def.label}
+                      style={styles.zoomItem}
                       onClick={() => {
-                        onStickerKindChange?.(kind)
-                        onToolChange('sticker')
-                        setPlunderOpen(false)
+                        onZoomSet?.(z)
+                        setZoomOpen(false)
                       }}
                     >
-                      <span style={styles.plunderIcon}>{def.icon}</span>
-                      <span style={styles.plunderLabel}>{def.label}</span>
+                      {zoomToLabel(z)}
                     </button>
-                  )
-                })}
-              </div>
+                  ))}
+                  {onZoomToFit && (
+                    <button
+                      type="button"
+                      style={styles.zoomItem}
+                      onClick={() => {
+                        onZoomToFit()
+                        setZoomOpen(false)
+                      }}
+                    >
+                      Fit
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
       </div>
 
-      <div style={styles.right}>
-        {selectionStroke != null && canvasRef && (
-          <>
-            {!selectionStroke.isTextOnly && selectionStroke.strokeWidth > 0 && (
+      {/* Contextual bar (selection controls) */}
+      {selectionStroke != null && canvasRef && (
+        <div style={styles.contextualRow}>
+          <div style={styles.contextualLeft}>
+            {showStrokeControls && (
               <>
-                <StrokeControl
-                  strokeWidth={selectionStroke.strokeWidth}
-                  canvasRef={canvasRef}
-                />
+                <StrokeControl strokeWidth={selectionStroke.strokeWidth} canvasRef={canvasRef} />
                 {selectionStroke.strokeColor != null && (
-                  <StrokeColorControl
-                    strokeColor={selectionStroke.strokeColor}
-                    canvasRef={canvasRef}
-                  />
+                  <StrokeColorControl strokeColor={selectionStroke.strokeColor} canvasRef={canvasRef} />
                 )}
               </>
             )}
             {selectionStroke.fontFamily != null && (
-              <FontControl
-                fontFamily={selectionStroke.fontFamily}
-                canvasRef={canvasRef}
-              />
+              <FontControl fontFamily={selectionStroke.fontFamily} canvasRef={canvasRef} />
             )}
             {selectionStroke.fill != null && (
-              <FillControl
-                fill={selectionStroke.fill}
-                canvasRef={canvasRef}
-              />
+              <FillControl fill={selectionStroke.fill} canvasRef={canvasRef} />
             )}
             {(selectionStroke.canGroup || selectionStroke.canUngroup) && (
               <div style={styles.layerGroup}>
@@ -332,131 +473,55 @@ export function WorkspaceToolbar({
                 )}
               </div>
             )}
-            <div style={styles.layerGroup}>
+            <div style={{ position: 'relative' }}>
               <button
+                ref={layersBtnRef}
                 type="button"
-                style={styles.layerBtn}
-                onClick={() => canvasRef.current?.bringToFront()}
-                title="Bring to front"
+                style={styles.toolBtn}
+                onClick={() => setLayersOpen((o) => !o)}
+                title="Layers"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M4 14h6v6M4 10h10v4M4 6h14v4M4 4h18v2" />
                 </svg>
+                <span style={{ marginLeft: 4, fontSize: 11 }}>Layers</span>
               </button>
-              <button
-                type="button"
-                style={styles.layerBtn}
-                onClick={() => canvasRef.current?.bringForward()}
-                title="Bring forward"
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 19V5M5 12l7-7 7 7" />
-                </svg>
-              </button>
-              <button
-                type="button"
-                style={styles.layerBtn}
-                onClick={() => canvasRef.current?.sendBackward()}
-                title="Send backward"
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 5v14M19 12l-7 7-7-7" />
-                </svg>
-              </button>
-              <button
-                type="button"
-                style={styles.layerBtn}
-                onClick={() => canvasRef.current?.sendToBack()}
-                title="Send to back"
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M20 10H10v10M20 6H6v4M20 4H4v2" />
-                </svg>
-              </button>
-            </div>
-          </>
-        )}
-        <button
-          type="button"
-          style={{
-            ...styles.toolBtn,
-            fontSize: 14,
-            opacity: showMapBorder ? 1 : 0.4,
-            border: showMapBorder ? '1px solid #e5e7eb' : 'none',
-          }}
-          onClick={onToggleMapBorder}
-          title={showMapBorder ? 'Hide map border' : 'Show map border'}
-        >
-          🗺️
-        </button>
-        <div style={styles.divider} />
-        <div style={styles.zoomControls}>
-          <input
-            type="range"
-            min={0}
-            max={100}
-            value={zoomToSliderValue(zoom)}
-            onChange={(e) => onZoomSet?.(sliderValueToZoom(Number(e.target.value)))}
-            style={styles.zoomSlider}
-            title="Zoom"
-            aria-label="Zoom level"
-          />
-          <div style={styles.zoomWrap}>
-          <button
-            ref={zoomButtonRef}
-            type="button"
-            style={styles.zoomBtn}
-            onClick={() => setZoomOpen((o) => !o)}
-            title="Zoom"
-          >
-            {zoomToLabel(zoom)}
-          </button>
-          {zoomOpen && (
-            <div ref={menuRef} style={styles.zoomMenu}>
-              {ZOOM_PRESETS.map((z) => (
-                <button
-                  key={z}
-                  type="button"
-                  style={styles.zoomItem}
-                  onClick={() => {
-                    onZoomSet?.(z)
-                    setZoomOpen(false)
-                  }}
-                >
-                  {zoomToLabel(z)}
-                </button>
-              ))}
-              {onZoomToFit && (
-                <button
-                  type="button"
-                  style={styles.zoomItem}
-                  onClick={() => {
-                    onZoomToFit()
-                    setZoomOpen(false)
-                  }}
-                >
-                  Fit
-                </button>
+              {layersOpen && (
+                <div ref={layersRef} style={styles.layersMenu}>
+                  <button type="button" style={styles.layersItem} onClick={() => { canvasRef.current?.bringToFront(); setLayersOpen(false) }}>
+                    Bring to front
+                  </button>
+                  <button type="button" style={styles.layersItem} onClick={() => { canvasRef.current?.bringForward(); setLayersOpen(false) }}>
+                    Bring forward
+                  </button>
+                  <button type="button" style={styles.layersItem} onClick={() => { canvasRef.current?.sendBackward(); setLayersOpen(false) }}>
+                    Send backward
+                  </button>
+                  <button type="button" style={styles.layersItem} onClick={() => { canvasRef.current?.sendToBack(); setLayersOpen(false) }}>
+                    Send to back
+                  </button>
+                </div>
               )}
             </div>
-          )}
           </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  container: {
+  wrapper: {
+    background: '#fff',
+    borderBottom: '1px solid #e8e8e8',
+    boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+  },
+  mainRow: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
     padding: '6px 12px',
-    background: '#fff',
-    borderBottom: '1px solid #e8e8e8',
-    boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
   },
   toolGroups: {
     display: 'flex',
@@ -518,7 +583,6 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     gap: 8,
-    marginLeft: 'auto',
   },
   zoomControls: {
     display: 'flex',
@@ -574,7 +638,7 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
     textAlign: 'left',
   },
-  plunderMenu: {
+  insertMenu: {
     position: 'absolute',
     top: '100%',
     left: 0,
@@ -583,25 +647,28 @@ const styles: Record<string, React.CSSProperties> = {
     border: '1px solid #e5e7eb',
     borderRadius: 10,
     boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
-    padding: '10px 8px',
-    width: 200,
+    padding: '10px 12px',
+    minWidth: 180,
+    maxWidth: 260,
     zIndex: Z_INDEX.TOOLBAR_OVERLAY,
   },
-  plunderHeader: {
+  insertSection: {
+    marginBottom: 10,
+  },
+  insertHeader: {
     fontSize: 11,
     fontWeight: 600,
     color: '#6b7280',
     textTransform: 'uppercase' as const,
     letterSpacing: '0.6px',
-    marginBottom: 8,
-    paddingLeft: 4,
+    marginBottom: 6,
   },
-  plunderGrid: {
+  insertGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(3, 1fr)',
+    gridTemplateColumns: 'repeat(4, 1fr)',
     gap: 4,
   },
-  plunderItem: {
+  insertItem: {
     display: 'flex',
     flexDirection: 'column' as const,
     alignItems: 'center',
@@ -612,18 +679,55 @@ const styles: Record<string, React.CSSProperties> = {
     background: 'transparent',
     cursor: 'pointer',
   },
-  plunderItemActive: {
+  insertItemActive: {
     background: '#f1f5f9',
     border: '1px solid #cbd5e1',
   },
-  plunderIcon: {
-    fontSize: 22,
-    lineHeight: 1,
-  },
-  plunderLabel: {
+  insertLabel: {
     fontSize: 10,
     color: '#6b7280',
     textAlign: 'center' as const,
     lineHeight: 1.2,
+  },
+  stickerIcon: {
+    fontSize: 20,
+    lineHeight: 1,
+  },
+  contextualRow: {
+    display: 'flex',
+    alignItems: 'center',
+    padding: '6px 12px',
+    background: '#fafafa',
+    borderTop: '1px solid #e5e7eb',
+    gap: 8,
+  },
+  contextualLeft: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+  },
+  layersMenu: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    marginTop: 4,
+    background: '#fff',
+    border: '1px solid #e5e7eb',
+    borderRadius: 8,
+    boxShadow: '0 4px 14px rgba(0,0,0,0.1)',
+    padding: 4,
+    minWidth: 140,
+    zIndex: Z_INDEX.TOOLBAR_OVERLAY,
+  },
+  layersItem: {
+    display: 'block',
+    width: '100%',
+    padding: '6px 12px',
+    fontSize: 13,
+    border: 'none',
+    borderRadius: 6,
+    background: 'transparent',
+    cursor: 'pointer',
+    textAlign: 'left',
   },
 }

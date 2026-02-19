@@ -1,10 +1,13 @@
 /**
  * AI Interpret — Supabase Edge Function for natural language → canvas commands.
  * Calls OpenAI Chat Completions, returns structured commands for the client to execute via aiClientApi.
- * Uses OPENAI_API_KEY secret. Caller must be signed in and a board member.
+ * Uses OPENAI_API_KEY secret. LangSmith tracing via LANGSMITH_TRACING + LANGSMITH_API_KEY.
+ * Caller must be signed in and a board member.
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import OpenAI from 'npm:openai@4'
+import { wrapOpenAI } from 'npm:langsmith/wrappers/openai'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -89,13 +92,9 @@ Deno.serve(async (req: Request) => {
       })
     }
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
+    const openai = wrapOpenAI(new OpenAI({ apiKey }))
+    const completion = await openai.chat.completions.create(
+      {
         model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
@@ -103,19 +102,16 @@ Deno.serve(async (req: Request) => {
         ],
         response_format: { type: 'json_object' },
         temperature: 0.2,
-      }),
-    })
+      },
+      {
+        langsmithExtra: {
+          metadata: { boardId, userId: user.id },
+          tags: ['ai-interpret', 'collabboard'],
+        },
+      }
+    )
 
-    if (!response.ok) {
-      const err = await response.text()
-      return new Response(
-        JSON.stringify({ error: `OpenAI API error: ${response.status} ${err}` }),
-        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    const data = (await response.json()) as { choices?: { message?: { content?: string } }[] }
-    const content = data.choices?.[0]?.message?.content
+    const content = completion.choices?.[0]?.message?.content
     if (!content) {
       return new Response(JSON.stringify({ error: 'No response from OpenAI.' }), {
         status: 502,

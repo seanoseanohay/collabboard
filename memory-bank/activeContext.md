@@ -5,7 +5,7 @@
 
 **Current state:** All planned MVP + post-MVP features complete. Touch handling ✅, Undo/Redo ✅, AI agent ✅. Revocable invite links removed from scope.
 
-**Remaining work:** MeBoard branding (docs/MeBoard_BRANDING_SPEC.md) and planned canvas features (docs/PLANNED_CANVAS_FEATURES.md) — both optional polish/stretch.
+**Remaining work:** MeBoard branding (docs/MeBoard_BRANDING_SPEC.md) and planned canvas features (docs/PLANNED_CANVAS_FEATURES.md) — both optional polish/stretch. **Viewport persistence** — TODO: persist zoom/pan per board so returning users see where they left off; optional "Reset view" / "Center canvas" control.
 
 **Inline board rename in workspace** ✅ — Click the board title (e.g. "Untitled Board") in the workspace header to edit inline. Blur or Enter saves; Escape cancels. Uses updateBoardTitle; BoardPage passes onBoardTitleChange to keep local state in sync.
 
@@ -34,6 +34,10 @@
 6. ~~**Stroke width (border thickness)**~~ ✅ — PRD §4. strokeUtils (getStrokeWidthFromObject, setStrokeWidthOnObject), StrokeControl in toolbar when selection has stroke (1/2/4/8px). Sync uses Fabric strokeWidth in payload. FabricCanvas: onSelectionChange, setActiveObjectStrokeWidth on ref.
 
 ## Recent Changes (2026-02-19)
+
+**LangSmith AI observability:**
+- ✅ **ai-interpret** Edge Function uses OpenAI SDK + `wrapOpenAI` for tracing. All LLM calls (inputs, outputs, tokens, latency, errors) visible at smith.langchain.com.
+- Secrets: `LANGSMITH_TRACING=true`, `LANGSMITH_API_KEY`. Documented in SUPABASE_SETUP.md, AI_CLIENT_API.md.
 
 **Cursor lag fix — Broadcast + CSS interpolation:**
 - ✅ **Root cause 1:** Cursor positions were going through postgres_changes → Presence API → now through Supabase **Broadcast** (same zero-DB path as object move-deltas). Channel `cursor:${boardId}` uses `channel.send({ type:'broadcast', event:'cursor' })` for positions and `channel.track({ userId, name, color })` (Presence) for join/leave only.

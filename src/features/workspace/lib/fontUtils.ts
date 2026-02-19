@@ -44,6 +44,14 @@ export function isTextOnlySelection(obj: FabricObject | null): boolean {
   return obj != null && (obj.type === 'i-text' || obj.type === 'text')
 }
 
+/** True when selection is a sticky note (rect + text group; no stroke controls). */
+export function isStickyGroup(obj: FabricObject | null): boolean {
+  if (!obj || obj.type !== 'group' || !('getObjects' in obj)) return false
+  const children = (obj as { getObjects: () => FabricObject[] }).getObjects()
+  if (children.length !== 2) return false
+  return children[0]!.type === 'rect' && (children[1]!.type === 'i-text' || children[1]!.type === 'text')
+}
+
 /** True when selection has editable text (standalone or in group). */
 export function hasEditableText(obj: FabricObject | null): boolean {
   if (!obj) return false

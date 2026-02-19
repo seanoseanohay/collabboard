@@ -1,7 +1,29 @@
 # Planned Canvas Features
 
 > Post-MVP canvas enhancements. Status: Spec only — implementation pending.
-> **Last updated:** 2026-02-18
+> **Last updated:** 2026-02-19
+
+---
+
+## 0. Viewport Persistence
+
+### Goal
+On reload or navigating back to a board, the user should return to the same zoom level and pan position where they left off — not always (0,0) at 100%.
+
+### Current Behavior
+- Fabric canvas starts with default `viewportTransform` `[1,0,0,1,0,0]` = 100% zoom, origin at top-left
+- Viewport state is never persisted; it's lost on every page load
+
+### Desired Behavior
+- **Default:** Persist viewport (zoom + pan) per board (and optionally per user) so returning users see where they left off
+- **Optional:** "Reset view" or "Center canvas" control for when user wants to explicitly reset to (0,0) at 100% or zoom-to-fit
+
+### Implementation Notes
+- **Storage:** `localStorage` keyed by `collabboard:viewport:{boardId}` (add `:${userId}` if per-user). Simple, no backend changes.
+- **Save:** Debounce (300–500ms) on pan/zoom changes; store `viewportTransform` array `[scaleX, skewY, skewX, scaleY, translateX, translateY]`
+- **Restore:** On canvas mount, read from storage; if valid, apply to Fabric canvas (`canvas.viewportTransform = vpt`) before/right after setup
+- **Reset control:** Add toolbar button or zoom-menu item; handler sets `[1,0,0,1,0,0]` or calls `zoomToFit()`
+- Effort: ~1–2 hours
 
 ---
 

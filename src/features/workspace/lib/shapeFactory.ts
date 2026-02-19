@@ -174,8 +174,8 @@ export function createShape(
         width: stickyW,
         height: stickyH,
         fill: nextStickyColor(),
-        stroke: STROKE,
-        strokeWidth: 1,
+        stroke: '',
+        strokeWidth: 0,
         originX: 'left',
         originY: 'top',
       })

@@ -105,7 +105,20 @@ supabase secrets set RESEND_FROM_EMAIL="CollabBoard <noreply@yourdomain.com>"   
 # After verifying a domain at resend.com/domains, set RESEND_FROM_EMAIL to an email on that domain.
 ```
 
-## 7. Run locally
+## 7. Deploy AI Edge Function (ai-interpret)
+
+Natural language → canvas commands via OpenAI. Requires these secrets:
+
+```bash
+supabase functions deploy ai-interpret
+supabase secrets set OPENAI_API_KEY=sk-proj-xxxx      # from platform.openai.com
+supabase secrets set LANGSMITH_TRACING=true           # enable tracing
+supabase secrets set LANGSMITH_API_KEY=lsv2_pt_xxxx   # from smith.langchain.com → Settings → API Keys
+```
+
+**Observability:** Traces appear at [smith.langchain.com](https://smith.langchain.com) (inputs, outputs, tokens, latency, errors).
+
+## 8. Run locally
 
 ```bash
 npm install

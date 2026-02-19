@@ -50,6 +50,8 @@
 5. Single atomic multi-path `.update()` (objects + metadata + checks)
 6. Return summary
 
+**Observability:** LangSmith traces all ai-interpret LLM calls (inputs, outputs, tokens, latency, errors). Set `LANGSMITH_TRACING=true` and `LANGSMITH_API_KEY` in Supabase Edge Function secrets.
+
 ## Presence / Cursors
 - **Cursor positions: Supabase Broadcast** — same low-latency WebSocket path as object move-deltas. `channel.send({ type: 'broadcast', event: 'cursor', payload: { userId, x, y, name, color, lastActive } })`. Fire-and-forget, no server-side state reconciliation.
 - **Online presence (join/leave): Supabase Presence** — `channel.track({ userId, name, color })` on same channel. Presence `leave` fires automatically on disconnect → removes peer cursor. Presence `sync`/`join` populates a stub entry (x:0, y:0, lastActive:0) so the "X others viewing" header shows all online users even before they move.

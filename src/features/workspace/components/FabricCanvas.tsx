@@ -20,6 +20,7 @@ import {
   getFontFamilyFromObject,
   setFontFamilyOnObject,
   isTextOnlySelection,
+  isStickyGroup,
   hasEditableText,
 } from '../lib/fontUtils'
 import { getFillFromObject, setFillOnObject } from '../lib/fillUtils'
@@ -45,6 +46,8 @@ export interface SelectionStrokeInfo {
   canUngroup: boolean
   /** True when selection is standalone text (no stroke/border controls). */
   isTextOnly: boolean
+  /** True when selection is a sticky note (no stroke/border controls). */
+  isStickyNote: boolean
   /** Font family when selection has text (standalone or in group). */
   fontFamily: string | null
 }
@@ -804,6 +807,7 @@ const FabricCanvasInner = (
         : false
       const canUngroup = isContainerGroup
       const isTextOnly = isTextOnlySelection(active)
+      const isStickyNote = isStickyGroup(active)
       const hasText = hasEditableText(active)
       onSelectionChangeRef.current?.({
         strokeWidth: getStrokeWidthFromObject(active) ?? 0,
@@ -812,6 +816,7 @@ const FabricCanvasInner = (
         canGroup,
         canUngroup,
         isTextOnly,
+        isStickyNote,
         fontFamily: hasText ? getFontFamilyFromObject(active) ?? 'Arial' : null,
       })
     }

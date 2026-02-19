@@ -63,7 +63,7 @@ Find objects matching optional criteria (e.g. fill = blue).
 
 **Implemented.** Users can type natural language in the workspace (e.g. "add a blue rectangle at 100, 100"). The `ai-interpret` Edge Function calls OpenAI and returns structured commands; the client executes them via aiClientApi.
 
-- **Edge Function:** `supabase/functions/ai-interpret` — requires `OPENAI_API_KEY` secret. Deploy: `supabase functions deploy ai-interpret`
+- **Edge Function:** `supabase/functions/ai-interpret` — requires `OPENAI_API_KEY`, `LANGSMITH_TRACING`, `LANGSMITH_API_KEY` secrets. Observability: traces at [smith.langchain.com](https://smith.langchain.com). Deploy: `supabase functions deploy ai-interpret`
 - **Frontend:** `AiPromptBar` in WorkspacePage; `invokeAiInterpret`, `executeAiCommands` in workspace feature
 
 ## Status

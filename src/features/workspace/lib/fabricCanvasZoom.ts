@@ -7,7 +7,7 @@
 import { Canvas, Point, type FabricObject } from 'fabric'
 
 export const MIN_ZOOM = 0.00001 // 0.001%
-export const MAX_ZOOM = 100     // 10000%
+export const MAX_ZOOM = 10      // 1000%
 export const ZOOM_STEP = 1.25
 
 export interface ZoomHandlers {
