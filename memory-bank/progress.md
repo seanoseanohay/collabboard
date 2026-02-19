@@ -78,9 +78,9 @@
 
 ### Finished-product requirements (documented 2026-02-18)
 - ~~**Connectors**~~ ✅ — Miro-style Phase 1 complete (2026-02-19): waypoints, arrowheads (none/end/both), stroke dash (solid/dashed/dotted), create-on-drop popup, floating endpoints on object delete, toolbar controls. Rotation/scale fix (2026-02-19): endpoints now re-anchor in real-time when connected objects are rotated or scaled (local + remote). Phase 2 nice-to-haves: port hover glow, double-click segment for waypoint, right-click context menu, auto-route.
-- **Frames** — Container elements to organize content areas. See §6.
-- **Duplicate** — Cmd+D or toolbar button. See §7.
-- **Copy & Paste** — Cmd+C / Cmd+V. See §8.
+- ~~**Frames**~~ ✅ — Container elements. Draw with Frame tool (+ → Containers → Frame). Objects dropped inside auto-join via `childIds`. Moving frame moves all children. Title editable. Synced to Supabase. AI templates use `createFrame` command to wrap generated objects. See activeContext.md for full architecture. Phase 2: per-frame add-row, schema-driven form slots.
+- ~~**Duplicate**~~ ✅ — Cmd+D or toolbar button. Fabric clone(); new UUIDs; +20,+20 offset; connectors floated via `floatConnectorBothEndpoints`. History compound add. 2026-02-19.
+- ~~**Copy & Paste**~~ ✅ — Cmd+C / Cmd+V. In-memory clipboard (clipboardStore.ts); serialize via toObject(['data','objects']); paste at cursor or viewport center; enlivenObjects revive; connectors floated. History compound add. 2026-02-19.
 - **Marquee mode** — Box-select (grab box) draws even when starting drag on top of large objects. Fix for current Fabric behavior. See §9.
 
 ### Planned (sync + UX polish)
@@ -89,8 +89,8 @@
 - ~~**Boards page cleanup**~~ ✅ — Done. Then redesigned as **grid of cards** (not list): ordered by last_accessed_at; user_boards.last_accessed_at migration (20260218100000); joinBoard upserts it; formatLastAccessed "Opened X ago". Grid: gridAutoRows 130, columnGap 16, rowGap 20. Alignment fixes. Kebab menu: copy link, rename, delete.
 
 ## Current Status
-**Phase:** MVP + post-MVP complete. Board list page fully featured. Viewport persistence + branding polish done (2026-02-19).
-**Next:** Canvas features (free draw, grouping, lasso), Connector Phase 2, remaining branding (hero illustration).
+**Phase:** MVP + post-MVP complete. Frames ✅ (2026-02-19). Board list page fully featured. Viewport persistence + branding polish done.
+**Next:** Canvas features (free draw, lasso), Connector Phase 2, Frame Phase 2 (form slots), remaining branding (hero illustration).
 
 ## ~~🔴 Blocking Issue: AI Agent OpenAI Key Permissions~~ ✅ RESOLVED
 OpenAI key permissions confirmed fixed. AI agent and parrot joke generation (usePirateJokes) are now unblocked.

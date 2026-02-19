@@ -149,10 +149,13 @@ Frames are container elements that organize content areas. Like Figma frames or 
 
 ---
 
-## 7. Duplicate
+## 7. Duplicate — ✅ IMPLEMENTED (2026-02-19)
 
 ### Goal
 Duplicate selected object(s) with one action. Creates a copy offset from the original.
+
+### Implementation
+- Cmd/Ctrl+D + toolbar Duplicate button in contextual row. Fabric `clone()` per object; new UUIDs; +20,+20 offset. Connectors floated via `floatConnectorBothEndpoints`. History compound add.
 
 ### Behavior
 - **Shortcut:** Cmd+D (or Ctrl+D)
@@ -167,10 +170,13 @@ Duplicate selected object(s) with one action. Creates a copy offset from the ori
 
 ---
 
-## 8. Copy & Paste
+## 8. Copy & Paste — ✅ IMPLEMENTED (2026-02-19)
 
 ### Goal
 Copy selected object(s) to clipboard; paste creates copies at cursor or center.
+
+### Implementation
+- Cmd/Ctrl+C copies to in-memory clipboard (clipboardStore.ts). Cmd/Ctrl+V pastes at cursor or viewport center. Connectors floated on paste. History compound add.
 
 ### Behavior
 - **Copy:** Cmd+C (or Ctrl+C) — serialize selection to clipboard (JSON or internal format)

@@ -168,6 +168,36 @@ export function updateConnectorEndpoints(connector: FabricObject, canvas: Canvas
 }
 
 /**
+ * Float both connector endpoints (disconnect from source/target objects).
+ * Used when duplicating or pasting connectors so the copy stands alone.
+ * Optionally offsets the float points by dx, dy (e.g. +20 for duplicate offset).
+ */
+export function floatConnectorBothEndpoints(
+  connector: FabricObject,
+  canvas: Canvas,
+  offset: { dx: number; dy: number } = { dx: 0, dy: 0 }
+): void {
+  const data = getConnectorData(connector)
+  if (!data) return
+  const source = findObjectById(canvas, data.sourceObjectId)
+  const target = findObjectById(canvas, data.targetObjectId)
+  const sourcePt = source
+    ? getPortScenePoint(source, data.sourcePort)
+    : data.sourceFloatPoint
+  const targetPt = target
+    ? getPortScenePoint(target, data.targetPort)
+    : data.targetFloatPoint
+  if (!sourcePt || !targetPt) return
+  setConnectorDataField(connector, {
+    sourceObjectId: null,
+    sourceFloatPoint: { x: sourcePt.x + offset.dx, y: sourcePt.y + offset.dy },
+    targetObjectId: null,
+    targetFloatPoint: { x: targetPt.x + offset.dx, y: targetPt.y + offset.dy },
+  })
+  updateConnectorEndpoints(connector, canvas)
+}
+
+/**
  * After a source/target object is deleted, record the float point so the connector
  * keeps its last position and doesn't lose the endpoint.
  */

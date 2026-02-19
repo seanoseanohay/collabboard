@@ -1,18 +1,19 @@
 # Active Context
 
 ## Current Focus (for next agent)
-**Frame containers implemented (2026-02-19).** Templates now create Frame objects instead of Fabric Groups — children are independent, fully editable canvas objects. Frame tool added to toolbar. Frame moves propagate delta to all child objects via boardSync.
+**Duplicate + Copy & Paste implemented (2026-02-19).** Cmd+D duplicates selected object(s) with +20 offset; connectors are floated. Cmd+C copies selection to in-memory clipboard; Cmd+V pastes at cursor (or viewport center). Toolbar buttons in contextual row.
 
-**Current state:** All new board list features working. TypeScript compiles clean, no linter errors. Migrations applied to Supabase.
+**Current state:** TypeScript compiles clean, no linter errors. Edge Function deployed. Frames sync across collaborators.
 
 **Remaining work:**
 1. ~~**Fix OpenAI key**~~ ✅
 2. ~~**`usePirateJokes` hook**~~ ✅
 3. ~~**Presence icon avatars in workspace header**~~ ✅
-4. ~~**Viewport persistence**~~ ✅ — viewportPersistence.ts (load/save), FabricCanvas restore on mount, WorkspacePage debounced save (400ms), Reset view in zoom dropdown.
-5. **Canvas features** — Object grouping, Free draw, Lasso selection. See docs/PLANNED_CANVAS_FEATURES.md.
-6. **Connector Phase 2** — Nice-to-haves: port hover glow, double-click segment for waypoint, right-click context menu (Reset route, Reverse direction), auto-route.
-7. ~~**Branding polish**~~ ✅ — NavBar + Footer on BoardListPage, WelcomeToast, EmptyCanvasX easter egg. Features/Pricing pages: TODO very much later. See docs/MeBoard_BRANDING_SPEC.md.
+4. ~~**Viewport persistence**~~ ✅
+5. ~~**Frames**~~ ✅ — See Recent Changes below.
+6. **Canvas features** — Free draw, Lasso selection. See docs/PLANNED_CANVAS_FEATURES.md.
+7. **Connector Phase 2** — port hover glow, double-click segment for waypoint, right-click context menu (Reset route, Reverse direction), auto-route.
+8. **Frame Phase 2** — "drop into frame" auto-capture works; next: per-frame add-row button, schema-driven form slots.
 
 **Parrot mascot layout pattern:**
 - `ParrotMascot` is `position: fixed, right: 20, top: 58`. Flex column, parrot on top, bubble below.
@@ -22,7 +23,49 @@
 
 **MeBoard branding** ✅ — Phase 1 + Phase 2 + Parrot mascot done. Login, nav, footer, index.html, App loading, pirate cursor icons, map border overlay + toggle, Pirate Plunder stickers, Parrot mascot. Spec: docs/MeBoard_BRANDING_SPEC.md.
 
-**Planned canvas features** — See docs/PLANNED_CANVAS_FEATURES.md: Object grouping (Group ✅, Ungroup ⚠️ bug: objects move + unselectable — being fixed), Free draw (pencil), Lasso selection, Multi-scale map vision. **Finished-product:** Connectors (Miro-style, required), Frames, Duplicate, Copy & Paste, Marquee mode (box-select when starting on large objects).
+**Planned canvas features** — See docs/PLANNED_CANVAS_FEATURES.md: Object grouping (Group ✅, Ungroup ⚠️ bug: objects move + unselectable — being fixed), Free draw (pencil), Lasso selection, Multi-scale map vision. **Finished-product:** Connectors (Miro-style, required) ✅, Frames ✅, Duplicate ✅, Copy & Paste ✅, Marquee mode.
+
+## Recent Changes (2026-02-19 — Duplicate, Copy & Paste)
+
+### Duplicate
+- **Shortcut:** Cmd/Ctrl+D. **Toolbar:** Duplicate button in contextual row (when selection exists).
+- Fabric `clone()` (async) per object; new UUIDs via `setObjectId`; +20,+20 offset. Connectors: `floatConnectorBothEndpoints` disconnects from source/target and offsets float points.
+- History: `pushCompound` with add actions per duplicated object.
+- Files: FabricCanvas.tsx (duplicateSelected imperative handle), WorkspaceToolbar.tsx (Duplicate button).
+
+### Copy & Paste
+- **Copy:** Cmd/Ctrl+C. Serializes selection via `toObject(['data','objects'])` into `clipboardStore.ts` (in-memory, session-only).
+- **Paste:** Cmd/Ctrl+V. Revives via `util.enlivenObjects`; assigns new IDs; positions at `lastScenePointRef` (cursor) or viewport center. Connectors floated.
+- Paste positions first object at paste point; others keep relative arrangement.
+- Files: clipboardStore.ts (new), FabricCanvas.tsx (copySelected, paste, lastScenePointRef), WorkspaceToolbar.tsx (Copy, Paste buttons).
+
+## Recent Changes (2026-02-19 — Frames)
+
+### Frame Architecture
+Frames are **visual containers** (Fabric Group: bg Rect + title IText) whose associated canvas objects are tracked by `data.childIds: string[]`. Unlike Fabric Group containers, children are independent canvas objects — fully selectable, moveable, and editable at all times.
+
+**Key design decisions:**
+- `data.subtype = 'frame'` discriminates from sticky (`subtype` absent) and container groups.
+- Children stored in `data.childIds` (not as Fabric Group children). Moving the frame propagates delta to children via `boardSync.ts` `object:moving` handler.
+- Frames auto-send-to-back on creation (`zIndex: 1`); `sortCanvasByZIndex` keeps them behind children.
+- Frame bg fill is always a valid hex (`#f1f5f9`) — rgba broke the color picker.
+- Preview frames during drag use `assignId: false` so `emitAdd` skips them (no spurious DB writes).
+
+### New Files
+- `src/features/workspace/lib/frameFactory.ts` — `createFrameShape(left, top, w, h, title, assignId)`. Returns Fabric Group [bg Rect, title IText].
+- `src/features/workspace/lib/frameUtils.ts` — `isFrame`, `getFrameData`, `getFrameChildIds`, `setFrameChildIds`, `setFrameTitle`.
+
+### Changes to Existing Files
+- **`types/tools.ts`** — Added `'frame'` to `ToolType` and `SHAPE_TOOLS`.
+- **`boardSync.ts`** — Imports `isFrame`, `getFrameChildIds`, `setFrameChildIds`. `getObjectsToSync` includes frame children (for delta broadcast + DB write on drop). `object:moving` propagates delta to children. `object:added` / `object:modified` call `checkAndUpdateFrameMembership` (auto-capture objects inside frame bounds). `emitAdd` / `emitModify` serialize `subtype:'frame'`, `frameTitle`, `childIds`. `applyRemote` restores frame data; skips `updateStickyTextFontSize` for frames. `mouse:down` tracks frame prev-pos for delta.
+- **`FabricCanvas.tsx`** — Frame tool drawing in mouseDown/mouseMove/mouseUp (uses `createFrameShape`). `createFrame` imperative handle. `isFrameGroup` check in `notifySelectionChange` prevents frames being misidentified as sticky notes. Frame selection shows Layers controls.
+- **`WorkspaceToolbar.tsx`** — Frame icon (▭ with title bar line). "Containers" section in insert menu. Frame in `INSERT_TOOLS` and `TOOLS` arrays.
+- **`executeAiCommands.ts`** — Tracks `trackedBounds` per created object. `createFrame` command computes bounding box from tracked bounds + padding and calls `options.createFrame(...)`. `ExecuteAiOptions` interface exported.
+- **`aiInterpretApi.ts`** — Added `{ action: 'createFrame'; title?: string }` to `AiCommand` union.
+- **`AiPromptBar.tsx`** — Accepts `createFrame` prop; passes it as `options.createFrame` to `executeAiCommands`.
+- **`WorkspacePage.tsx`** — Passes `createFrame={(params) => canvasZoomRef.current?.createFrame(params)}` to `AiPromptBar`.
+- **`fabricCanvasZOrder.ts`** — Fixed `getTargetObjects`: checks `type === 'activeselection'` (not `'getObjects' in active`) so z-order buttons work on single Group objects (stickies, frames) instead of silently no-op-ing.
+- **`supabase/functions/ai-interpret/index.ts`** — System prompt updated: all 4 templates end with `{ "action": "createFrame", "title": "..." }` instead of `groupCreated`. Re-deployed.
 
 ### What Was Fixed (2026-02-17)
 1. **Locking never enabled** — Effect ran before auth loaded; `userId`/`userName` were empty. Added `userId`/`userName` to effect deps so sync re-ran when auth ready.

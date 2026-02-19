@@ -31,6 +31,7 @@ import {
   setupDocumentSync,
   setupLockSync,
   getObjectId,
+  setObjectId,
   setObjectZIndex,
   type LockStateCallbackRef,
 } from '../lib/boardSync'
@@ -41,6 +42,7 @@ import {
   isConnector,
   getConnectorData,
   floatConnectorEndpoint,
+  floatConnectorBothEndpoints,
   updateConnectorEndpoints,
   removeWaypoint as removeConnectorWaypoint,
   setConnectorArrowMode,
@@ -57,6 +59,7 @@ import { createHistoryEventHandlers } from '../lib/fabricCanvasHistoryHandlers'
 import { createZoomHandlers, ZOOM_STEP, MIN_ZOOM, MAX_ZOOM } from '../lib/fabricCanvasZoom'
 import { normalizeScaleFlips } from '../lib/fabricCanvasScaleFlips'
 import { loadViewport } from '../lib/viewportPersistence'
+import { getClipboard, setClipboard, hasClipboard } from '../lib/clipboardStore'
 
 export interface SelectionStrokeInfo {
   strokeWidth: number
@@ -102,6 +105,10 @@ export interface FabricCanvasZoomHandle {
   panToScene: (sceneX: number, sceneY: number) => void
   captureDataUrl: () => string | null
   resetView: () => void
+  duplicateSelected: () => Promise<void>
+  copySelected: () => void
+  paste: () => Promise<void>
+  hasClipboard: () => boolean
 }
 
 interface ConnectorDropState {
@@ -175,6 +182,8 @@ const FabricCanvasInner = (
   const lockOptsRef = useRef({ userId: userId ?? '', userName: userName ?? 'Anonymous' })
   lockOptsRef.current = { userId: userId ?? '', userName: userName ?? 'Anonymous' }
   const applyLockStateCallbackRef = useRef<LockStateCallbackRef['current']>(null)
+  const lastScenePointRef = useRef<{ x: number; y: number } | null>(null)
+  const fabricImperativeRef = useRef<FabricCanvasZoomHandle | null>(null)
   // History manager + remote-change flag (shared across useEffect and useImperativeHandle via refs)
   const historyRef = useRef<HistoryManager | null>(null)
   const preModifySnapshotsRef = useRef<Map<string, Record<string, unknown>>>(new Map())
@@ -189,7 +198,8 @@ const FabricCanvasInner = (
     preModifySnapshotsRef.current.set(id, history.snapshot(obj))
   }
 
-  useImperativeHandle(ref, () => ({
+  useImperativeHandle(ref, () => {
+    const api: FabricCanvasZoomHandle = {
     setZoom: (z) => zoomApiRef.current?.setZoom(z),
     zoomToFit: () => zoomApiRef.current?.zoomToFit(),
     getActiveObject: () => canvasRef.current?.getActiveObject() ?? null,
@@ -438,7 +448,107 @@ const FabricCanvasInner = (
         ...addActions,
       ])
     },
-  }), [])
+    duplicateSelected: async () => {
+      const canvas = canvasRef.current
+      const history = historyRef.current
+      if (!canvas) return
+      const active = canvas.getActiveObject()
+      if (!active) return
+      const getObjs = (t: FabricObject): FabricObject[] => {
+        if (getObjectId(t)) return [t]
+        if ('getObjects' in t) return (t as { getObjects(): FabricObject[] }).getObjects().filter((o) => !!getObjectId(o))
+        return []
+      }
+      const objects = getObjs(active)
+      if (objects.length === 0) return
+      const DUPLICATE_OFFSET = 20
+      const addActions: Array<{ type: 'add'; objectId: string; snapshot: Record<string, unknown> }> = []
+      const clones: FabricObject[] = []
+      for (const obj of objects) {
+        const cloned = await obj.clone()
+        if (!cloned) continue
+        setObjectId(cloned, crypto.randomUUID())
+        setObjectZIndex(cloned, Date.now())
+        if (isConnector(cloned)) {
+          floatConnectorBothEndpoints(cloned, canvas, { dx: DUPLICATE_OFFSET, dy: DUPLICATE_OFFSET })
+        } else {
+          cloned.set({ left: (cloned.left ?? 0) + DUPLICATE_OFFSET, top: (cloned.top ?? 0) + DUPLICATE_OFFSET })
+        }
+        cloned.setCoords()
+        canvas.add(cloned)
+        clones.push(cloned)
+        const id = getObjectId(cloned)
+        if (id) addActions.push({ type: 'add', objectId: id, snapshot: history?.snapshot(cloned) ?? {} })
+      }
+      if (clones.length > 1) {
+        const sel = new ActiveSelection(clones, { canvas })
+        canvas.setActiveObject(sel)
+      } else if (clones.length === 1) {
+        canvas.setActiveObject(clones[0])
+      }
+      canvas.requestRenderAll()
+      if (addActions.length > 0) history?.pushCompound(addActions)
+    },
+    copySelected: () => {
+      const canvas = canvasRef.current
+      if (!canvas) return
+      const active = canvas.getActiveObject()
+      if (!active) return
+      const getObjs = (t: FabricObject): FabricObject[] => {
+        if (getObjectId(t)) return [t]
+        if ('getObjects' in t) return (t as { getObjects(): FabricObject[] }).getObjects().filter((o) => !!getObjectId(o))
+        return []
+      }
+      const objects = getObjs(active)
+      if (objects.length === 0) return
+      const serialized = objects.map((o) => o.toObject(['data', 'objects']))
+      setClipboard({ objects: serialized })
+    },
+    paste: async () => {
+      const canvas = canvasRef.current
+      const history = historyRef.current
+      const clip = getClipboard()
+      if (!canvas || !clip || clip.objects.length === 0) return
+      const pastePoint = lastScenePointRef.current ?? (() => {
+        const vpt = canvas.viewportTransform ?? [1, 0, 0, 1, 0, 0]
+        const zoom = vpt[0]
+        return { x: (width / 2 - vpt[4]) / zoom, y: (height / 2 - vpt[5]) / zoom }
+      })()
+      const revived = await util.enlivenObjects<FabricObject>(clip.objects)
+      if (revived.length === 0) return
+      const refLeft = revived[0].left ?? 0
+      const refTop = revived[0].top ?? 0
+      const dx = pastePoint.x - refLeft
+      const dy = pastePoint.y - refTop
+      const addActions: Array<{ type: 'add'; objectId: string; snapshot: Record<string, unknown> }> = []
+      const pasted: FabricObject[] = []
+      for (const obj of revived) {
+        setObjectId(obj, crypto.randomUUID())
+        setObjectZIndex(obj, Date.now())
+        if (isConnector(obj)) {
+          floatConnectorBothEndpoints(obj, canvas)
+        }
+        obj.set({ left: (obj.left ?? 0) + dx, top: (obj.top ?? 0) + dy })
+        obj.setCoords()
+        canvas.add(obj)
+        pasted.push(obj)
+        const id = getObjectId(obj)
+        if (id) addActions.push({ type: 'add', objectId: id, snapshot: history?.snapshot(obj) ?? {} })
+      }
+      if (pasted.length > 1) {
+        const sel = new ActiveSelection(pasted, { canvas })
+        canvas.setActiveObject(sel)
+      } else if (pasted.length === 1) {
+        canvas.setActiveObject(pasted[0])
+      }
+      canvas.requestRenderAll()
+      if (addActions.length > 0) history?.pushCompound(addActions)
+    },
+    hasClipboard: () => hasClipboard(),
+    }
+    fabricImperativeRef.current = api
+    return api
+  }, [width, height])
 
   const handleConnectorDropSelect = useCallback((shapeType: ConnectorDropShapeType) => {
     const state = connectorDropMenuState
@@ -636,7 +746,10 @@ const FabricCanvasInner = (
       const tool = toolRef.current
 
       const sp = getScenePoint(opt)
-      if (sp && onPointerMoveRef.current) onPointerMoveRef.current(sp)
+      if (sp) {
+        lastScenePointRef.current = sp
+        onPointerMoveRef.current?.(sp)
+      }
 
       if (isDrawing && drawStart && previewObj) {
         const sp = getScenePoint(opt)
@@ -952,6 +1065,25 @@ const FabricCanvasInner = (
       if ((isMod && e.key === 'z' && e.shiftKey) || (e.ctrlKey && e.key === 'y')) {
         e.preventDefault()
         void history.redo()
+        return
+      }
+
+      // Cmd/Ctrl+D = Duplicate
+      if (isMod && e.key === 'd') {
+        e.preventDefault()
+        void fabricImperativeRef.current?.duplicateSelected()
+        return
+      }
+      // Cmd/Ctrl+C = Copy
+      if (isMod && e.key === 'c') {
+        e.preventDefault()
+        fabricImperativeRef.current?.copySelected()
+        return
+      }
+      // Cmd/Ctrl+V = Paste
+      if (isMod && e.key === 'v') {
+        e.preventDefault()
+        void fabricImperativeRef.current?.paste()
         return
       }
 
