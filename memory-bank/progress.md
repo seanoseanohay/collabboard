@@ -88,8 +88,8 @@
 - ~~**Boards page cleanup**~~ ✅ — Done. Then redesigned as **grid of cards** (not list): ordered by last_accessed_at; user_boards.last_accessed_at migration (20260218100000); joinBoard upserts it; formatLastAccessed "Opened X ago". Grid: gridAutoRows 130, columnGap 16, rowGap 20. Alignment fixes. Kebab menu: copy link, rename, delete.
 
 ## Current Status
-**Phase:** MVP + post-MVP complete. MeBoard branding mostly done (parrot mascot added 2026-02-19).
-**Next:** usePirateJokes hook (AI-generated parrot jokes), viewport persistence, canvas features (free draw, grouping, lasso), remaining branding polish.
+**Phase:** MVP + post-MVP complete. Board list page fully featured (search, sort, tabs, thumbnails, member management). Drawing tools fixed.
+**Next:** Viewport persistence, canvas features (free draw, grouping, lasso), remaining branding polish, Connector Phase 2.
 
 ## ~~🔴 Blocking Issue: AI Agent OpenAI Key Permissions~~ ✅ RESOLVED
 OpenAI key permissions confirmed fixed. AI agent and parrot joke generation (usePirateJokes) are now unblocked.
@@ -100,6 +100,24 @@ OpenAI key permissions confirmed fixed. AI agent and parrot joke generation (use
 - ~~**Zoom slider misaligned at max**~~ ✅ FIXED — `ZOOM_SLIDER_MAX` was `100` (10000%) but `MAX_ZOOM` is `10` (1000%). Slider was only ~86% right at max zoom. Fixed: `ZOOM_SLIDER_MAX = 10` in WorkspaceToolbar.tsx to match `MAX_ZOOM` in fabricCanvasZoom.ts.
 - ~~**Multi-selection move drift**~~ ✅ FIXED — See Recently Fixed below.
 - ~~**StrictMode (Task C)**~~ ✅ FIXED — Re-added conditionally: `import.meta.env.PROD ? <StrictMode>{app}</StrictMode> : app` in main.tsx. Dev skips StrictMode (avoids Realtime channel churn). Prod gets StrictMode safety checks. Previously removed because in dev, React StrictMode double-invokes effects: the document/lock/presence subscriptions run → cleanup (unsubscribe, removeChannel) → run again. That teardown/re-setup causes "channel churn": you briefly drop the Realtime subscription and re-create it, which can miss position updates from other users or cause reconnection lag when multiple people are moving objects. With StrictMode removed, effects run once in dev so no churn. **Production is unaffected** — StrictMode does not double-invoke in production builds, so re-adding `<React.StrictMode>` for prod is safe and gives StrictMode’s other benefits (e.g. detecting impure render side effects) without any churn.
+
+## Recently Added (2026-02-19 — Board list features + drawing fixes)
+
+### Board List Page
+- ✅ **Search** — real-time title filter, debounce-free (client-side on in-memory array)
+- ✅ **Sort** — Recent / Name / Count (object count). Pill-style sort group in toolbar.
+- ✅ **Tabs** — My Boards / Public / All. Public tab fetches all `is_public=true` boards. All = union deduped.
+- ✅ **Pagination** — 20 boards/page, Prev/Next, resets on filter/sort/tab change.
+- ✅ **Public boards** — `is_public` column on `boards`. RLS updated: any auth'd user can read/write public boards. `updateBoardVisibility` RPC enforces owner-only. Toggle in kebab + Share modal (owner only).
+- ✅ **Object count on cards** — `get_user_boards_with_counts` RPC joins documents; count shown on card.
+- ✅ **Kebab ownership gate** — Rename, Make public/private, Delete only for `board.ownerId === userId`.
+- ✅ **Board thumbnails** — `thumbnail_url` on boards. `board-thumbnails` Storage bucket (public). Captured in `handleBack` (not unmount) via `FabricCanvasZoomHandle.captureDataUrl()` (zoomToFit → toDataURL JPEG 0.7 × 0.5). Resized to 400×280 via offscreen canvas. Uploaded via Supabase Storage; URL saved to boards table. 130px image zone on cards.
+- ✅ **Member management in Share modal** — `profiles` table + backfill migration. `get_board_members` + `remove_board_member` RPCs. Member list with Owner badge; owner can remove members.
+- ✅ **RLS fix: boards_select** — added `OR auth.uid() = owner_id` so INSERT+RETURNING doesn't 403 before board_members row exists.
+- ✅ **Storage policies** — authenticated INSERT/UPDATE + public SELECT on `board-thumbnails` bucket.
+
+### Drawing Tool Fix
+- ✅ **Universal handle detection** — All drawing tools (sticker, text, sticky, shapes) use same rule: `_currentTransform?.corner` set → resize/rotate; otherwise → create new object. Previously `if (target) return` blocked drawing on top of existing objects entirely.
 
 ## Recently Added (2026-02-19)
 - ✅ **Presence icon avatars** — Header presence replaced: circular emoji icon buttons (up to 4, "+N" overflow), hover tooltip, click jumps to that user's cursor via `panToScene`. `getPirateIcon` exported. `panToScene` added to `FabricCanvasZoomHandle`.

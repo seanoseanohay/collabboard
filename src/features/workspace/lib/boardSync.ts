@@ -78,6 +78,7 @@ import {
   type LockEntry,
 } from '../api/locksApi'
 import { updateStickyTextFontSize, updateStickyPlaceholderVisibility } from './shapeFactory'
+import { isFrame, getFrameChildIds } from './frameUtils'
 import {
   updateConnectorEndpoints,
   getConnectorData,
@@ -222,6 +223,10 @@ export function setupDocumentSync(
               const d = obj.get('data') as { subtype?: string } | undefined
               return d?.subtype === 'container'
             }
+            const isFrameGroup = (obj: FabricObject) => {
+              const d = obj.get('data') as { subtype?: string } | undefined
+              return d?.subtype === 'frame'
+            }
             const objData = { ...clean, data: { id: objectId } }
             const [revived] = await util.enlivenObjects<FabricObject>([objData])
             if (revived) {
@@ -235,8 +240,17 @@ export function setupDocumentSync(
                 flipY: revived.flipY,
               })
               existing.setCoords()
-              // Only sync text content for sticky groups (not container groups)
-              if (!isContainerGroup(existing) && 'getObjects' in existing && 'getObjects' in revived) {
+              // Sync frame childIds/title from remote
+              if (isFrameGroup(existing)) {
+                const existingData = existing.get('data') as Record<string, unknown>
+                existing.set('data', {
+                  ...existingData,
+                  title: (clean.frameTitle as string) ?? existingData['title'],
+                  childIds: (clean.childIds as string[]) ?? existingData['childIds'] ?? [],
+                })
+              }
+              // Only sync text content for sticky groups (not container or frame groups)
+              if (!isContainerGroup(existing) && !isFrameGroup(existing) && 'getObjects' in existing && 'getObjects' in revived) {
                 const existingChildren = (existing as { getObjects: () => FabricObject[] }).getObjects()
                 const revivedChildren = (revived as { getObjects: () => FabricObject[] }).getObjects()
                 const existingTexts = existingChildren.filter((c) => c.type === 'i-text')
@@ -249,7 +263,7 @@ export function setupDocumentSync(
                 }
               }
               applyZIndex(existing, clean)
-              if (!isContainerGroup(existing)) {
+              if (!isContainerGroup(existing) && !isFrameGroup(existing)) {
                 updateStickyTextFontSize(existing)
                 updateStickyPlaceholderVisibility(existing)
               }
@@ -289,6 +303,13 @@ export function setupDocumentSync(
       }
       try {
         const subtype = (clean.subtype as string | undefined) ?? undefined
+        const frameData =
+          subtype === 'frame'
+            ? {
+                title: (clean.frameTitle as string) ?? 'Frame',
+                childIds: (clean.childIds as string[]) ?? [],
+              }
+            : {}
         const connectorData =
           subtype === 'connector'
             ? {
@@ -305,15 +326,15 @@ export function setupDocumentSync(
             : {}
         const objData = {
           ...clean,
-          data: { id: objectId, ...(subtype && { subtype }), ...connectorData },
+          data: { id: objectId, ...(subtype && { subtype }), ...frameData, ...connectorData },
         }
         const [revived] = await util.enlivenObjects<FabricObject>([objData])
         if (revived) {
-          revived.set('data', { id: objectId, ...(subtype && { subtype }), ...connectorData })
+          revived.set('data', { id: objectId, ...(subtype && { subtype }), ...frameData, ...connectorData })
           applyZIndex(revived, clean)
           if (revived.type === 'group') {
             const revivedData = revived.get('data') as { subtype?: string } | undefined
-            if (revivedData?.subtype !== 'container') {
+            if (revivedData?.subtype !== 'container' && revivedData?.subtype !== 'frame') {
               updateStickyTextFontSize(revived)
               updateStickyPlaceholderVisibility(revived)
             }
@@ -362,6 +383,11 @@ export function setupDocumentSync(
     if (obj.type === 'group' && data?.subtype === 'container') {
       payload.subtype = 'container'
     }
+    if (obj.type === 'group' && data?.subtype === 'frame') {
+      payload.subtype = 'frame'
+      payload.frameTitle = (data as unknown as { title?: string }).title ?? 'Frame'
+      payload.childIds = (data as unknown as { childIds?: string[] }).childIds ?? []
+    }
     if (data?.subtype === 'connector') {
       payload.subtype = 'connector'
       payload.sourceObjectId = data.sourceObjectId ?? null
@@ -382,9 +408,19 @@ export function setupDocumentSync(
     writeDocument(boardId, id, payload).catch(console.error)
   }
 
-  /** Resolve event target to objects to sync: single object with id, or each object in ActiveSelection (multi-selection). */
+  /** Resolve event target to objects to sync: single object with id, or each object in ActiveSelection (multi-selection).
+   * For frame objects, also includes all associated child canvas objects so their positions are written to DB on drop. */
   const getObjectsToSync = (target: FabricObject): FabricObject[] => {
-    if (getObjectId(target)) return [target]
+    if (getObjectId(target)) {
+      if (isFrame(target)) {
+        const childIds = getFrameChildIds(target)
+        const children = childIds
+          .map((id) => canvas.getObjects().find((o) => getObjectId(o) === id))
+          .filter((o): o is FabricObject => !!o)
+        return [target, ...children]
+      }
+      return [target]
+    }
     if ('getObjects' in target) {
       const children = (target as { getObjects: () => FabricObject[] }).getObjects()
       return children.filter((o) => !!getObjectId(o))
@@ -405,6 +441,11 @@ export function setupDocumentSync(
     const data = payload.data as { subtype?: string; sourceObjectId?: string | null; sourcePort?: string; targetObjectId?: string | null; targetPort?: string; hasArrow?: boolean; arrowMode?: string; strokeDash?: string; waypoints?: unknown[]; sourceFloatPoint?: unknown; targetFloatPoint?: unknown } | undefined
     if (obj.type === 'group' && data?.subtype === 'container') {
       payload.subtype = 'container'
+    }
+    if (obj.type === 'group' && data?.subtype === 'frame') {
+      payload.subtype = 'frame'
+      payload.frameTitle = (data as unknown as { title?: string }).title ?? 'Frame'
+      payload.childIds = (data as unknown as { childIds?: string[] }).childIds ?? []
     }
     if (data?.subtype === 'connector') {
       payload.subtype = 'connector'
@@ -558,19 +599,52 @@ export function setupDocumentSync(
     }
   }
 
+  // Frame move: track previous position so we can compute delta and propagate to children.
+  const framePrevPos = new Map<string, { left: number; top: number }>()
+
   canvas.on('object:added', (e) => {
     if (e.target) emitAdd(e.target)
   })
-  canvas.on('object:moving', (e) => {
-    if (e.target) {
-      const ids = new Set(
-        getObjectsToSync(e.target)
-          .map((o) => getObjectId(o))
-          .filter((id): id is string => !!id)
-      )
-      if (ids.size > 0) updateConnectorsForObjects(ids)
-      emitMoveDeltaThrottled(e.target)
+  canvas.on('mouse:down', (e) => {
+    const target = e.target as FabricObject | undefined
+    if (target && isFrame(target)) {
+      const id = getObjectId(target)
+      if (id) framePrevPos.set(id, { left: target.left, top: target.top })
     }
+  })
+  canvas.on('object:moving', (e) => {
+    if (!e.target) return
+
+    // Propagate frame movement to its child canvas objects in real-time
+    if (isFrame(e.target)) {
+      const frame = e.target
+      const frameId = getObjectId(frame)
+      if (frameId) {
+        const prev = framePrevPos.get(frameId)
+        if (prev) {
+          const dx = frame.left - prev.left
+          const dy = frame.top - prev.top
+          if (dx !== 0 || dy !== 0) {
+            getFrameChildIds(frame).forEach((childId) => {
+              const child = canvas.getObjects().find((o) => getObjectId(o) === childId)
+              if (child) {
+                child.set({ left: child.left + dx, top: child.top + dy })
+                child.setCoords()
+              }
+            })
+          }
+        }
+        framePrevPos.set(frameId, { left: frame.left, top: frame.top })
+      }
+    }
+
+    const ids = new Set(
+      getObjectsToSync(e.target)
+        .map((o) => getObjectId(o))
+        .filter((id): id is string => !!id)
+    )
+    if (ids.size > 0) updateConnectorsForObjects(ids)
+    emitMoveDeltaThrottled(e.target)
   })
   const getTransformIds = (target: FabricObject): Set<string> =>
     new Set(
@@ -626,7 +700,9 @@ export function setupDocumentSync(
     supabase.removeChannel(moveChannel)
     if (moveThrottleTimer) clearTimeout(moveThrottleTimer)
     if (deltaThrottleTimer) clearTimeout(deltaThrottleTimer)
+    framePrevPos.clear()
     canvas.off('object:added')
+    canvas.off('mouse:down')
     canvas.off('object:moving')
     canvas.off('object:scaling')
     canvas.off('object:rotating')

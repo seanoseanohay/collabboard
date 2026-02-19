@@ -14,6 +14,8 @@
 - Delta-only object patches; live drag via object:moving/scaling/rotating (80ms throttle)
 - Cursor positions via Supabase **Broadcast** (33ms throttle, same path as move-deltas — lowest latency). Online/leave tracking via Supabase **Presence** on the same channel.
 - **Critical:** documents, locks in supabase_realtime publication (Migration 00003). Cursors use Broadcast — no DB table needed. Realtime timeout 20s (config).
+- **Supabase Storage:** `board-thumbnails` bucket (public) for board preview images. Policies: authenticated INSERT/UPDATE, public SELECT.
+- **Applied migrations 20260219000000–000007:** public boards, object count RPC, profiles table, thumbnail column + RPC update, boards_select owner fix, backfill profiles, visibility owner RPC, storage policies.
 
 ### Authentication
 - **Supabase Auth** (Google + Email)

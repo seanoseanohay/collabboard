@@ -17,6 +17,7 @@ interface WorkspaceToolbarProps {
   onStickerKindChange?: (kind: StickerKind) => void
   zoom?: number
   onZoomToFit?: () => void
+  onResetView?: () => void
   onZoomSet?: (zoom: number) => void
   selectionStroke?: SelectionStrokeInfo | null
   canvasRef?: React.RefObject<FabricCanvasZoomHandle | null>
@@ -37,6 +38,7 @@ const TOOLS: { id: ToolType; label: string }[] = [
   { id: 'line', label: 'Line' },
   { id: 'text', label: 'Text' },
   { id: 'sticky', label: 'Sticky note' },
+  { id: 'frame', label: 'Frame' },
 ]
 
 const ZOOM_PRESETS = [0.00001, 0.001, 0.01, 0.25, 0.5, 1, 2, 4, 10, 100]
@@ -108,6 +110,12 @@ const ToolIcons: Record<ToolType, React.ReactNode> = {
       <path d="M14 2v4a2 2 0 0 0 2 2h4" />
     </svg>
   ),
+  frame: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="2" width="20" height="20" rx="2" />
+      <line x1="2" y1="7" x2="22" y2="7" />
+    </svg>
+  ),
   sticker: (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M12 3C7 3 3 7 3 12s4 9 9 9h6a3 3 0 0 0 3-3v-6c0-5-4-9-9-9z" />
@@ -116,7 +124,7 @@ const ToolIcons: Record<ToolType, React.ReactNode> = {
   ),
 }
 
-const INSERT_TOOLS: ToolType[] = ['rect', 'circle', 'triangle', 'line', 'text', 'sticky']
+const INSERT_TOOLS: ToolType[] = ['rect', 'circle', 'triangle', 'line', 'text', 'sticky', 'frame']
 
 export function WorkspaceToolbar({
   selectedTool,
@@ -125,6 +133,7 @@ export function WorkspaceToolbar({
   onStickerKindChange,
   zoom = 1,
   onZoomToFit,
+  onResetView,
   onZoomSet,
   selectionStroke,
   canvasRef,
@@ -411,6 +420,18 @@ export function WorkspaceToolbar({
                       }}
                     >
                       Fit
+                    </button>
+                  )}
+                  {onResetView && (
+                    <button
+                      type="button"
+                      style={styles.zoomItem}
+                      onClick={() => {
+                        onResetView()
+                        setZoomOpen(false)
+                      }}
+                    >
+                      Reset view
                     </button>
                   )}
                 </div>

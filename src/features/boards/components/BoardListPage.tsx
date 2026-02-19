@@ -13,7 +13,10 @@ import {
 } from '@/features/boards/api/boardsApi'
 import { parseBoardIdFromShareInput, getShareUrl } from '@/shared/lib/shareLinks'
 import type { BoardMeta } from '@/features/boards/api/boardsApi'
+import { NavBar } from '@/shared/components/NavBar'
+import { Footer } from '@/shared/components/Footer'
 import { ParrotMascot } from './ParrotMascot'
+import { WelcomeToast } from './WelcomeToast'
 import { usePirateJokes } from '../hooks/usePirateJokes'
 
 const WELCOME_MESSAGE =
@@ -209,17 +212,12 @@ export function BoardListPage() {
 
   return (
     <div style={styles.container}>
+      <NavBar isAuthenticated={!!user} onSignOut={() => signOutUser()} />
+      <WelcomeToast />
       <header style={styles.header}>
         <h1 style={styles.title}>⚓ MeBoard</h1>
         <div style={styles.userRow}>
           <span style={styles.email}>{user?.email ?? 'Signed in'}</span>
-          <button
-            type="button"
-            onClick={() => signOutUser()}
-            style={styles.headerBtn}
-          >
-            Sign out
-          </button>
         </div>
       </header>
       <main style={styles.main}>
@@ -513,6 +511,7 @@ export function BoardListPage() {
           onNewMessage={() => setParrotMsg(pickJoke())}
         />
       )}
+      <Footer />
     </div>
   )
 }
@@ -533,6 +532,9 @@ const styles: Record<string, React.CSSProperties> = {
   container: {
     minHeight: '100vh',
     background: '#f9fafb',
+    display: 'flex',
+    flexDirection: 'column',
+    paddingTop: 56,
   },
   header: {
     display: 'flex',
@@ -572,9 +574,11 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
   },
   main: {
+    flex: 1,
     padding: '24px 24px 24px',
     maxWidth: 1200,
     margin: '0 auto',
+    width: '100%',
   },
   tabBar: {
     display: 'flex',

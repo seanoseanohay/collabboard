@@ -23,10 +23,12 @@ const SELECTION_EXAMPLES = [
 interface AiPromptBarProps {
   boardId: string
   getSelectedObjectIds?: () => string[]
+  createFrame?: (params: { title: string; childIds: string[]; left: number; top: number; width: number; height: number }) => void
+  /** @deprecated Use createFrame instead. Kept for backward compatibility. */
   groupObjectIds?: (ids: string[]) => Promise<void>
 }
 
-export function AiPromptBar({ boardId, getSelectedObjectIds, groupObjectIds }: AiPromptBarProps) {
+export function AiPromptBar({ boardId, getSelectedObjectIds, createFrame, groupObjectIds }: AiPromptBarProps) {
   const [open, setOpen] = useState(false)
   const [prompt, setPrompt] = useState('')
   const [loading, setLoading] = useState(false)
@@ -40,15 +42,16 @@ export function AiPromptBar({ boardId, getSelectedObjectIds, groupObjectIds }: A
       try {
         const selectedObjectIds = getSelectedObjectIds?.() ?? []
         const { commands } = await invokeAiInterpret(boardId, text, { selectedObjectIds })
-        const result = await executeAiCommands(boardId, commands)
+        const result = await executeAiCommands(boardId, commands, {
+          createFrame: createFrame ?? undefined,
+        })
         if (!result.ok) {
           setError(result.error ?? 'Failed to execute')
         } else {
           setPrompt('')
           setOpen(false)
-          // Group after closing the modal so the canvas is free to process the objects.
-          // shouldGroup is set when the AI emits groupCreated (all template commands do this).
-          if (result.shouldGroup && result.createdIds.length >= 2 && groupObjectIds) {
+          // Legacy fallback: groupCreated without createFrame
+          if (result.shouldGroup && result.createdIds.length >= 2 && groupObjectIds && !createFrame) {
             void groupObjectIds(result.createdIds)
           }
         }
@@ -58,7 +61,7 @@ export function AiPromptBar({ boardId, getSelectedObjectIds, groupObjectIds }: A
         setLoading(false)
       }
     },
-    [boardId, loading]
+    [boardId, loading, createFrame, groupObjectIds]
   )
 
   const handleExampleClick = useCallback(

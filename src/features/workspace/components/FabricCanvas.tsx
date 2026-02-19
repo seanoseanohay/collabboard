@@ -10,6 +10,8 @@ function isEditableText(obj: unknown): obj is { enterEditing: () => void } {
 import type { ToolType } from '../types/tools'
 import { isShapeTool } from '../types/tools'
 import { createShape } from '../lib/shapeFactory'
+import { createFrameShape } from '../lib/frameFactory'
+import { setFrameChildIds } from '../lib/frameUtils'
 import {
   getStrokeWidthFromObject,
   setStrokeWidthOnObject,
@@ -54,6 +56,7 @@ import { drawCanvasGrid } from '../lib/drawCanvasGrid'
 import { createHistoryEventHandlers } from '../lib/fabricCanvasHistoryHandlers'
 import { createZoomHandlers, ZOOM_STEP, MIN_ZOOM, MAX_ZOOM } from '../lib/fabricCanvasZoom'
 import { normalizeScaleFlips } from '../lib/fabricCanvasScaleFlips'
+import { loadViewport } from '../lib/viewportPersistence'
 
 export interface SelectionStrokeInfo {
   strokeWidth: number
@@ -95,8 +98,10 @@ export interface FabricCanvasZoomHandle {
   ungroupSelected: () => void
   getSelectedObjectIds: () => string[]
   groupObjectIds: (ids: string[]) => Promise<void>
+  createFrame: (params: { title: string; childIds: string[]; left: number; top: number; width: number; height: number }) => void
   panToScene: (sceneX: number, sceneY: number) => void
   captureDataUrl: () => string | null
+  resetView: () => void
 }
 
 interface ConnectorDropState {
@@ -120,6 +125,7 @@ interface FabricCanvasProps {
   onViewportChange?: (vpt: number[]) => void
   onSelectionChange?: (info: SelectionStrokeInfo | null) => void
   onHistoryChange?: (canUndo: boolean, canRedo: boolean) => void
+  onObjectCountChange?: (count: number) => void
 }
 
 /**
@@ -144,6 +150,7 @@ const FabricCanvasInner = (
     onViewportChange,
     onSelectionChange,
     onHistoryChange,
+    onObjectCountChange,
   }: FabricCanvasProps,
   ref: React.Ref<FabricCanvasZoomHandle>
 ) => {
@@ -163,6 +170,8 @@ const FabricCanvasInner = (
   onSelectionChangeRef.current = onSelectionChange
   const onHistoryChangeRef = useRef(onHistoryChange)
   onHistoryChangeRef.current = onHistoryChange
+  const onObjectCountChangeRef = useRef(onObjectCountChange)
+  onObjectCountChangeRef.current = onObjectCountChange
   const lockOptsRef = useRef({ userId: userId ?? '', userName: userName ?? 'Anonymous' })
   lockOptsRef.current = { userId: userId ?? '', userName: userName ?? 'Anonymous' }
   const applyLockStateCallbackRef = useRef<LockStateCallbackRef['current']>(null)
@@ -338,6 +347,19 @@ const FabricCanvasInner = (
         { type: 'add', objectId: getObjectId(group)!, snapshot: history.snapshot(group) },
       ])
     },
+    createFrame: ({ title, childIds, left, top, width, height }) => {
+      const canvas = canvasRef.current
+      if (!canvas) return
+      const frame = createFrameShape(left, top, width, height, title)
+      setFrameChildIds(frame, childIds)
+      // Give frames a z-index below the objects that were just created
+      setObjectZIndex(frame, Date.now() - childIds.length - 1)
+      canvas.add(frame)
+      canvas.sendObjectToBack(frame)
+      canvas.setActiveObject(frame)
+      frame.setCoords()
+      canvas.requestRenderAll()
+    },
     panToScene: (sceneX: number, sceneY: number) => {
       const canvas = canvasRef.current
       if (!canvas) return
@@ -347,6 +369,17 @@ const FabricCanvasInner = (
       vpt[5] = height / 2 - sceneY * zoom
       canvas.requestRenderAll()
       onViewportChangeRef.current?.(vpt)
+    },
+    resetView: () => {
+      const canvas = canvasRef.current
+      if (!canvas) return
+      const vpt = canvas.viewportTransform ?? [1, 0, 0, 1, 0, 0]
+      vpt[0] = 1
+      vpt[3] = 1
+      vpt[4] = 0
+      vpt[5] = 0
+      canvas.requestRenderAll()
+      onViewportChangeRef.current?.([...vpt])
     },
     captureDataUrl: (): string | null => {
       const canvas = canvasRef.current
@@ -499,6 +532,23 @@ const FabricCanvasInner = (
 
     const { applyZoom, zoomToFit, handleWheel } = createZoomHandlers(fabricCanvas, width, height, notifyViewport)
 
+    // Restore saved viewport for this board
+    if (boardId) {
+      const saved = loadViewport(boardId)
+      if (saved && saved.length === 6) {
+        fabricCanvas.viewportTransform = [saved[0], saved[1], saved[2], saved[3], saved[4], saved[5]]
+        fabricCanvas.requestRenderAll()
+        notifyViewport()
+      }
+    }
+
+    const notifyObjectCount = () => {
+      onObjectCountChangeRef.current?.(fabricCanvas.getObjects().length)
+    }
+    fabricCanvas.on('object:added', notifyObjectCount)
+    fabricCanvas.on('object:removed', notifyObjectCount)
+    notifyObjectCount()
+
     const handleMouseDown = (
       opt: {
         e: globalThis.MouseEvent | PointerEvent | TouchEvent
@@ -537,7 +587,7 @@ const FabricCanvasInner = (
         return
       }
 
-      // All shape tools including text and sticky (drag-to-draw)
+      // All shape tools including text, sticky, and frame (drag-to-draw)
       if (isShapeTool(tool) && 'button' in ev && ev.button === 0) {
         if (isOnHandle) return // Resize/rotate handle → allow transform
 
@@ -546,10 +596,12 @@ const FabricCanvasInner = (
           fabricCanvas.discardActiveObject()
           isDrawing = true
           drawStart = sp
-          const shape = createShape(tool, sp.x, sp.y, sp.x, sp.y, {
-            assignId: false,
-            zoom: fabricCanvas.getZoom(),
-          })
+          const shape = tool === 'frame'
+            ? createFrameShape(sp.x, sp.y, 0, 0)
+            : createShape(tool, sp.x, sp.y, sp.x, sp.y, {
+                assignId: false,
+                zoom: fabricCanvas.getZoom(),
+              })
           if (shape) {
             previewObj = shape
             shape.selectable = false
@@ -590,10 +642,17 @@ const FabricCanvasInner = (
         const sp = getScenePoint(opt)
         if (sp) {
           drawEnd = sp
-          const shape = createShape(tool, drawStart.x, drawStart.y, sp.x, sp.y, {
-            assignId: false,
-            zoom: fabricCanvas.getZoom(),
-          })
+          const shape = tool === 'frame'
+            ? createFrameShape(
+                Math.min(drawStart.x, sp.x),
+                Math.min(drawStart.y, sp.y),
+                Math.abs(sp.x - drawStart.x),
+                Math.abs(sp.y - drawStart.y)
+              )
+            : createShape(tool, drawStart.x, drawStart.y, sp.x, sp.y, {
+                assignId: false,
+                zoom: fabricCanvas.getZoom(),
+              })
           if (shape) {
             fabricCanvas.remove(previewObj)
             previewObj = shape
@@ -689,11 +748,19 @@ const FabricCanvasInner = (
         const h = Math.abs(end.y - drawStart.y)
         const minSize = 8
         if (w >= minSize || h >= minSize || tool === 'line') {
-          const shape = createShape(tool, drawStart.x, drawStart.y, end.x, end.y, {
-            zoom: fabricCanvas.getZoom(),
-          })
+          const shape = tool === 'frame'
+            ? createFrameShape(
+                Math.min(drawStart.x, end.x),
+                Math.min(drawStart.y, end.y),
+                w,
+                h
+              )
+            : createShape(tool, drawStart.x, drawStart.y, end.x, end.y, {
+                zoom: fabricCanvas.getZoom(),
+              })
           if (shape) {
             fabricCanvas.add(shape)
+            fabricCanvas.sendObjectToBack(shape)
             fabricCanvas.setActiveObject(shape)
             // Sticky: auto-enter edit mode so blinking cursor appears and user can type immediately
             if (tool === 'sticky') {
@@ -1069,8 +1136,9 @@ const FabricCanvasInner = (
       const isActiveSelection = active.type === 'activeselection'
       const isGroup = active.type === 'group'
       const groupData = isGroup ? (active.get('data') as { subtype?: string } | undefined) : undefined
-      const isSticky = isGroup && hasITextChild(active)
-      const isContainerGroup = isGroup && (groupData?.subtype === 'container' || (!isSticky && 'getObjects' in active && (active as unknown as { getObjects(): FabricObject[] }).getObjects().length >= 2))
+      const isFrameGroup = isGroup && groupData?.subtype === 'frame'
+      const isSticky = isGroup && !isFrameGroup && hasITextChild(active)
+      const isContainerGroup = isGroup && !isFrameGroup && (groupData?.subtype === 'container' || (!isSticky && 'getObjects' in active && (active as unknown as { getObjects(): FabricObject[] }).getObjects().length >= 2))
       const canGroup = isActiveSelection && 'getObjects' in active
         ? (active as unknown as { getObjects(): FabricObject[] }).getObjects().length >= 2
         : false
@@ -1224,6 +1292,8 @@ const FabricCanvasInner = (
       fabricCanvas.off('after:render', drawArrows)
       fabricCanvas.off('connector:draw:start' as never, handleConnectorDrawStart)
       fabricCanvas.off('object:modified', handleObjectModified)
+      fabricCanvas.off('object:added', notifyObjectCount)
+      fabricCanvas.off('object:removed', notifyObjectCount)
       fabricCanvas.off('object:added', handleObjectAdded)
       fabricCanvas.off('selection:created', handleSelectionCreated)
       fabricCanvas.off('selection:updated', handleSelectionUpdated)

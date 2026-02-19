@@ -18,6 +18,7 @@ export type AiCommand =
   | { action: 'updateObject'; objectId: string; partialProps: Record<string, unknown> }
   | { action: 'arrangeInGrid'; objectIds: string[]; cols?: number }
   | { action: 'spaceEvenly'; objectIds: string[]; direction?: 'horizontal' | 'vertical' }
+  | { action: 'createFrame'; title?: string }
   | { action: 'groupCreated' }
 
 export interface AiInterpretOptions {

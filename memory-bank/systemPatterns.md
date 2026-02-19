@@ -62,6 +62,36 @@
 - **Header presence avatars:** `WorkspacePage` shows up to 4 circular emoji icon buttons from `others`. Icon = `getPirateIcon(userId)` (exported from `CursorOverlay.tsx`, deterministic hash of userId → one of 5 pirate emoji). Hover = `title` tooltip with name. Click = `canvasZoomRef.current?.panToScene(o.x, o.y)` (centers viewport on that user's last cursor position). "+N" badge for overflow > 4. Count label ("X others") shown only on cluster hover via `presenceHovered` state. `panToScene(sceneX, sceneY)` on `FabricCanvasZoomHandle`: `vpt[4] = width/2 - sceneX*zoom`, `vpt[5] = height/2 - sceneY*zoom`.
 - `presenceApi.ts` / `usePresence.ts` — single file pair owns cursor channel lifecycle.
 
+## Public Boards
+- `boards.is_public BOOLEAN NOT NULL DEFAULT false` controls visibility.
+- **RLS rules:**
+  - Any authenticated user can SELECT public boards (no board_members row required).
+  - Any authenticated user can INSERT/UPDATE/DELETE documents on public boards.
+  - `board_members` INSERT allowed for self-join to public boards.
+  - `boards_select` policy: `board_members` OR `auth.uid() = owner_id` OR `is_public = true` — the owner clause is required so `INSERT ... RETURNING id` works before the board_members row is created.
+- **Visibility toggle:** `update_board_visibility(board_id, new_value)` RPC checks `owner_id = auth.uid()` before updating. Frontend calls this RPC (not direct table update). UI restricts toggle to owner in both kebab menu and Share modal.
+
+## Board Thumbnails
+- **Storage:** Supabase Storage bucket `board-thumbnails` (public, no signed URLs needed).
+- **Capture:** `FabricCanvasZoomHandle.captureDataUrl()` — saves/restores viewport, calls `zoomToFit`, returns `canvas.toDataURL('image/jpeg', 0.7)`. Scales down by 0.5 first for performance.
+- **Timing:** Capture in `WorkspacePage.handleBack` (canvas still mounted) and `window.beforeunload`. Do NOT capture in `useEffect` cleanup — child canvas is disposed before parent cleanup runs.
+- **Resize:** `thumbnailApi.resizeDataUrl(dataUrl, 400, 280)` — draws onto offscreen HTMLCanvasElement, returns Blob (JPEG 0.8).
+- **Upload:** `saveBoardThumbnail(boardId, blob)` — uploads to `board-thumbnails/${boardId}.jpg`, then updates `boards.thumbnail_url` with public URL.
+
+## Member Management
+- `profiles(user_id PK, display_name, email, created_at)` — populated via `handle_new_user` trigger on `auth.users` INSERT. Backfill migration applies for existing users.
+- `get_board_members(board_id UUID)` RPC — joins board_members + profiles, returns `user_id, display_name, email, is_owner, joined_at`. Owner-only accessible.
+- `remove_board_member(board_id UUID, target_user_id UUID)` RPC — owner_id check, deletes from board_members and user_boards.
+
+## Drawing Tool Interaction Pattern
+**Universal rule** for all shape-creating tools (rect, circle, triangle, line, sticker, text, sticky note):
+- `_currentTransform?.corner` is set → user is on a resize/rotate handle of the active object → pass through to Fabric (allow transform).
+- Otherwise (body of any object, non-active object, empty space) → `discardActiveObject()` + begin creating new object.
+
+Detection: `(fabricCanvas as { _currentTransform?: { corner?: string } })._currentTransform?.corner`
+
+This replaces the old `if (target) return` guard which completely blocked drawing on top of existing objects.
+
 ## Code Structure
 - Feature-sliced folder structure
 - Single Responsibility Principle (SRP)

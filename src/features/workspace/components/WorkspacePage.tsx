@@ -1,6 +1,8 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
+import { saveViewport } from '../lib/viewportPersistence'
 
 const MAX_PRESENCE_ICONS = 4
+const VIEWPORT_SAVE_DEBOUNCE_MS = 400
 import type { BoardMeta } from '@/features/boards/api/boardsApi'
 import { updateBoardTitle } from '@/features/boards/api/boardsApi'
 import { saveBoardThumbnail } from '../api/thumbnailApi'
@@ -13,6 +15,7 @@ import { CursorOverlay, getPirateIcon } from './CursorOverlay'
 import { CursorPositionReadout } from './CursorPositionReadout'
 import { GridOverlay } from './GridOverlay'
 import { MapBorderOverlay } from './MapBorderOverlay'
+import { EmptyCanvasX } from './EmptyCanvasX'
 import { usePresence } from '../hooks/usePresence'
 import type { ToolType } from '../types/tools'
 import type { StickerKind } from '../lib/pirateStickerFactory'
@@ -36,6 +39,7 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
   const [cursorPosition, setCursorPosition] = useState<{ x: number; y: number } | null>(null)
   const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false })
   const [presenceHovered, setPresenceHovered] = useState(false)
+  const [objectCount, setObjectCount] = useState(0)
   const canvasContainerRef = useRef<HTMLDivElement>(null)
   const canvasZoomRef = useRef<FabricCanvasZoomHandle>(null)
   const gridRef = useRef<HTMLDivElement>(null)
@@ -57,17 +61,34 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
   )
 
   const GRID_SIZE = 20
-  const handleViewportChange = useCallback((vpt: number[]) => {
-    setViewportTransform(vpt)
-    // Update grid directly via DOM ref — no React re-render on the hot path
-    const el = gridRef.current
-    if (el) {
-      const zoom = vpt[0] ?? 1
-      const panX = vpt[4] ?? 0
-      const panY = vpt[5] ?? 0
-      const cellPx = GRID_SIZE * zoom
-      el.style.backgroundSize = `${cellPx}px ${cellPx}px`
-      el.style.backgroundPosition = `${panX % cellPx}px ${panY % cellPx}px`
+  const saveViewportTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const handleViewportChange = useCallback(
+    (vpt: number[]) => {
+      setViewportTransform(vpt)
+      // Update grid directly via DOM ref — no React re-render on the hot path
+      const el = gridRef.current
+      if (el) {
+        const zoom = vpt[0] ?? 1
+        const panX = vpt[4] ?? 0
+        const panY = vpt[5] ?? 0
+        const cellPx = GRID_SIZE * zoom
+        el.style.backgroundSize = `${cellPx}px ${cellPx}px`
+        el.style.backgroundPosition = `${panX % cellPx}px ${panY % cellPx}px`
+      }
+      // Debounced persistence
+      if (saveViewportTimeoutRef.current) clearTimeout(saveViewportTimeoutRef.current)
+      saveViewportTimeoutRef.current = setTimeout(() => {
+        saveViewportTimeoutRef.current = null
+        saveViewport(board.id, vpt)
+      }, VIEWPORT_SAVE_DEBOUNCE_MS)
+    },
+    [board.id]
+  )
+
+  useEffect(() => {
+    return () => {
+      if (saveViewportTimeoutRef.current) clearTimeout(saveViewportTimeoutRef.current)
     }
   }, [])
 
@@ -77,6 +98,10 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
 
   const handleHistoryChange = useCallback((canUndo: boolean, canRedo: boolean) => {
     setHistoryState({ canUndo, canRedo })
+  }, [])
+
+  const handleObjectCountChange = useCallback((count: number) => {
+    setObjectCount(count)
   }, [])
 
   // Sync title when board prop changes (e.g. after joinBoard)
@@ -177,7 +202,7 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
         <AiPromptBar
           boardId={board.id}
           getSelectedObjectIds={() => canvasZoomRef.current?.getSelectedObjectIds() ?? []}
-          groupObjectIds={(ids) => canvasZoomRef.current?.groupObjectIds(ids) ?? Promise.resolve()}
+          createFrame={(params) => canvasZoomRef.current?.createFrame(params)}
         />
         <button
           type="button"
@@ -228,6 +253,7 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
         onStickerKindChange={setSelectedStickerKind}
         zoom={viewportTransform?.[0] ?? 1}
         onZoomToFit={() => canvasZoomRef.current?.zoomToFit()}
+        onResetView={() => canvasZoomRef.current?.resetView()}
         onZoomSet={(z) => canvasZoomRef.current?.setZoom(z)}
         selectionStroke={selectionStroke}
         canvasRef={canvasZoomRef}
@@ -240,6 +266,7 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
       />
       <div ref={canvasContainerRef} style={styles.canvas}>
         <GridOverlay ref={gridRef} />
+        <EmptyCanvasX objectCount={objectCount} zoom={viewportTransform?.[0] ?? 1} />
         <MapBorderOverlay zoom={viewportTransform?.[0] ?? 1} visible={showMapBorder} />
         <FabricCanvas
           ref={canvasZoomRef}
@@ -252,6 +279,7 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
           onViewportChange={handleViewportChange}
           onSelectionChange={handleSelectionChange}
           onHistoryChange={handleHistoryChange}
+          onObjectCountChange={handleObjectCountChange}
         />
         <CursorOverlay
           cursors={others}

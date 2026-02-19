@@ -1,14 +1,14 @@
 # Active Context
 
 ## Current Focus (for next agent)
-**Connectors Phase 1 implemented (2026-02-19).** Full Miro-style connector system: waypoints, arrowheads, stroke dash, create-on-drop popup, toolbar controls, floating endpoints on delete.
+**Frame containers implemented (2026-02-19).** Templates now create Frame objects instead of Fabric Groups — children are independent, fully editable canvas objects. Frame tool added to toolbar. Frame moves propagate delta to all child objects via boardSync.
 
-**Current state:** Core connector feature complete with all Phase 1 requirements + rotation/scale fix. TypeScript compiles clean, no linter errors.
+**Current state:** All new board list features working. TypeScript compiles clean, no linter errors. Migrations applied to Supabase.
 
 **Remaining work:**
-1. ~~**Fix OpenAI key**~~ ✅ — Confirmed done. AI agent + parrot joke generation now unblocked.
-2. ~~**`usePirateJokes` hook**~~ ✅ — `pirate-jokes` Edge Function (OpenAI gpt-4o-mini, temperature 0.95, 5 jokes/call); `usePirateJokes` hook caches in `localStorage` keyed by date (`meboard:jokes:YYYY-MM-DD`); stable `pickJoke()` via `useCallback` + `useRef`; FALLBACK_JOKES if fetch fails. Wired into `BoardListPage` alongside the first-time welcome message.
-3. ~~**Presence icon avatars in workspace header**~~ ✅ — `getPirateIcon` exported from `CursorOverlay.tsx`. `panToScene(sceneX, sceneY)` added to `FabricCanvasZoomHandle` (mutates `viewportTransform[4/5]` to center scene coords at current zoom). `WorkspacePage` header: up to 4 emoji icons (circular 28px buttons), "+N" overflow badge, `title` attr hover tooltip, click calls `panToScene`. Count text "X others" slides in via `presenceHovered` state on cluster hover. Old `presence`/`presenceNames` styles replaced with `presenceCluster`/`presenceCount`/`presenceIconBtn`/`presenceOverflow`.
+1. ~~**Fix OpenAI key**~~ ✅
+2. ~~**`usePirateJokes` hook**~~ ✅
+3. ~~**Presence icon avatars in workspace header**~~ ✅
 4. **Viewport persistence** — persist zoom/pan per board in localStorage; restore on canvas mount. See docs/PLANNED_CANVAS_FEATURES.md §0.
 5. **Canvas features** — Object grouping, Free draw, Lasso selection. See docs/PLANNED_CANVAS_FEATURES.md.
 6. **Connector Phase 2** — Nice-to-haves: port hover glow, double-click segment for waypoint, right-click context menu (Reset route, Reverse direction), auto-route.
@@ -43,6 +43,39 @@
 4. ~~**Shape tool vs selection**~~ ✅ — With shape tool active, pointer-down always starts drawing (discardActiveObject + draw); never selects.
 5. ~~**Board loading performance**~~ ✅ — Paginated fetch in documentsApi (50 per batch, order by object_id).
 6. ~~**Stroke width (border thickness)**~~ ✅ — PRD §4. strokeUtils (getStrokeWidthFromObject, setStrokeWidthOnObject), StrokeControl in toolbar when selection has stroke (1/2/4/8px). Sync uses Fabric strokeWidth in payload. FabricCanvas: onSelectionChange, setActiveObjectStrokeWidth on ref.
+
+## Recent Changes (2026-02-19 — Board list features + drawing fixes)
+
+### Board List Page — new features
+- **Search** — real-time client-side filter on board title. Input in toolbar top row.
+- **Sort** — Recent (default, by `last_accessed_at`), Name (alpha), Count (by object count). Pill-style toggle group.
+- **Tabs** — My Boards / Public / All. `activeTab` state; "Public" fetches `fetchPublicBoards()`; "All" unions user boards + public boards (deduped by ID).
+- **Pagination** — 20 per page, Prev/Next controls. Resets to page 0 on tab/search/sort change.
+- **Public boards** — `is_public BOOLEAN NOT NULL DEFAULT false` on `boards`. `updateBoardVisibility` calls `update_board_visibility` RPC (owner-only enforcement server-side). Toggle in kebab menu (owner only) and Share modal (owner only, shows current visibility label + description).
+- **🌐 Public badge** on board cards for public boards.
+- **Object count** on board cards ("3 objects"). Backed by `get_user_boards_with_counts` RPC (joins `documents`).
+- **Kebab menu** — Rename, Make public/private, Delete only shown to `board.ownerId === userId`. All users see Copy share link.
+- **Board thumbnails** — `thumbnail_url TEXT` on `boards`. Storage bucket `board-thumbnails` (public). On Back button click in workspace, `captureDataUrl()` → `saveBoardThumbnail()` (resize to 400×280 JPEG, upload via Storage, update boards row). Cards show 130px image zone; placeholder gradient if no thumbnail. `FabricCanvasZoomHandle.captureDataUrl()` zooms to fit then calls `canvas.toDataURL()`.
+- **Capture timing fix** — capture in `handleBack` (canvas still alive) + `beforeunload`, NOT in unmount effect (children dispose canvas before parent cleanup runs).
+
+### Member management (Share modal)
+- `profiles` table (`user_id, display_name, email`) + trigger on `auth.users` insert. Backfill migration for existing users.
+- `get_board_members(boardId)` RPC returns members with display name, email, is_owner, joined_at.
+- `remove_board_member(boardId, userId)` RPC — owner-only, deletes from board_members + user_boards.
+- Share modal now loads + shows member list with Owner badge. Board owner sees × remove buttons. Scrollable list (max 160px).
+
+### RLS fixes (migration 20260219000000–000007)
+- `boards_select`: added `OR auth.uid() = owner_id` so INSERT+RETURNING works before board_members is created. Without this, `createBoard` got 403.
+- `documents_all`, `locks_select/insert`, `presence_select/insert`: extended to allow access when `boards.is_public = true`.
+- `board_members_insert`: allows self-join to public boards.
+- Storage policies for `board-thumbnails`: authenticated INSERT/UPDATE, public SELECT.
+
+### Drawing tool fix (FabricCanvas.tsx)
+**Universal rule for all drawing tools (sticker, text, sticky, rect, circle, triangle, line, connector):**
+- Click on resize/rotate **handle** of the ACTIVE object (`_currentTransform?.corner` is set) → let Fabric handle (resize/rotate)
+- Click on **body** of any object (active or not), or empty space → always create new object
+
+Previously: `if (target) return` blocked drawing on top of any existing object. Now only handle-clicks are blocked. All tools use the same `isOnHandle` check. Sticker remains click-to-place (no drag), shapes drag-to-draw; guard logic is identical.
 
 ## Recent Changes (2026-02-19 — Presence icons + stale fix)
 

@@ -1,23 +1,32 @@
+import { Link } from 'react-router-dom'
+
 interface NavBarProps {
   showSignIn?: boolean
   onSignInClick?: () => void
+  /** When true, show Sign out instead of Log In. */
+  isAuthenticated?: boolean
+  onSignOut?: () => void
 }
 
-export function NavBar({ showSignIn = false, onSignInClick }: NavBarProps) {
+export function NavBar({ showSignIn = false, onSignInClick, isAuthenticated = false, onSignOut }: NavBarProps) {
   return (
     <nav style={styles.nav}>
-      <div style={styles.logo}>
+      <Link to="/" style={styles.logo} aria-label="MeBoard home">
         <span style={styles.logoIcon}>⚓</span>
         <span style={styles.logoText}>MeBoard</span>
-      </div>
+      </Link>
       <div style={styles.links}>
-        <a href="#features" style={styles.link}>Features</a>
-        <a href="#pricing" style={styles.link}>Pricing</a>
-        {showSignIn && (
+        <Link to="/features" style={styles.link}>Features</Link>
+        <Link to="/pricing" style={styles.link}>Pricing</Link>
+        {isAuthenticated && onSignOut ? (
+          <button onClick={onSignOut} style={styles.signOutBtn}>
+            Sign out
+          </button>
+        ) : showSignIn && onSignInClick ? (
           <button onClick={onSignInClick} style={styles.signInBtn}>
             Log In
           </button>
-        )}
+        ) : null}
       </div>
     </nav>
   )
@@ -73,6 +82,16 @@ const styles: Record<string, React.CSSProperties> = {
     border: '1px solid #d4a017',
     borderRadius: 6,
     color: '#d4a017',
+    cursor: 'pointer',
+  },
+  signOutBtn: {
+    padding: '8px 18px',
+    fontSize: 14,
+    fontWeight: 600,
+    background: 'transparent',
+    border: '1px solid rgba(255,255,255,0.4)',
+    borderRadius: 6,
+    color: 'rgba(255,255,255,0.9)',
     cursor: 'pointer',
   },
 }

@@ -38,21 +38,24 @@ LAYOUT COMMANDS — use these when the user asks to rearrange or space existing 
 
 SELECTION CONTEXT — when the user says "these", "them", "selected", etc., they mean the selected objects. Their IDs will be provided as selectedObjectIds in the request.
 
-GROUPING — always append this as the LAST command of every template:
-{ "action": "groupCreated" }
-This groups everything created in the template into a single movable unit.
+FRAME — always append this as the LAST command of every template to wrap all created objects in a movable container frame:
+{ "action": "createFrame", "title": string }
+- title: descriptive name matching the template (e.g. "Pros & Cons", "SWOT Analysis", "User Journey", "Retrospective")
+- The frame automatically wraps all objects created before it in the same command list.
+- IMPORTANT: always emit createFrame as the very last command for templates.
 
-TEMPLATES — for these requests, emit multiple createObject commands using exact layouts below, then append groupCreated:
+TEMPLATES — for these requests, emit multiple createObject commands using exact layouts below, then append createFrame:
 
 TEMPLATE: "pros and cons" / "pros cons grid" / "2 by 3 grid of sticky notes for pros and cons"
-Emit 8 sticky commands then groupCreated:
+Emit 8 sticky commands then createFrame with title:"Pros & Cons":
 - Header sticky "Pros": type:"sticky", text:"Pros", left:100, top:60, width:200, height:50, fill:#dcfce7, stroke:#16a34a, strokeWeight:2
 - Header sticky "Cons": type:"sticky", text:"Cons", left:330, top:60, width:200, height:50, fill:#fee2e2, stroke:#dc2626, strokeWeight:2
 - 3 blank sticky notes under Pros: left:100, top:130/240/350, width:200, height:90, fill:#f0fdf4
 - 3 blank sticky notes under Cons: left:330, top:130/240/350, width:200, height:90, fill:#fef2f2
+Last command: { "action": "createFrame", "title": "Pros & Cons" }
 
 TEMPLATE: "SWOT analysis" / "SWOT template" / "4 quadrant SWOT"
-Emit 8 commands then groupCreated: 4 rect backgrounds + 4 text labels.
+Emit 8 commands then createFrame: 4 rect backgrounds + 4 text labels.
 - Background rects (width:220, height:200, strokeWeight:2):
   Strengths: left:100, top:100, fill:#dcfce7, stroke:#16a34a
   Weaknesses: left:340, top:100, fill:#fee2e2, stroke:#dc2626
@@ -63,9 +66,10 @@ Emit 8 commands then groupCreated: 4 rect backgrounds + 4 text labels.
   "Weaknesses" left:350, top:110
   "Opportunities" left:110, top:330
   "Threats" left:350, top:330
+Last command: { "action": "createFrame", "title": "SWOT Analysis" }
 
 TEMPLATE: "user journey map" / "user journey with 5 stages" / "5 stage journey"
-Emit 10 commands then groupCreated: 5 header stickies + 5 body stickies.
+Emit 10 commands then createFrame: 5 header stickies + 5 body stickies.
 - 5 header sticky notes (type:"sticky", top:60, width:160, height:44, fill:#dbeafe, stroke:#2563eb, strokeWeight:2):
   text:"Awareness" left:60
   text:"Consideration" left:240
@@ -78,9 +82,10 @@ Emit 10 commands then groupCreated: 5 header stickies + 5 body stickies.
   text:"What drives conversion?" left:420
   text:"How do we keep them engaged?" left:600
   text:"How do they spread the word?" left:780
+Last command: { "action": "createFrame", "title": "User Journey" }
 
 TEMPLATE: "retrospective" / "retro board" / "what went well what didn't action items"
-Emit 6 commands then groupCreated: 3 header stickies + 3 body stickies.
+Emit 6 commands then createFrame: 3 header stickies + 3 body stickies.
 - Header sticky notes (type:"sticky", top:60, width:220, height:44, strokeWeight:2):
   text:"What Went Well" left:60, fill:#dcfce7, stroke:#16a34a
   text:"What Didn't" left:300, fill:#fee2e2, stroke:#dc2626
@@ -89,6 +94,7 @@ Emit 6 commands then groupCreated: 3 header stickies + 3 body stickies.
   text:"What went well?" left:60, fill:#f0fdf4
   text:"What could improve?" left:300, fill:#fef2f2
   text:"Action item..." left:540, fill:#eff6ff
+Last command: { "action": "createFrame", "title": "Retrospective" }
 
 Return only valid JSON. No markdown. Example: { "commands": [{ "action": "createObject", "type": "rect", "props": { "left": 150, "top": 100, "width": 80, "height": 60, "fill": "#3b82f6" } }] }`
 

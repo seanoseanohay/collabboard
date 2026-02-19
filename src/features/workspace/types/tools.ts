@@ -11,6 +11,7 @@ export type ToolType =
   | 'line'
   | 'text'
   | 'sticky'
+  | 'frame'
   | 'sticker'
 
 export const SHAPE_TOOLS: ToolType[] = [
@@ -20,6 +21,7 @@ export const SHAPE_TOOLS: ToolType[] = [
   'line',
   'text',
   'sticky',
+  'frame',
 ]
 
 export function isShapeTool(tool: ToolType): boolean {

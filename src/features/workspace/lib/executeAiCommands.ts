@@ -18,6 +18,15 @@ import type { AiCommand } from '../api/aiInterpretApi'
 
 const VALID_CREATE_TYPES: CreateObjectType[] = ['rect', 'circle', 'triangle', 'line', 'text', 'sticky']
 
+/** Bounds tracked from in-flight createObject commands (using props, no DB round-trip). */
+interface TrackedBounds {
+  objectId: string
+  left: number
+  top: number
+  width: number
+  height: number
+}
+
 function normalizeCreateType(type: string): CreateObjectType {
   const lower = type?.toLowerCase() ?? 'rect'
   if (VALID_CREATE_TYPES.includes(lower as CreateObjectType)) {
@@ -132,14 +141,24 @@ async function spaceEvenly(
   )
 }
 
+export interface ExecuteAiOptions {
+  /** Called after createFrame command: creates a frame container around all created objects. */
+  createFrame?: (params: { title: string; childIds: string[]; left: number; top: number; width: number; height: number }) => void
+}
+
+const FRAME_PADDING = 28
+const FRAME_HEADER_EXTRA = 44
+
 export async function executeAiCommands(
   boardId: string,
-  commands: AiCommand[]
+  commands: AiCommand[],
+  options?: ExecuteAiOptions
 ): Promise<{ ok: boolean; error?: string; createdIds: string[]; shouldGroup: boolean }> {
   let lastQueryResults: { objectId: string; data: Record<string, unknown> }[] = []
   const baseZ = Date.now()
   let createIndex = 0
   const createdIds: string[] = []
+  const trackedBounds: TrackedBounds[] = []
   let shouldGroup = false
 
   for (const cmd of commands) {
@@ -149,6 +168,13 @@ export async function executeAiCommands(
         const props = toCreateProps(cmd.props ?? {})
         const objectId = await createObject(boardId, type, props, { zIndex: baseZ + createIndex })
         createdIds.push(objectId)
+        trackedBounds.push({
+          objectId,
+          left: props.left,
+          top: props.top,
+          width: typeof props.width === 'number' ? props.width : 100,
+          height: typeof props.height === 'number' ? props.height : 80,
+        })
         createIndex++
       } else if (cmd.action === 'queryObjects') {
         const criteria: QueryObjectsCriteria | undefined = cmd.criteria
@@ -174,6 +200,22 @@ export async function executeAiCommands(
         const ids = Array.isArray(cmd.objectIds) ? cmd.objectIds : []
         const dir = cmd.direction === 'vertical' ? 'vertical' : 'horizontal'
         await spaceEvenly(boardId, ids, dir)
+      } else if (cmd.action === 'createFrame') {
+        if (trackedBounds.length >= 1 && options?.createFrame) {
+          const title = cmd.title ?? 'Frame'
+          const minLeft = Math.min(...trackedBounds.map((b) => b.left)) - FRAME_PADDING
+          const minTop = Math.min(...trackedBounds.map((b) => b.top)) - FRAME_PADDING - FRAME_HEADER_EXTRA
+          const maxRight = Math.max(...trackedBounds.map((b) => b.left + b.width)) + FRAME_PADDING
+          const maxBottom = Math.max(...trackedBounds.map((b) => b.top + b.height)) + FRAME_PADDING
+          options.createFrame({
+            title,
+            childIds: [...createdIds],
+            left: minLeft,
+            top: minTop,
+            width: maxRight - minLeft,
+            height: maxBottom - minTop,
+          })
+        }
       } else if (cmd.action === 'groupCreated') {
         shouldGroup = true
       }
