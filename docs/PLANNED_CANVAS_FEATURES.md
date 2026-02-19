@@ -53,7 +53,7 @@ When ungrouping a container group:
 
 ---
 
-## 2. Free Draw / Pencil Tool
+## 2. Free Draw / Pencil Tool — ✅ IMPLEMENTED (2026-02-19)
 
 ### Goal
 tldraw-style freehand drawing — not straight lines, but pen/pencil strokes.
@@ -64,10 +64,11 @@ tldraw-style freehand drawing — not straight lines, but pen/pencil strokes.
 - Each stroke → `fabric.Path` (selectable, movable, synced)
 - Brush options: color, width (reuse strokeUtils)
 
-### Implementation Notes
-- Fabric.js built-in: `canvas.isDrawingMode`, `canvas.freeDrawingBrush`
-- Same sync flow as shapes: object:added, object:modified
-- Effort: ~1–2 hours
+### Implementation (2026-02-19)
+- **Tool:** "Draw" in toolbar Insert menu → Shapes section
+- **Canvas:** `isDrawingMode` toggled when selectedTool === 'draw'
+- **Brush:** #1e293b, 2px; `handleObjectAdded` assigns id + zIndex to Path for sync
+- **Files:** FabricCanvas.tsx (isDrawingMode effect, handleObjectAdded), WorkspaceToolbar.tsx, tools.ts
 
 ---
 
@@ -191,21 +192,12 @@ Copy selected object(s) to clipboard; paste creates copies at cursor or center.
 
 ---
 
-## 9. Marquee Mode (Box-select over objects)
+## 9. Marquee Mode (Box-select over objects) — ✅ IMPLEMENTED (2026-02-19)
 
 ### Goal
 Fix: when user starts a drag on top of a large object, the selection marquee (grab box) does not appear — Fabric treats it as object selection/move instead. User wants to draw the marquee even when starting on an object.
 
-### Current Behavior
-- Fabric starts `_groupSelector` (marquee) only when pointer-down is on **empty** canvas.
-- Click on object + drag → selects/moves that object; no marquee.
-
-### Desired Behavior: Marquee Mode
-- **Option A:** Modifier key (e.g. Alt) held during drag → always start marquee, even over objects.
-- **Option B:** "Marquee select" mode — when Select tool is active and user holds a key or toggle, drag always draws marquee.
-- **Option C:** Toolbar toggle "Marquee mode" — when on, drag from anywhere (including on objects) draws selection box first; release completes selection of objects in box.
-
-### Implementation Notes
-- Fabric's `selectionKey` controls when marquee appears; may need to intercept mouse:down and force `_groupSelector` start when modifier held or mode active, bypassing normal target selection.
-- Custom handling in FabricCanvas handleMouseDown: if (marqueeMode || modifierKey) and pointer-down, discard target and initiate selection rect manually.
-- Effort: ~2–4 hours
+### Implementation (2026-02-19)
+- **Option A:** Alt held during drag (Select tool) → always start marquee, even over objects.
+- **Behavior:** mouse:down with Alt+Select → discard selection, draw transient rect; mouse:move updates rect; mouse:up finds objects via `intersectsWithRect(tl, br)`, sets ActiveSelection.
+- **Files:** FabricCanvas.tsx (handleMouseDown, handleMouseMove, handleMouseUp)

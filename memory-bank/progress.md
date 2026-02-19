@@ -67,7 +67,7 @@
   - ✅ **AI pirate jokes** — `pirate-jokes` Edge Function (OpenAI gpt-4o-mini, temperature 0.95, 5 jokes/call, no auth required). `usePirateJokes` hook: checks `localStorage` for `meboard:jokes:YYYY-MM-DD` cache first; fetches Edge Function on miss; falls back to 8 hardcoded jokes on error; exposes stable `pickJoke()`. First-time welcome message (onboarding) shown when no boards + `meboard:welcomed:${userId}` key absent; key set on show so subsequent visits get jokes.
   - **Remaining branding items** — hero illustration, Google hover state, captain cursor icon. Done: WelcomeToast, NavBar/Footer on BoardListPage, EmptyCanvasX easter egg.
   - **Features/Pricing pages** — TODO very much later. Placeholder routes for marketing; deferred.
-- **Planned canvas features** — docs/PLANNED_CANVAS_FEATURES.md: Object grouping, Free draw, Lasso selection, Multi-scale map vision. **Finished-product:** Connectors (Miro-style, required), Frames, Duplicate, Copy & Paste, Marquee mode (box-select when starting on large objects). See doc for implementation notes and effort estimates.
+- **Planned canvas features** — docs/PLANNED_CANVAS_FEATURES.md: Object grouping, Free draw, Lasso selection, Multi-scale map vision. **Finished-product:** Connectors (Miro-style, required) ✅, Frames ✅, Duplicate ✅, Copy & Paste ✅, Marquee mode (box-select when starting on large objects). See doc for implementation notes and effort estimates.
 - ~~Rotation (Task G)~~ ✅ — object:rotating hooked to emitModifyThrottled in boardSync.ts; rotation syncs live
 - ~~**Per-object stroke width (border thickness)**~~ ✅ — StrokeControl in toolbar when selection has stroke (1/2/4/8px); strokeUtils + FabricCanvas ref; sync via existing object:modified.
 - ~~Touch handling~~ ✅ — Two-finger pan + pinch zoom via native touch events on canvas element; touch-action:none on container; single-touch via Fabric pointer-event mapping.
@@ -81,7 +81,7 @@
 - ~~**Frames**~~ ✅ — Container elements. Draw with Frame tool (+ → Containers → Frame). Objects dropped inside auto-join via `childIds`. Moving frame moves all children. Title editable. Synced to Supabase. AI templates use `createFrame` command to wrap generated objects. See activeContext.md for full architecture. Phase 2: per-frame add-row, schema-driven form slots.
 - ~~**Duplicate**~~ ✅ — Cmd+D or toolbar button. Fabric clone(); new UUIDs; +20,+20 offset; connectors floated via `floatConnectorBothEndpoints`. History compound add. 2026-02-19.
 - ~~**Copy & Paste**~~ ✅ — Cmd+C / Cmd+V. In-memory clipboard (clipboardStore.ts); serialize via toObject(['data','objects']); paste at cursor or viewport center; enlivenObjects revive; connectors floated. History compound add. 2026-02-19.
-- **Marquee mode** — Box-select (grab box) draws even when starting drag on top of large objects. Fix for current Fabric behavior. See §9.
+- ~~**Marquee mode**~~ ✅ — Alt+drag (Select tool) draws selection box even when starting on large objects. FabricCanvas.tsx.
 
 ### Planned (sync + UX polish)
 - ~~**Multi-selection move sync v2**~~ ✅ — Fixed. During drag: broadcast selection-move delta (objectIds + dx, dy) on Realtime channel; other clients apply delta. On drop: write absolute positions to documents. Origin-vs-center bug resolved (see Recently Fixed).
@@ -89,15 +89,15 @@
 - ~~**Boards page cleanup**~~ ✅ — Done. Then redesigned as **grid of cards** (not list): ordered by last_accessed_at; user_boards.last_accessed_at migration (20260218100000); joinBoard upserts it; formatLastAccessed "Opened X ago". Grid: gridAutoRows 130, columnGap 16, rowGap 20. Alignment fixes. Kebab menu: copy link, rename, delete.
 
 ## Current Status
-**Phase:** MVP + post-MVP complete. Frames ✅ (2026-02-19). Board list page fully featured. Viewport persistence + branding polish done.
-**Next:** Canvas features (free draw, lasso), Connector Phase 2, Frame Phase 2 (form slots), remaining branding (hero illustration).
+**Phase:** MVP + post-MVP complete. Frames ✅ (2026-02-19). Duplicate, Copy & Paste ✅ (2026-02-19). Board list page fully featured. Viewport persistence + branding polish done.
+**Next:** Lasso selection, Connector Phase 2, Frame Phase 2 (form slots), remaining branding (hero illustration). **Recently added (2026-02-19):** Marquee mode (Alt+drag), Free draw tool.
 
 ## ~~🔴 Blocking Issue: AI Agent OpenAI Key Permissions~~ ✅ RESOLVED
 OpenAI key permissions confirmed fixed. AI agent and parrot joke generation (usePirateJokes) are now unblocked.
 
 ## Known Issues
 - **Ungroup bug (being fixed)** — When ungrouping a container group, ungrouped objects (1) move from their correct position and (2) become unselectable. Root cause under investigation (Fabric.js group→canvas coordinate conversion, and/or selectable/evented state not persisting after ungroup). Partial mitigations tried: `calcTransformMatrix()` instead of `calcOwnMatrix()`, explicit `child.set({ selectable: true, evented: true })` before adding to canvas; issue persists. See docs/PLANNED_CANVAS_FEATURES.md §1.
-- **Box-select over large objects** — When user starts a drag on top of a large object, Fabric does not draw the selection marquee (grab box); it selects/moves the object instead. Fix: Marquee mode — modifier key or toggle so drag always draws selection box. See docs/PLANNED_CANVAS_FEATURES.md §9.
+- ~~**Box-select over large objects**~~ ✅ FIXED — Marquee mode: Alt+drag draws selection box even when starting on large objects.
 - ~~**Zoom slider misaligned at max**~~ ✅ FIXED — `ZOOM_SLIDER_MAX` was `100` (10000%) but `MAX_ZOOM` is `10` (1000%). Slider was only ~86% right at max zoom. Fixed: `ZOOM_SLIDER_MAX = 10` in WorkspaceToolbar.tsx to match `MAX_ZOOM` in fabricCanvasZoom.ts.
 - ~~**Multi-selection move drift**~~ ✅ FIXED — See Recently Fixed below.
 - ~~**StrictMode (Task C)**~~ ✅ FIXED — Re-added conditionally: `import.meta.env.PROD ? <StrictMode>{app}</StrictMode> : app` in main.tsx. Dev skips StrictMode (avoids Realtime channel churn). Prod gets StrictMode safety checks. Previously removed because in dev, React StrictMode double-invokes effects: the document/lock/presence subscriptions run → cleanup (unsubscribe, removeChannel) → run again. That teardown/re-setup causes "channel churn": you briefly drop the Realtime subscription and re-create it, which can miss position updates from other users or cause reconnection lag when multiple people are moving objects. With StrictMode removed, effects run once in dev so no churn. **Production is unaffected** — StrictMode does not double-invoke in production builds, so re-adding `<React.StrictMode>` for prod is safe and gives StrictMode’s other benefits (e.g. detecting impure render side effects) without any churn.

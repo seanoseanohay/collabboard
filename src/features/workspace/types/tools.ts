@@ -13,6 +13,7 @@ export type ToolType =
   | 'sticky'
   | 'frame'
   | 'sticker'
+  | 'draw'
 
 export const SHAPE_TOOLS: ToolType[] = [
   'rect',

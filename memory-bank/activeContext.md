@@ -11,7 +11,7 @@
 3. ~~**Presence icon avatars in workspace header**~~ ✅
 4. ~~**Viewport persistence**~~ ✅
 5. ~~**Frames**~~ ✅ — See Recent Changes below.
-6. **Canvas features** — Free draw, Lasso selection. See docs/PLANNED_CANVAS_FEATURES.md.
+6. **Canvas features** — ~~Free draw~~ ✅, Lasso selection. See docs/PLANNED_CANVAS_FEATURES.md.
 7. **Connector Phase 2** — port hover glow, double-click segment for waypoint, right-click context menu (Reset route, Reverse direction), auto-route.
 8. **Frame Phase 2** — "drop into frame" auto-capture works; next: per-frame add-row button, schema-driven form slots.
 
@@ -23,7 +23,7 @@
 
 **MeBoard branding** ✅ — Phase 1 + Phase 2 + Parrot mascot done. Login, nav, footer, index.html, App loading, pirate cursor icons, map border overlay + toggle, Pirate Plunder stickers, Parrot mascot. Spec: docs/MeBoard_BRANDING_SPEC.md.
 
-**Planned canvas features** — See docs/PLANNED_CANVAS_FEATURES.md: Object grouping (Group ✅, Ungroup ⚠️ bug: objects move + unselectable — being fixed), Free draw (pencil), Lasso selection, Multi-scale map vision. **Finished-product:** Connectors (Miro-style, required) ✅, Frames ✅, Duplicate ✅, Copy & Paste ✅, Marquee mode.
+**Planned canvas features** — See docs/PLANNED_CANVAS_FEATURES.md: Object grouping (Group ✅, Ungroup ⚠️ bug), ~~Free draw~~ ✅, Lasso selection, Multi-scale map vision. **Finished-product:** Connectors ✅, Frames ✅, Duplicate ✅, Copy & Paste ✅, ~~Marquee mode~~ ✅ (Alt+drag).
 
 ## Recent Changes (2026-02-19 — Duplicate, Copy & Paste)
 

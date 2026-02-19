@@ -1,6 +1,6 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { Z_INDEX } from '@/shared/constants/zIndex'
-import { Canvas, Group, ActiveSelection, Point, Polyline, util, type FabricObject } from 'fabric'
+import { Canvas, Group, ActiveSelection, Point, Polyline, Rect, util, type FabricObject } from 'fabric'
 import { createHistoryManager, type HistoryManager } from '../lib/historyManager'
 
 /** IText has enterEditing; FabricText does not. Check by method presence. */
@@ -621,6 +621,7 @@ const FabricCanvasInner = (
     let connectorDrawState: { sourceObj: FabricObject; port: ConnectorPort } | null = null
     let connectorPreviewLine: Polyline | null = null
     let lastConnectorDrawPoint: { x: number; y: number } | null = null
+    let marqueeState: { start: { x: number; y: number }; rect: Rect } | null = null
 
     const getScenePoint = (opt: {
       scenePoint?: { x: number; y: number }
@@ -671,6 +672,29 @@ const FabricCanvasInner = (
       const target = opt.target
       const tool = toolRef.current
       objectWasTransformed = false  // Reset at start of each mouse interaction
+
+      // Marquee mode: Alt+drag to box-select even when starting on an object
+      if (tool === 'select' && 'button' in ev && ev.button === 0 && ev.altKey) {
+        const sp = getScenePoint(opt)
+        if (sp) {
+          fabricCanvas.discardActiveObject()
+          const rect = new Rect({
+            left: sp.x,
+            top: sp.y,
+            width: 0,
+            height: 0,
+            fill: 'rgba(59, 130, 246, 0.1)',
+            stroke: '#2563eb',
+            strokeWidth: 1,
+            selectable: false,
+            evented: false,
+          })
+          rect.set('data', {}) // no id → not synced
+          fabricCanvas.add(rect)
+          marqueeState = { start: sp, rect }
+          return
+        }
+      }
 
       // Universal rule for all drawing tools:
       //   - Clicking a resize/rotate handle of the ACTIVE object → let Fabric handle (resize/rotate)
@@ -751,6 +775,19 @@ const FabricCanvasInner = (
         onPointerMoveRef.current?.(sp)
       }
 
+      // Marquee: update selection rect
+      if (marqueeState && sp) {
+        const { start, rect } = marqueeState
+        const l = Math.min(start.x, sp.x)
+        const t = Math.min(start.y, sp.y)
+        const w = Math.abs(sp.x - start.x)
+        const h = Math.abs(sp.y - start.y)
+        rect.set({ left: l, top: t, width: w, height: h })
+        rect.setCoords()
+        fabricCanvas.requestRenderAll()
+        return
+      }
+
       if (isDrawing && drawStart && previewObj) {
         const sp = getScenePoint(opt)
         if (sp) {
@@ -816,6 +853,29 @@ const FabricCanvasInner = (
     }
 
     const handleMouseUp = (opt?: { target?: unknown }) => {
+      if (marqueeState) {
+        const { rect } = marqueeState
+        const l = rect.left ?? 0
+        const t = rect.top ?? 0
+        const w = rect.width ?? 0
+        const h = rect.height ?? 0
+        const tl = new Point(l, t)
+        const br = new Point(l + w, t + h)
+        fabricCanvas.remove(rect)
+        marqueeState = null
+        const objects = fabricCanvas.getObjects().filter((o) => {
+          const id = getObjectId(o)
+          if (!id) return false
+          return o.intersectsWithRect(tl, br)
+        })
+        if (objects.length > 0) {
+          const sel = new ActiveSelection(objects, { canvas: fabricCanvas })
+          fabricCanvas.setActiveObject(sel)
+          sel.setCoords()
+        }
+        fabricCanvas.requestRenderAll()
+        return
+      }
       if (connectorDrawState) {
         const target = opt?.target as FabricObject | undefined
         const sourceId = getObjectId(connectorDrawState.sourceObj)
@@ -1251,6 +1311,11 @@ const FabricCanvasInner = (
     const handleObjectAdded = (e: { target?: FabricObject }) => {
       const obj = e.target
       if (!obj) return
+      // Free-draw paths need an id for sync; assign before boardSync emitAdd
+      if (obj.type === 'path' && !getObjectId(obj)) {
+        setObjectId(obj, crypto.randomUUID())
+        setObjectZIndex(obj, Date.now())
+      }
       applyConnectorControls(obj)
       if (isEditableText(obj) || (obj.type === 'group' && getTextToEdit(obj))) {
         attachTextEditOnDblClick(obj)
@@ -1467,6 +1532,18 @@ const FabricCanvasInner = (
     }
   }, [width, height, boardId])
 
+  // Sync isDrawingMode with selected tool (free draw)
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    canvas.isDrawingMode = selectedTool === 'draw'
+    const brush = canvas.freeDrawingBrush
+    if (selectedTool === 'draw' && brush) {
+      brush.color = '#1e293b'
+      brush.width = 2
+    }
+  }, [selectedTool])
+
   // Lock sync only - torn down/recreated when auth changes, canvas+doc sync persist
   useEffect(() => {
     const canvas = canvasRef.current
@@ -1489,7 +1566,7 @@ const FabricCanvasInner = (
         className={className}
         style={{
           ...styles.container,
-          cursor: selectedTool === 'hand' ? 'grab' : undefined,
+          cursor: selectedTool === 'hand' ? 'grab' : selectedTool === 'draw' ? 'crosshair' : undefined,
         }}
       />
       {connectorDropMenuState && (
