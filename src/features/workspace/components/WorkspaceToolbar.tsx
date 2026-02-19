@@ -306,6 +306,23 @@ export function WorkspaceToolbar({
                   </div>
                 </div>
                 <div style={styles.insertSection}>
+                  <div style={styles.insertHeader}>Containers</div>
+                  <div style={styles.insertGrid}>
+                    <button
+                      type="button"
+                      style={{
+                        ...styles.insertItem,
+                        ...(selectedTool === 'frame' ? styles.insertItemActive : {}),
+                      }}
+                      title="Frame — drag to draw a container"
+                      onClick={() => selectAndClose('frame')}
+                    >
+                      {ToolIcons.frame}
+                      <span style={styles.insertLabel}>Frame</span>
+                    </button>
+                  </div>
+                </div>
+                <div style={styles.insertSection}>
                   <div style={styles.insertHeader}>Pirate Plunder</div>
                   <div style={{ ...styles.insertGrid, gridTemplateColumns: 'repeat(3, 1fr)' }}>
                     {STICKER_KINDS.map((kind) => {
