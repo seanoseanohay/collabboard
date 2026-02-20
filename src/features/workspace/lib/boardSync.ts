@@ -571,7 +571,11 @@ export function setupDocumentSync(
     deleteDocument(boardId, id).catch(console.error)
   }
 
+  const hasConnectors = () =>
+    connectorCacheRef?.current ? connectorCacheRef.current.size > 0 : canvas.getObjects().some((o) => isConnector(o))
+
   const updateConnectorsForObjects = (objectIds: Set<string>) => {
+    if (!hasConnectors()) return
     const connectors = connectorCacheRef?.current
       ? Array.from(connectorCacheRef.current)
       : canvas.getObjects().filter((obj) => isConnector(obj))
@@ -639,8 +643,8 @@ export function setupDocumentSync(
     })
   }
 
-  const emitMoveDeltaThrottled = (target: FabricObject) => {
-    const toSync = getObjectsToSync(target)
+  const emitMoveDeltaThrottledWithTargets = (target: FabricObject, precomputedTargets?: FabricObject[]) => {
+    const toSync = precomputedTargets ?? getObjectsToSync(target)
     if (toSync.length === 0) return
     const ids = toSync.map((o) => getObjectId(o)).filter((id): id is string => !!id)
     if (ids.length === 0) return
@@ -778,13 +782,14 @@ export function setupDocumentSync(
       }
     }
 
+    const syncTargets = getObjectsToSync(e.target)
     const ids = new Set(
-      getObjectsToSync(e.target)
+      syncTargets
         .map((o) => getObjectId(o))
         .filter((id): id is string => !!id)
     )
     if (ids.size > 0) updateConnectorsForObjects(ids)
-    emitMoveDeltaThrottled(e.target)
+    emitMoveDeltaThrottledWithTargets(e.target, syncTargets)
   })
   const getTransformIds = (target: FabricObject): Set<string> =>
     new Set(

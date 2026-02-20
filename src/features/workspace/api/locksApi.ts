@@ -119,12 +119,20 @@ export function subscribeToLocks(
 
   fetch()
 
+  // Debounce postgres_changes so batch lock upserts (which fire one event per row)
+  // collapse into a single fetch+applyLockState cycle instead of N cycles.
+  let fetchTimer: ReturnType<typeof setTimeout> | null = null
+  const debouncedFetch = () => {
+    if (fetchTimer) clearTimeout(fetchTimer)
+    fetchTimer = setTimeout(fetch, 250)
+  }
+
   const channel = supabase
     .channel(`locks:${boardId}`)
     .on(
       'postgres_changes',
       { event: '*', schema: 'public', table: 'locks', filter: `board_id=eq.${boardId}` },
-      () => fetch()
+      () => debouncedFetch()
     )
     .on(
       'broadcast',
@@ -160,7 +168,10 @@ export function subscribeToLocks(
     })
 
   return {
-    cleanup: () => supabase.removeChannel(channel),
+    cleanup: () => {
+      if (fetchTimer) clearTimeout(fetchTimer)
+      supabase.removeChannel(channel)
+    },
     channel,
   }
 }
@@ -181,37 +192,42 @@ export async function acquireLocksBatch(
   const now = Date.now()
 
   try {
-    // Check existing locks in chunks (Supabase .in() has URL length limits)
-    const existingMap = new Map<string, string>()
+    // Check existing locks in parallel chunks (Supabase .in() has URL length limits)
+    const selectChunks: string[][] = []
     for (let i = 0; i < objectIds.length; i += CHUNK) {
-      const chunk = objectIds.slice(i, i + CHUNK)
-      const { data } = await supabase
-        .from('locks')
-        .select('object_id, user_id')
-        .eq('board_id', boardId)
-        .in('object_id', chunk)
-      for (const r of data ?? []) existingMap.set(r.object_id, r.user_id)
+      selectChunks.push(objectIds.slice(i, i + CHUNK))
+    }
+    const selectResults = await Promise.all(
+      selectChunks.map((chunk) =>
+        supabase
+          .from('locks')
+          .select('object_id, user_id')
+          .eq('board_id', boardId)
+          .in('object_id', chunk)
+      )
+    )
+    for (const { data } of selectResults) {
+      for (const r of data ?? []) {
+        if (r.user_id !== userId) return false
+      }
     }
 
-    // Only fail if another user actually holds a lock
-    for (const [, lockUserId] of existingMap) {
-      if (lockUserId !== userId) return false
-    }
-
-    // Upsert all locks (handles both fresh inserts and stale-lock refreshes in one call)
-    for (let i = 0; i < objectIds.length; i += CHUNK) {
-      const chunk = objectIds.slice(i, i + CHUNK)
-      const rows = chunk.map((id) => ({
-        board_id: boardId,
-        object_id: id,
-        user_id: userId,
-        user_name: userName,
-        last_active: now,
-      }))
-      await supabase
-        .from('locks')
-        .upsert(rows, { onConflict: 'board_id,object_id' })
-    }
+    // Upsert all locks in parallel chunks
+    const upsertChunks: string[][] = selectChunks
+    await Promise.all(
+      upsertChunks.map((chunk) => {
+        const rows = chunk.map((id) => ({
+          board_id: boardId,
+          object_id: id,
+          user_id: userId,
+          user_name: userName,
+          last_active: now,
+        }))
+        return supabase
+          .from('locks')
+          .upsert(rows, { onConflict: 'board_id,object_id' })
+      })
+    )
   } catch {
     // Network/DB failure is best-effort — don't kill the selection
   }
@@ -238,15 +254,20 @@ export async function releaseLocksBatch(
   const CHUNK = 100
 
   try {
+    const chunks: string[][] = []
     for (let i = 0; i < objectIds.length; i += CHUNK) {
-      const chunk = objectIds.slice(i, i + CHUNK)
-      await supabase
-        .from('locks')
-        .delete()
-        .eq('board_id', boardId)
-        .eq('user_id', userId)
-        .in('object_id', chunk)
+      chunks.push(objectIds.slice(i, i + CHUNK))
     }
+    await Promise.all(
+      chunks.map((chunk) =>
+        supabase
+          .from('locks')
+          .delete()
+          .eq('board_id', boardId)
+          .eq('user_id', userId)
+          .in('object_id', chunk)
+      )
+    )
   } catch {
     // Best-effort release — stale locks will be cleaned up by timeout
   }
