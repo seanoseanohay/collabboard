@@ -6,7 +6,7 @@
  */
 
 export interface TemplateObjectSpec {
-  type: 'rect' | 'text' | 'sticky'
+  type: 'rect' | 'text' | 'sticky' | 'input-field' | 'button'
   relLeft: number
   relTop: number
   width: number
@@ -151,9 +151,85 @@ const RETROSPECTIVE: TemplateSpec = {
   ],
 }
 
+// ─── Form templates ──────────────────────────────────────────────────────────
+
+const LOGIN_FORM: TemplateSpec = {
+  id: 'login-form',
+  frameTitle: 'Login',
+  frameWidth: 340,
+  frameHeight: 360,
+  objects: [
+    { type: 'text', relLeft: 28, relTop: 60, width: 284, height: 28,
+      text: 'Log In', fontSize: 20, fill: '#1e293b' },
+    { type: 'text', relLeft: 28, relTop: 104, width: 284, height: 20,
+      text: 'Email', fontSize: 12, fill: '#64748b' },
+    { type: 'input-field', relLeft: 28, relTop: 126, width: 284, height: 40,
+      text: 'you@example.com' },
+    { type: 'text', relLeft: 28, relTop: 182, width: 284, height: 20,
+      text: 'Password', fontSize: 12, fill: '#64748b' },
+    { type: 'input-field', relLeft: 28, relTop: 204, width: 284, height: 40,
+      text: '••••••••' },
+    { type: 'button', relLeft: 28, relTop: 268, width: 284, height: 44,
+      fill: '#3b82f6', text: 'Sign In' },
+  ],
+}
+
+const SIGNUP_FORM: TemplateSpec = {
+  id: 'signup-form',
+  frameTitle: 'Sign Up',
+  frameWidth: 340,
+  frameHeight: 450,
+  objects: [
+    { type: 'text', relLeft: 28, relTop: 60, width: 284, height: 28,
+      text: 'Sign Up', fontSize: 20, fill: '#1e293b' },
+    { type: 'text', relLeft: 28, relTop: 104, width: 284, height: 20,
+      text: 'Full Name', fontSize: 12, fill: '#64748b' },
+    { type: 'input-field', relLeft: 28, relTop: 126, width: 284, height: 40,
+      text: 'Jane Doe' },
+    { type: 'text', relLeft: 28, relTop: 182, width: 284, height: 20,
+      text: 'Email', fontSize: 12, fill: '#64748b' },
+    { type: 'input-field', relLeft: 28, relTop: 204, width: 284, height: 40,
+      text: 'you@example.com' },
+    { type: 'text', relLeft: 28, relTop: 260, width: 284, height: 20,
+      text: 'Password', fontSize: 12, fill: '#64748b' },
+    { type: 'input-field', relLeft: 28, relTop: 282, width: 284, height: 40,
+      text: '••••••••' },
+    { type: 'button', relLeft: 28, relTop: 346, width: 284, height: 44,
+      fill: '#3b82f6', text: 'Create Account' },
+  ],
+}
+
+const CONTACT_FORM: TemplateSpec = {
+  id: 'contact-form',
+  frameTitle: 'Contact Us',
+  frameWidth: 340,
+  frameHeight: 490,
+  objects: [
+    { type: 'text', relLeft: 28, relTop: 60, width: 284, height: 28,
+      text: 'Contact Us', fontSize: 20, fill: '#1e293b' },
+    { type: 'text', relLeft: 28, relTop: 104, width: 284, height: 20,
+      text: 'Name', fontSize: 12, fill: '#64748b' },
+    { type: 'input-field', relLeft: 28, relTop: 126, width: 284, height: 40,
+      text: 'Your name' },
+    { type: 'text', relLeft: 28, relTop: 182, width: 284, height: 20,
+      text: 'Email', fontSize: 12, fill: '#64748b' },
+    { type: 'input-field', relLeft: 28, relTop: 204, width: 284, height: 40,
+      text: 'you@example.com' },
+    { type: 'text', relLeft: 28, relTop: 260, width: 284, height: 20,
+      text: 'Message', fontSize: 12, fill: '#64748b' },
+    { type: 'input-field', relLeft: 28, relTop: 282, width: 284, height: 80,
+      text: 'Write your message…' },
+    { type: 'button', relLeft: 28, relTop: 386, width: 284, height: 44,
+      fill: '#0d9488', text: 'Send Message' },
+  ],
+}
+
 export const TEMPLATE_REGISTRY: Record<string, TemplateSpec> = {
   'pros-cons': PROS_CONS,
   swot: SWOT,
   'user-journey': USER_JOURNEY,
   retrospective: RETROSPECTIVE,
+  'login-form': LOGIN_FORM,
+  'signup-form': SIGNUP_FORM,
+  'contact-form': CONTACT_FORM,
 }
