@@ -1736,10 +1736,11 @@ const FabricCanvasInner = (
     })
     resizeObserver.observe(el)
 
-    // FPS tracking via Fabric after:render — counts canvas redraws per second
+    // FPS tracking via requestAnimationFrame — measures actual browser frame rate
     let fpsFrameCount = 0
     let fpsWindowStart = performance.now()
-    const handleAfterRenderFps = () => {
+    let fpsRafId: number | null = null
+    const fpsLoop = () => {
       fpsFrameCount++
       const now = performance.now()
       const elapsed = now - fpsWindowStart
@@ -1749,8 +1750,9 @@ const FabricCanvasInner = (
         fpsFrameCount = 0
         fpsWindowStart = now
       }
+      fpsRafId = requestAnimationFrame(fpsLoop)
     }
-    fabricCanvas.on('after:render', handleAfterRenderFps)
+    fpsRafId = requestAnimationFrame(fpsLoop)
 
     return () => {
       upperEl.removeEventListener('mousedown', onCaptureMouseDown, { capture: true })
@@ -1794,7 +1796,7 @@ const FabricCanvasInner = (
       fabricCanvas.off('selection:cleared', handleSelectionClearedForHistory)
       fabricCanvas.off('text:editing:entered', handleTextEditingEntered)
       fabricCanvas.off('text:editing:exited', handleTextEditingExited)
-      fabricCanvas.off('after:render', handleAfterRenderFps)
+      if (fpsRafId !== null) cancelAnimationFrame(fpsRafId)
       canvasEl.removeEventListener('touchstart', handleTouchStart)
       canvasEl.removeEventListener('touchmove', handleTouchMove)
       canvasEl.removeEventListener('touchend', handleTouchEnd)
