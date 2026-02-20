@@ -1656,7 +1656,19 @@ const FabricCanvasInner = (
     }
 
     const drawGrid = () => drawCanvasGrid(fabricCanvas)
-    const drawArrows = () => drawConnectorArrows(fabricCanvas, Array.from(connectorCacheSet))
+    let connectorCacheArray: FabricObject[] = []
+    let connectorCacheDirty = true
+    const origAdd = connectorCacheSet.add.bind(connectorCacheSet)
+    const origDel = connectorCacheSet.delete.bind(connectorCacheSet)
+    connectorCacheSet.add = (v) => { connectorCacheDirty = true; return origAdd(v) }
+    connectorCacheSet.delete = (v) => { connectorCacheDirty = true; return origDel(v) }
+    const drawArrows = () => {
+      if (connectorCacheDirty) {
+        connectorCacheArray = Array.from(connectorCacheSet)
+        connectorCacheDirty = false
+      }
+      drawConnectorArrows(fabricCanvas, connectorCacheArray)
+    }
     const drawHoverPorts = () => {
       const ctx = fabricCanvas.getContext()
       const vpt = fabricCanvas.viewportTransform

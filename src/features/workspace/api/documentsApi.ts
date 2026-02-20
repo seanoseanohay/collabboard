@@ -25,7 +25,7 @@ export async function writeDocument(
   if (error) throw error
 }
 
-/** Batch write multiple documents in a single HTTP request. */
+/** Batch write multiple documents in chunked HTTP requests. */
 export async function writeDocumentsBatch(
   boardId: string,
   items: { objectId: string; data: Record<string, unknown> }[]
@@ -33,16 +33,20 @@ export async function writeDocumentsBatch(
   if (items.length === 0) return
   const supabase = getSupabaseClient()
   const now = new Date().toISOString()
-  const rows = items.map((item) => ({
-    board_id: boardId,
-    object_id: item.objectId,
-    data: item.data,
-    updated_at: now,
-  }))
-  const { error } = await supabase
-    .from('documents')
-    .upsert(rows, { onConflict: 'board_id,object_id' })
-  if (error) throw error
+  const CHUNK = 200
+  for (let i = 0; i < items.length; i += CHUNK) {
+    const chunk = items.slice(i, i + CHUNK)
+    const rows = chunk.map((item) => ({
+      board_id: boardId,
+      object_id: item.objectId,
+      data: item.data,
+      updated_at: now,
+    }))
+    const { error } = await supabase
+      .from('documents')
+      .upsert(rows, { onConflict: 'board_id,object_id' })
+    if (error) throw error
+  }
 }
 
 export async function deleteDocument(

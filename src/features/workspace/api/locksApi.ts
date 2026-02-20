@@ -165,7 +165,9 @@ export function subscribeToLocks(
   }
 }
 
-/** Acquire locks for multiple objects in batched DB calls (avoids connection exhaustion). */
+/** Acquire locks for multiple objects in batched DB calls (avoids connection exhaustion).
+ * Returns false ONLY when another user holds a lock. Network/DB errors are treated as
+ * best-effort (selection stays, locks are attempted but not guaranteed). */
 export async function acquireLocksBatch(
   boardId: string,
   objectIds: string[],
@@ -175,64 +177,56 @@ export async function acquireLocksBatch(
 ): Promise<boolean> {
   if (objectIds.length === 0) return true
   const supabase = getSupabaseClient()
-
-  // Check which locks already exist in a single query
-  const { data: existingRows } = await supabase
-    .from('locks')
-    .select('object_id, user_id')
-    .eq('board_id', boardId)
-    .in('object_id', objectIds)
-
-  const existingMap = new Map((existingRows ?? []).map((r) => [r.object_id, r.user_id]))
-
-  // If any lock is held by someone else, abort immediately
-  for (const [, lockUserId] of existingMap) {
-    if (lockUserId !== userId) return false
-  }
-
-  // Split into: our stale locks (UPDATE) and new locks (INSERT)
-  const toUpdate = objectIds.filter((id) => existingMap.get(id) === userId)
-  const toInsert = objectIds.filter((id) => !existingMap.has(id))
-
+  const CHUNK = 100
   const now = Date.now()
 
-  // Batch update our stale locks
-  if (toUpdate.length > 0) {
-    await supabase
-      .from('locks')
-      .update({ last_active: now })
-      .eq('board_id', boardId)
-      .eq('user_id', userId)
-      .in('object_id', toUpdate)
+  try {
+    // Check existing locks in chunks (Supabase .in() has URL length limits)
+    const existingMap = new Map<string, string>()
+    for (let i = 0; i < objectIds.length; i += CHUNK) {
+      const chunk = objectIds.slice(i, i + CHUNK)
+      const { data } = await supabase
+        .from('locks')
+        .select('object_id, user_id')
+        .eq('board_id', boardId)
+        .in('object_id', chunk)
+      for (const r of data ?? []) existingMap.set(r.object_id, r.user_id)
+    }
+
+    // Only fail if another user actually holds a lock
+    for (const [, lockUserId] of existingMap) {
+      if (lockUserId !== userId) return false
+    }
+
+    // Upsert all locks (handles both fresh inserts and stale-lock refreshes in one call)
+    for (let i = 0; i < objectIds.length; i += CHUNK) {
+      const chunk = objectIds.slice(i, i + CHUNK)
+      const rows = chunk.map((id) => ({
+        board_id: boardId,
+        object_id: id,
+        user_id: userId,
+        user_name: userName,
+        last_active: now,
+      }))
+      await supabase
+        .from('locks')
+        .upsert(rows, { onConflict: 'board_id,object_id' })
+    }
+  } catch {
+    // Network/DB failure is best-effort — don't kill the selection
   }
 
-  // Batch insert new locks (chunks of 200 to stay within PostgREST limits)
-  const CHUNK = 200
-  for (let i = 0; i < toInsert.length; i += CHUNK) {
-    const chunk = toInsert.slice(i, i + CHUNK)
-    const rows = chunk.map((id) => ({
-      board_id: boardId,
-      object_id: id,
-      user_id: userId,
-      user_name: userName,
-      last_active: now,
-    }))
-    const { error } = await supabase.from('locks').insert(rows)
-    if (error) return false
-  }
-
-  // Single broadcast with all lock IDs
   if (broadcastChannel) {
-    await broadcastChannel.send({
+    broadcastChannel.send({
       type: 'broadcast',
       event: 'lock_acquired',
       payload: { objectId: objectIds[0], userId, userName, lastActive: now, allIds: objectIds },
-    })
+    }).catch(() => {})
   }
   return true
 }
 
-/** Release locks for multiple objects in a single DB call. */
+/** Release locks for multiple objects in chunked DB calls. */
 export async function releaseLocksBatch(
   boardId: string,
   objectIds: string[],
@@ -241,20 +235,28 @@ export async function releaseLocksBatch(
 ): Promise<void> {
   if (objectIds.length === 0) return
   const supabase = getSupabaseClient()
+  const CHUNK = 100
 
-  await supabase
-    .from('locks')
-    .delete()
-    .eq('board_id', boardId)
-    .eq('user_id', userId)
-    .in('object_id', objectIds)
+  try {
+    for (let i = 0; i < objectIds.length; i += CHUNK) {
+      const chunk = objectIds.slice(i, i + CHUNK)
+      await supabase
+        .from('locks')
+        .delete()
+        .eq('board_id', boardId)
+        .eq('user_id', userId)
+        .in('object_id', chunk)
+    }
+  } catch {
+    // Best-effort release — stale locks will be cleaned up by timeout
+  }
 
   if (broadcastChannel) {
-    await broadcastChannel.send({
+    broadcastChannel.send({
       type: 'broadcast',
       event: 'lock_released',
       payload: { objectId: objectIds[0], userId, allIds: objectIds },
-    })
+    }).catch(() => {})
   }
 }
 
