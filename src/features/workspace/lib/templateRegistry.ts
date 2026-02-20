@@ -31,27 +31,27 @@ export interface TemplateSpec {
 const PROS_CONS: TemplateSpec = {
   id: 'pros-cons',
   frameTitle: 'Pros & Cons',
-  frameWidth: 500,
-  frameHeight: 420,
+  frameWidth: 540,
+  frameHeight: 520,
   objects: [
-    // Column header stickies
-    { type: 'sticky', relLeft: 20, relTop: 52, width: 220, height: 44,
-      fill: '#dcfce7', stroke: '#16a34a', strokeWeight: 2, text: 'Pros ✓' },
-    { type: 'sticky', relLeft: 260, relTop: 52, width: 220, height: 44,
-      fill: '#fee2e2', stroke: '#dc2626', strokeWeight: 2, text: 'Cons ✗' },
-    // 3 blank sticky fields per column
-    { type: 'sticky', relLeft: 20, relTop: 110, width: 220, height: 90,
-      fill: '#f0fdf4', text: '' },
-    { type: 'sticky', relLeft: 20, relTop: 215, width: 220, height: 90,
-      fill: '#f0fdf4', text: '' },
-    { type: 'sticky', relLeft: 20, relTop: 320, width: 220, height: 90,
-      fill: '#f0fdf4', text: '' },
-    { type: 'sticky', relLeft: 260, relTop: 110, width: 220, height: 90,
-      fill: '#fef2f2', text: '' },
-    { type: 'sticky', relLeft: 260, relTop: 215, width: 220, height: 90,
-      fill: '#fef2f2', text: '' },
-    { type: 'sticky', relLeft: 260, relTop: 320, width: 220, height: 90,
-      fill: '#fef2f2', text: '' },
+    // Center divider
+    { type: 'rect', relLeft: 267, relTop: 52, width: 6, height: 460,
+      fill: '#e2e8f0' },
+    // Column headers
+    { type: 'sticky', relLeft: 20, relTop: 52, width: 237, height: 50,
+      fill: '#dcfce7', stroke: '#16a34a', strokeWeight: 2, text: 'Pros ✓', fontSize: 15 },
+    { type: 'sticky', relLeft: 283, relTop: 52, width: 237, height: 50,
+      fill: '#fee2e2', stroke: '#dc2626', strokeWeight: 2, text: 'Cons ✗', fontSize: 15 },
+    // 4 blank rows — pros (left)
+    { type: 'sticky', relLeft: 20, relTop: 114, width: 237, height: 86, fill: '#f0fdf4', text: '' },
+    { type: 'sticky', relLeft: 20, relTop: 210, width: 237, height: 86, fill: '#f0fdf4', text: '' },
+    { type: 'sticky', relLeft: 20, relTop: 306, width: 237, height: 86, fill: '#f0fdf4', text: '' },
+    { type: 'sticky', relLeft: 20, relTop: 402, width: 237, height: 86, fill: '#f0fdf4', text: '' },
+    // 4 blank rows — cons (right)
+    { type: 'sticky', relLeft: 283, relTop: 114, width: 237, height: 86, fill: '#fef2f2', text: '' },
+    { type: 'sticky', relLeft: 283, relTop: 210, width: 237, height: 86, fill: '#fef2f2', text: '' },
+    { type: 'sticky', relLeft: 283, relTop: 306, width: 237, height: 86, fill: '#fef2f2', text: '' },
+    { type: 'sticky', relLeft: 283, relTop: 402, width: 237, height: 86, fill: '#fef2f2', text: '' },
   ],
 }
 
