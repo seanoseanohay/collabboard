@@ -1,10 +1,10 @@
 /**
- * FrameFormOverlay — HTML overlay positioned over canvas frames that have form data.
- * Renders a structured table (column headers + data rows) inside each form frame.
+ * FrameFormOverlay — HTML overlay positioned over DataTable canvas objects.
+ * Renders a structured table (column headers + data rows) inside each DataTable.
  * Handles all CRUD: add column, rename column, change type, add row, edit cell, delete row.
  */
 import { useState, useRef, useCallback } from 'react'
-import { FRAME_HEADER_HEIGHT } from '../lib/frameFactory'
+import { TABLE_HEADER_HEIGHT } from '../lib/dataTableFactory'
 import type { FormFrameSceneInfo, FormSchema, FormColumn, FormRow, FormFieldType } from '../lib/frameFormTypes'
 
 /** Sits above the canvas (zIndex=1) but below cursor readout (10). */
@@ -28,12 +28,12 @@ interface FrameFormOverlayProps {
   frames: FormFrameSceneInfo[]
   viewportTransform: number[] | null
   /** Called whenever form data changes; the caller should persist via updateFrameFormData. */
-  onSchemaChange: (frameId: string, schema: FormSchema | null) => void
+  onSchemaChange: (objectId: string, schema: FormSchema | null) => void
 }
 
 interface FormState {
-  /** frameId → current schema (local optimistic state) */
-  [frameId: string]: FormSchema | null
+  /** objectId → current schema (local optimistic state) */
+  [objectId: string]: FormSchema | null
 }
 
 export function FrameFormOverlay({ frames, viewportTransform, onSchemaChange }: FrameFormOverlayProps) {
@@ -45,8 +45,8 @@ export function FrameFormOverlay({ frames, viewportTransform, onSchemaChange }: 
 
   const getSchema = useCallback(
     (frame: FormFrameSceneInfo): FormSchema => {
-      if (localSchemas[frame.frameId] !== undefined) {
-        return localSchemas[frame.frameId] ?? { columns: [], rows: [] }
+      if (localSchemas[frame.objectId] !== undefined) {
+        return localSchemas[frame.objectId] ?? { columns: [], rows: [] }
       }
       return frame.formSchema ?? { columns: [], rows: [] }
     },
@@ -54,9 +54,9 @@ export function FrameFormOverlay({ frames, viewportTransform, onSchemaChange }: 
   )
 
   const updateSchema = useCallback(
-    (frameId: string, schema: FormSchema | null) => {
-      setLocalSchemas((prev) => ({ ...prev, [frameId]: schema }))
-      onSchemaChange(frameId, schema)
+    (objectId: string, schema: FormSchema | null) => {
+      setLocalSchemas((prev) => ({ ...prev, [objectId]: schema }))
+      onSchemaChange(objectId, schema)
     },
     [onSchemaChange]
   )
@@ -71,8 +71,8 @@ export function FrameFormOverlay({ frames, viewportTransform, onSchemaChange }: 
     <>
       {frames.map((frame) => {
         const schema = getSchema(frame)
-        // Form area occupies the frame body below the title bar
-        const headerH = FRAME_HEADER_HEIGHT * frame.scaleY * zoom
+        // Form area occupies the table body below the title bar
+        const headerH = TABLE_HEADER_HEIGHT * frame.scaleY * zoom
         const screenLeft = frame.sceneLeft * zoom + panX
         const screenTop = frame.sceneTop * zoom + panY + headerH
         const screenWidth = frame.sceneWidth * frame.scaleX * zoom
@@ -83,8 +83,8 @@ export function FrameFormOverlay({ frames, viewportTransform, onSchemaChange }: 
 
         return (
           <FrameFormPanel
-            key={frame.frameId}
-            frameId={frame.frameId}
+            key={frame.objectId}
+            frameId={frame.objectId}
             schema={schema}
             screenLeft={screenLeft}
             screenTop={screenTop}
@@ -98,7 +98,7 @@ export function FrameFormOverlay({ frames, viewportTransform, onSchemaChange }: 
             onSetEditingColId={setEditingColId}
             onSetColTypeMenuId={setColTypeMenuId}
             onSetDropdownOptionsEditing={setDropdownOptionsEditing}
-            onUpdateSchema={(s) => updateSchema(frame.frameId, s)}
+            onUpdateSchema={(s) => updateSchema(frame.objectId, s)}
           />
         )
       })}

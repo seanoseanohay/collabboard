@@ -11,7 +11,9 @@ import type { ToolType } from '../types/tools'
 import { isShapeTool } from '../types/tools'
 import { createShape } from '../lib/shapeFactory'
 import { createFrameShape } from '../lib/frameFactory'
-import { setFrameChildIds, isFrame, updateFrameTitleVisibility } from '../lib/frameUtils'
+import { setFrameChildIds, updateFrameTitleVisibility } from '../lib/frameUtils'
+import { createDataTableShape } from '../lib/dataTableFactory'
+import { isDataTable, updateTableTitleVisibility } from '../lib/dataTableUtils'
 import type { FormFrameSceneInfo, FormSchema } from '../lib/frameFormTypes'
 import {
   getStrokeWidthFromObject,
@@ -448,35 +450,35 @@ const FabricCanvasInner = (
         y: Math.round((height / 2 - vpt[5]) / zoom),
       }
     },
-    updateFrameFormData: (frameId: string, formSchema: FormSchema | null) => {
+    updateFrameFormData: (objectId: string, formSchema: FormSchema | null) => {
       const canvas = canvasRef.current
       if (!canvas) return
-      const frame = canvas.getObjects().find((o) => {
+      const table = canvas.getObjects().find((o) => {
         const d = o.get('data') as { id?: string } | undefined
-        return d?.id === frameId
+        return d?.id === objectId
       })
-      if (!frame || !isFrame(frame)) return
-      const data = frame.get('data') as Record<string, unknown>
-      frame.set('data', { ...data, formSchema })
-      canvas.fire('object:modified', { target: frame })
+      if (!table || !isDataTable(table)) return
+      const data = table.get('data') as Record<string, unknown>
+      table.set('data', { ...data, formSchema })
+      canvas.fire('object:modified', { target: table })
       notifyFormFramesRef.current?.()
     },
     getFormFrameInfos: (): FormFrameSceneInfo[] => {
       const canvas = canvasRef.current
       if (!canvas) return []
-      return canvas.getObjects().filter(isFrame).map((f) => {
-        const data = f.get('data') as { id?: string; formSchema?: FormSchema | null } | undefined
+      return canvas.getObjects().filter(isDataTable).map((t) => {
+        const data = t.get('data') as { id?: string; formSchema?: FormSchema | null } | undefined
         return {
-          frameId: data?.id ?? '',
-          sceneLeft: f.left,
-          sceneTop: f.top,
-          sceneWidth: (f as FabricObject & { width: number }).width,
-          sceneHeight: (f as FabricObject & { height: number }).height,
-          scaleX: f.scaleX ?? 1,
-          scaleY: f.scaleY ?? 1,
+          objectId: data?.id ?? '',
+          sceneLeft: t.left,
+          sceneTop: t.top,
+          sceneWidth: (t as FabricObject & { width: number }).width,
+          sceneHeight: (t as FabricObject & { height: number }).height,
+          scaleX: t.scaleX ?? 1,
+          scaleY: t.scaleY ?? 1,
           formSchema: data?.formSchema ?? null,
         }
-      }).filter((f) => f.frameId)
+      }).filter((t) => t.objectId)
     },
     resetView: () => {
       const canvas = canvasRef.current
@@ -773,20 +775,20 @@ const FabricCanvasInner = (
     const notifyFormFrames = () => {
       const cb = onFormFramesChangeRef.current
       if (!cb) return
-      const frames = fabricCanvas.getObjects().filter(isFrame).map((f) => {
-        const data = f.get('data') as { id?: string; formSchema?: FormSchema | null } | undefined
+      const tables = fabricCanvas.getObjects().filter(isDataTable).map((t) => {
+        const data = t.get('data') as { id?: string; formSchema?: FormSchema | null } | undefined
         return {
-          frameId: data?.id ?? '',
-          sceneLeft: f.left,
-          sceneTop: f.top,
-          sceneWidth: (f as FabricObject & { width: number }).width,
-          sceneHeight: (f as FabricObject & { height: number }).height,
-          scaleX: f.scaleX ?? 1,
-          scaleY: f.scaleY ?? 1,
+          objectId: data?.id ?? '',
+          sceneLeft: t.left,
+          sceneTop: t.top,
+          sceneWidth: (t as FabricObject & { width: number }).width,
+          sceneHeight: (t as FabricObject & { height: number }).height,
+          scaleX: t.scaleX ?? 1,
+          scaleY: t.scaleY ?? 1,
           formSchema: data?.formSchema ?? null,
         }
-      }).filter((info) => info.frameId)
-      cb(frames)
+      }).filter((info) => info.objectId)
+      cb(tables)
     }
     notifyFormFramesRef.current = notifyFormFrames
 
@@ -794,6 +796,7 @@ const FabricCanvasInner = (
       const vpt = fabricCanvas.viewportTransform
       if (vpt && onViewportChangeRef.current) onViewportChangeRef.current([...vpt])
       updateFrameTitleVisibility(fabricCanvas)
+      updateTableTitleVisibility(fabricCanvas)
     }
 
     const { applyZoom, zoomToFit, handleWheel } = createZoomHandlers(fabricCanvas, width, height, notifyViewport)
@@ -996,7 +999,7 @@ const FabricCanvasInner = (
         return
       }
 
-      // All shape tools including text, sticky, and frame (drag-to-draw)
+      // All shape tools including text, sticky, frame, and table (drag-to-draw)
       if (isShapeTool(tool) && 'button' in ev && ev.button === 0) {
         if (isOnHandle) return // Resize/rotate handle → allow transform
 
@@ -1007,6 +1010,8 @@ const FabricCanvasInner = (
           drawStart = sp
           const shape = tool === 'frame'
             ? createFrameShape(sp.x, sp.y, 0, 0, 'Frame', false)
+            : tool === 'table'
+            ? createDataTableShape(sp.x, sp.y, 0, 0, 'Untitled Table', false)
             : createShape(tool, sp.x, sp.y, sp.x, sp.y, {
                 assignId: false,
                 zoom: fabricCanvas.getZoom(),
@@ -1063,7 +1068,16 @@ const FabricCanvasInner = (
                 Math.abs(sp.x - drawStart.x),
                 Math.abs(sp.y - drawStart.y),
                 'Frame',
-                false  // no id → preview only, won't be written to DB
+                false  // no id → preview only
+              )
+            : tool === 'table'
+            ? createDataTableShape(
+                Math.min(drawStart.x, sp.x),
+                Math.min(drawStart.y, sp.y),
+                Math.abs(sp.x - drawStart.x),
+                Math.abs(sp.y - drawStart.y),
+                'Untitled Table',
+                false
               )
             : createShape(tool, drawStart.x, drawStart.y, sp.x, sp.y, {
                 assignId: false,
@@ -1176,6 +1190,13 @@ const FabricCanvasInner = (
         if (w >= minSize || h >= minSize || tool === 'line') {
           const shape = tool === 'frame'
             ? createFrameShape(
+                Math.min(drawStart.x, end.x),
+                Math.min(drawStart.y, end.y),
+                w,
+                h
+              )
+            : tool === 'table'
+            ? createDataTableShape(
                 Math.min(drawStart.x, end.x),
                 Math.min(drawStart.y, end.y),
                 w,
@@ -1606,7 +1627,7 @@ const FabricCanvasInner = (
     const handleObjectAdded = (e: { target?: FabricObject }) => {
       const obj = e.target
       if (!obj) return
-      if (isFrame(obj)) notifyFormFrames()
+      if (isDataTable(obj)) notifyFormFrames()
       // Free-draw paths need an id for sync; assign before boardSync emitAdd
       if (obj.type === 'path' && !getObjectId(obj)) {
         setObjectId(obj, crypto.randomUUID())
@@ -1623,7 +1644,7 @@ const FabricCanvasInner = (
     const handleObjectRemoved = (e: { target?: FabricObject }) => {
       if (e.target) {
         connectorCacheSet.delete(e.target)
-        if (isFrame(e.target)) notifyFormFrames()
+        if (isDataTable(e.target)) notifyFormFrames()
       }
     }
 
@@ -1739,15 +1760,15 @@ const FabricCanvasInner = (
         if (target.type === 'group' && 'getObjects' in target) {
           const groupData = target.get('data') as { subtype?: string } | undefined
           if (groupData?.subtype !== 'container') updateStickyTextFontSize(target)
-          if (groupData?.subtype === 'frame') notifyFormFrames()
+          if (groupData?.subtype === 'table') notifyFormFrames()
         }
       }
     }
 
-    // Notify when a remote frame update changes its data (formSchema, childIds, etc.)
+    // Notify when a remote table update changes its data (formSchema, etc.)
     const handleFrameDataChanged = () => notifyFormFrames()
     const canvasAny = fabricCanvas as unknown as { on: (e: string, h: () => void) => void; off: (e: string, h: () => void) => void }
-    canvasAny.on('frame:data:changed', handleFrameDataChanged)
+    canvasAny.on('table:data:changed', handleFrameDataChanged)
 
     const drawGrid = () => drawCanvasGrid(fabricCanvas)
     let connectorCacheArray: FabricObject[] = []
@@ -1902,7 +1923,7 @@ const FabricCanvasInner = (
       fabricCanvas.off('selection:cleared', handleSelectionClearedForHistory)
       fabricCanvas.off('text:editing:entered', handleTextEditingEntered)
       fabricCanvas.off('text:editing:exited', handleTextEditingExited)
-      canvasAny.off('frame:data:changed', handleFrameDataChanged)
+      canvasAny.off('table:data:changed', handleFrameDataChanged)
       notifyFormFramesRef.current = null
       if (fpsRafId !== null) cancelAnimationFrame(fpsRafId)
       canvasEl.removeEventListener('touchstart', handleTouchStart)

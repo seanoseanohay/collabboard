@@ -80,6 +80,7 @@ import {
 } from '../api/locksApi'
 import { updateStickyTextFontSize, updateStickyPlaceholderVisibility } from './shapeFactory'
 import { isFrame, getFrameChildIds, setFrameChildIds } from './frameUtils'
+import { isDataTable } from './dataTableUtils'
 import {
   updateConnectorEndpoints,
   syncConnectorMoveLock,
@@ -264,6 +265,10 @@ export function setupDocumentSync(
               const d = obj.get('data') as { subtype?: string } | undefined
               return d?.subtype === 'frame'
             }
+            const isTableGroup = (obj: FabricObject) => {
+              const d = obj.get('data') as { subtype?: string } | undefined
+              return d?.subtype === 'table'
+            }
             const objData = { ...clean, data: { id: objectId } }
             const [revived] = await util.enlivenObjects<FabricObject>([objData])
             if (revived) {
@@ -277,21 +282,30 @@ export function setupDocumentSync(
                 flipY: revived.flipY,
               })
               existing.setCoords()
-              // Sync frame childIds/title/formSchema from remote
+              // Sync frame childIds/title from remote
               if (isFrameGroup(existing)) {
                 const existingData = existing.get('data') as Record<string, unknown>
                 existing.set('data', {
                   ...existingData,
                   title: (clean.frameTitle as string) ?? existingData['title'],
                   childIds: (clean.childIds as string[]) ?? existingData['childIds'] ?? [],
+                })
+                fireCanvasCustom(canvas, 'frame:data:changed', { frameId: objectId })
+              }
+              // Sync table title/formSchema from remote
+              if (isTableGroup(existing)) {
+                const existingData = existing.get('data') as Record<string, unknown>
+                existing.set('data', {
+                  ...existingData,
+                  title: (clean.tableTitle as string) ?? existingData['title'],
                   formSchema: Object.prototype.hasOwnProperty.call(clean, 'formSchema')
                     ? (clean.formSchema ?? null)
                     : (existingData['formSchema'] ?? null),
                 })
-                fireCanvasCustom(canvas, 'frame:data:changed', { frameId: objectId })
+                fireCanvasCustom(canvas, 'table:data:changed', { tableId: objectId })
               }
-              // Only sync text content for sticky groups (not container or frame groups)
-              if (!isContainerGroup(existing) && !isFrameGroup(existing) && 'getObjects' in existing && 'getObjects' in revived) {
+              // Only sync text content for sticky groups (not container, frame, or table groups)
+              if (!isContainerGroup(existing) && !isFrameGroup(existing) && !isTableGroup(existing) && 'getObjects' in existing && 'getObjects' in revived) {
                 const existingChildren = (existing as { getObjects: () => FabricObject[] }).getObjects()
                 const revivedChildren = (revived as { getObjects: () => FabricObject[] }).getObjects()
                 const existingTexts = existingChildren.filter((c) => c.type === 'i-text')
@@ -305,7 +319,7 @@ export function setupDocumentSync(
               }
               applyZIndex(existing, clean)
               const existingSubtype = (existing.get('data') as { subtype?: string } | undefined)?.subtype
-              if (!isContainerGroup(existing) && !isFrameGroup(existing)
+              if (!isContainerGroup(existing) && !isFrameGroup(existing) && !isTableGroup(existing)
                   && existingSubtype !== 'input-field' && existingSubtype !== 'button') {
                 updateStickyTextFontSize(existing)
                 updateStickyPlaceholderVisibility(existing)
@@ -356,6 +370,12 @@ export function setupDocumentSync(
             ? {
                 title: (clean.frameTitle as string) ?? 'Frame',
                 childIds: (clean.childIds as string[]) ?? [],
+              }
+            : {}
+        const tableData =
+          subtype === 'table'
+            ? {
+                title: (clean.tableTitle as string) ?? 'Untitled Table',
                 formSchema: (clean.formSchema ?? null) as unknown,
               }
             : {}
@@ -375,15 +395,16 @@ export function setupDocumentSync(
             : {}
         const objData = {
           ...clean,
-          data: { id: objectId, ...(subtype && { subtype }), ...frameData, ...connectorData },
+          data: { id: objectId, ...(subtype && { subtype }), ...frameData, ...tableData, ...connectorData },
         }
         const [revived] = await util.enlivenObjects<FabricObject>([objData])
         if (revived) {
-          revived.set('data', { id: objectId, ...(subtype && { subtype }), ...frameData, ...connectorData })
+          revived.set('data', { id: objectId, ...(subtype && { subtype }), ...frameData, ...tableData, ...connectorData })
           applyZIndex(revived, clean)
           if (revived.type === 'group') {
             const revivedData = revived.get('data') as { subtype?: string } | undefined
             if (revivedData?.subtype !== 'container' && revivedData?.subtype !== 'frame'
+                && revivedData?.subtype !== 'table'
                 && revivedData?.subtype !== 'input-field' && revivedData?.subtype !== 'button') {
               updateStickyTextFontSize(revived)
               updateStickyPlaceholderVisibility(revived)
@@ -407,6 +428,7 @@ export function setupDocumentSync(
           }
           isApplyingRemote = false
           if (subtype === 'frame') fireCanvasCustom(canvas, 'frame:data:changed', { frameId: objectId })
+          if (subtype === 'table') fireCanvasCustom(canvas, 'table:data:changed', { tableId: objectId })
         }
       } catch {
         /* ignore */
@@ -441,6 +463,10 @@ export function setupDocumentSync(
       payload.subtype = 'frame'
       payload.frameTitle = (data as unknown as { title?: string }).title ?? 'Frame'
       payload.childIds = (data as unknown as { childIds?: string[] }).childIds ?? []
+    }
+    if (obj.type === 'group' && data?.subtype === 'table') {
+      payload.subtype = 'table'
+      payload.tableTitle = (data as unknown as { title?: string }).title ?? 'Untitled Table'
       payload.formSchema = (data as unknown as { formSchema?: unknown }).formSchema ?? null
     }
     if (data?.subtype === 'connector') {
@@ -506,6 +532,10 @@ export function setupDocumentSync(
       payload.subtype = 'frame'
       payload.frameTitle = (data as unknown as { title?: string }).title ?? 'Frame'
       payload.childIds = (data as unknown as { childIds?: string[] }).childIds ?? []
+    }
+    if (obj.type === 'group' && data?.subtype === 'table') {
+      payload.subtype = 'table'
+      payload.tableTitle = (data as unknown as { title?: string }).title ?? 'Untitled Table'
       payload.formSchema = (data as unknown as { formSchema?: unknown }).formSchema ?? null
     }
     if (data?.subtype === 'connector') {
@@ -723,7 +753,7 @@ export function setupDocumentSync(
   const checkAndUpdateFrameMembership = (obj: FabricObject) => {
     if (isApplyingRemote) return
     const objId = getObjectId(obj)
-    if (!objId || isFrame(obj)) return
+    if (!objId || isFrame(obj) || isDataTable(obj)) return
 
     const allFrames = canvas.getObjects().filter((o) => isFrame(o))
     const targetFrame = allFrames.find((f) => isObjectInsideFrame(obj, f)) ?? null
@@ -904,7 +934,7 @@ export function setupDocumentSync(
         toSync.forEach((o) => emitModify(o))
       }
       if (!isApplyingRemote) {
-        toSync.filter((o) => !isFrame(o)).forEach((o) => checkAndUpdateFrameMembership(o))
+        toSync.filter((o) => !isFrame(o) && !isDataTable(o)).forEach((o) => checkAndUpdateFrameMembership(o))
       }
     }
   })
@@ -933,6 +963,7 @@ export function setupDocumentSync(
       return (
         id &&
         !isFrame(o) &&
+        !isDataTable(o) &&
         getObjectZIndex(o) > frameZIndex &&
         !existingChildIds.has(id) &&
         isObjectInsideFrame(o, frame)

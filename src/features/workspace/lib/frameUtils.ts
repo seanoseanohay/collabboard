@@ -1,10 +1,11 @@
 /**
  * Frame utility helpers.
  * Provides type-narrowing and data-access functions for Frame objects.
+ * Frames are spatial containers for canvas objects only — form/data functionality
+ * lives in DataTable objects (see dataTableUtils.ts).
  */
 
 import type { Canvas, FabricObject } from 'fabric'
-import type { FormSchema } from './frameFormTypes'
 
 export const HIDE_TITLE_ZOOM_THRESHOLD = 0.4
 
@@ -13,7 +14,6 @@ export interface FrameData {
   subtype: 'frame'
   title: string
   childIds: string[]
-  formSchema?: FormSchema | null
 }
 
 export function isFrame(obj: FabricObject): boolean {
@@ -48,18 +48,6 @@ export function setFrameTitle(obj: FabricObject, title: string): void {
   const data = obj.get('data') as Record<string, unknown> | undefined
   if (!data || data['subtype'] !== 'frame') return
   obj.set('data', { ...data, title })
-}
-
-export function getFrameFormSchema(obj: FabricObject): FormSchema | null {
-  const data = obj.get('data') as { subtype?: string; formSchema?: FormSchema | null } | undefined
-  if (data?.subtype !== 'frame') return null
-  return data.formSchema ?? null
-}
-
-export function setFrameFormSchema(obj: FabricObject, schema: FormSchema | null): void {
-  const data = obj.get('data') as Record<string, unknown> | undefined
-  if (!data || data['subtype'] !== 'frame') return
-  obj.set('data', { ...data, formSchema: schema })
 }
 
 /**

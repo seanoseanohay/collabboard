@@ -1,6 +1,6 @@
 /**
- * Type definitions for Frame-level schema-driven forms.
- * Forms are stored in frame.data.formSchema and sync via the normal boardSync path.
+ * Type definitions for DataTable schema-driven forms.
+ * Forms are stored in table.data.formSchema and sync via the normal boardSync path.
  */
 
 export type FormFieldType = 'text' | 'number' | 'dropdown' | 'checkbox' | 'date'
@@ -23,9 +23,10 @@ export interface FormSchema {
   rows: FormRow[]
 }
 
-/** Screen-space info for a frame, computed by FabricCanvas and passed to FrameFormOverlay. */
+/** Screen-space info for a DataTable object, computed by FabricCanvas and passed to FrameFormOverlay. */
 export interface FormFrameSceneInfo {
-  frameId: string
+  /** The canvas object's id (DataTable). */
+  objectId: string
   /** frame.left (scene, unscaled) */
   sceneLeft: number
   /** frame.top (scene, unscaled) */

@@ -133,8 +133,8 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
     setFormFrames(frames)
   }, [])
 
-  const handleFrameFormSchemaChange = useCallback((frameId: string, schema: FormSchema | null) => {
-    canvasZoomRef.current?.updateFrameFormData(frameId, schema)
+  const handleFrameFormSchemaChange = useCallback((objectId: string, schema: FormSchema | null) => {
+    canvasZoomRef.current?.updateFrameFormData(objectId, schema)
   }, [])
 
   // Sync title when board prop changes (e.g. after joinBoard)

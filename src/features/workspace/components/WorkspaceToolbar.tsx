@@ -129,6 +129,13 @@ const ToolIcons: Record<ToolType, React.ReactNode> = {
       <line x1="2" y1="7" x2="22" y2="7" />
     </svg>
   ),
+  table: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="3" width="20" height="18" rx="2" />
+      <line x1="2" y1="9" x2="22" y2="9" />
+      <line x1="9" y1="9" x2="9" y2="21" />
+    </svg>
+  ),
   sticker: (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M12 3C7 3 3 7 3 12s4 9 9 9h6a3 3 0 0 0 3-3v-6c0-5-4-9-9-9z" />
@@ -353,11 +360,23 @@ export function WorkspaceToolbar({
                         ...styles.insertItem,
                         ...(selectedTool === 'frame' ? styles.insertItemActive : {}),
                       }}
-                      title="Frame — drag to draw a container"
+                      title="Frame — drag to draw a spatial container"
                       onClick={() => selectAndClose('frame')}
                     >
                       {ToolIcons.frame}
                       <span style={styles.insertLabel}>Frame</span>
+                    </button>
+                    <button
+                      type="button"
+                      style={{
+                        ...styles.insertItem,
+                        ...(selectedTool === 'table' ? styles.insertItemActive : {}),
+                      }}
+                      title="Table — drag to draw a data table"
+                      onClick={() => selectAndClose('table')}
+                    >
+                      {ToolIcons.table}
+                      <span style={styles.insertLabel}>Table</span>
                     </button>
                   </div>
                 </div>
