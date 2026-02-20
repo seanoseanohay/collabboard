@@ -23,7 +23,8 @@ const SELECTION_EXAMPLES = [
 interface AiPromptBarProps {
   boardId: string
   getSelectedObjectIds?: () => string[]
-  createFrame?: (params: { title: string; childIds: string[]; left: number; top: number; width: number; height: number }) => void
+  createFrame?: (params: { title: string; childIds: string[]; left: number; top: number; width: number; height: number }) => string
+  setFrameChildren?: (frameId: string, childIds: string[]) => void
   createTable?: (params: {
     left: number; top: number; width: number; height: number
     title: string; showTitle: boolean; accentColor?: string
@@ -39,7 +40,7 @@ interface LastResult {
   usage?: AiUsage
 }
 
-export function AiPromptBar({ boardId, getSelectedObjectIds, createFrame, createTable, groupObjectIds, getViewportCenter }: AiPromptBarProps) {
+export function AiPromptBar({ boardId, getSelectedObjectIds, createFrame, setFrameChildren, createTable, groupObjectIds, getViewportCenter }: AiPromptBarProps) {
   const [open, setOpen] = useState(false)
   const [prompt, setPrompt] = useState('')
   const [loading, setLoading] = useState(false)
@@ -61,6 +62,7 @@ export function AiPromptBar({ boardId, getSelectedObjectIds, createFrame, create
         })
         const result = await executeAiCommands(boardId, response.commands, {
           createFrame: createFrame ?? undefined,
+          setFrameChildren: setFrameChildren ?? undefined,
           createTable: createTable ?? undefined,
           getViewportCenter,
         })
@@ -80,7 +82,7 @@ export function AiPromptBar({ boardId, getSelectedObjectIds, createFrame, create
         setLoading(false)
       }
     },
-    [boardId, loading, createFrame, createTable, groupObjectIds, getViewportCenter]
+    [boardId, loading, createFrame, setFrameChildren, createTable, groupObjectIds, getViewportCenter]
   )
 
   const handleExampleClick = useCallback(

@@ -121,7 +121,8 @@ export interface FabricCanvasZoomHandle {
   ungroupSelected: () => void
   getSelectedObjectIds: () => string[]
   groupObjectIds: (ids: string[]) => Promise<void>
-  createFrame: (params: { title: string; childIds: string[]; left: number; top: number; width: number; height: number }) => void
+  createFrame: (params: { title: string; childIds: string[]; left: number; top: number; width: number; height: number }) => string
+  setFrameChildren: (frameId: string, childIds: string[]) => void
   panToScene: (sceneX: number, sceneY: number) => void
   captureDataUrl: () => string | null
   resetView: () => void
@@ -433,7 +434,7 @@ const FabricCanvasInner = (
     },
     createFrame: ({ title, childIds, left, top, width, height }) => {
       const canvas = canvasRef.current
-      if (!canvas) return
+      if (!canvas) return ''
       const frame = createFrameShape(left, top, width, height, title)
       setFrameChildIds(frame, childIds)
       // Frames sit behind their children; use zIndex 1 so sortCanvasByZIndex keeps them at back
@@ -443,6 +444,18 @@ const FabricCanvasInner = (
       canvas.setActiveObject(frame)
       frame.setCoords()
       canvas.requestRenderAll()
+      return getObjectId(frame) ?? ''
+    },
+    setFrameChildren: (frameId: string, childIds: string[]) => {
+      const canvas = canvasRef.current
+      if (!canvas) return
+      const frame = canvas.getObjects().find((o) => {
+        const d = o.get('data') as { id?: string } | undefined
+        return d?.id === frameId
+      })
+      if (!frame) return
+      setFrameChildIds(frame, childIds)
+      canvas.fire('object:modified', { target: frame })
     },
     panToScene: (sceneX: number, sceneY: number) => {
       const canvas = canvasRef.current

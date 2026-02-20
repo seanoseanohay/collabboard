@@ -312,7 +312,7 @@ export function setupDocumentSync(
                 syncFrameOrTableTitleFromRevived(existing, revived)
                 fireCanvasCustom(canvas, 'frame:data:changed', { frameId: objectId })
               }
-              // Sync table title/formSchema from remote, and preserve title IText (text, fontSize)
+              // Sync table title/formSchema/accentColor/showTitle from remote, and preserve title IText
               if (isTableGroup(existing)) {
                 const existingData = existing.get('data') as Record<string, unknown>
                 existing.set('data', {
@@ -321,6 +321,12 @@ export function setupDocumentSync(
                   formSchema: Object.prototype.hasOwnProperty.call(clean, 'formSchema')
                     ? (clean.formSchema ?? null)
                     : (existingData['formSchema'] ?? null),
+                  accentColor: Object.prototype.hasOwnProperty.call(clean, 'accentColor')
+                    ? (clean.accentColor ?? existingData['accentColor'])
+                    : existingData['accentColor'],
+                  showTitle: Object.prototype.hasOwnProperty.call(clean, 'showTitle')
+                    ? (clean.showTitle ?? existingData['showTitle'])
+                    : existingData['showTitle'],
                 })
                 syncFrameOrTableTitleFromRevived(existing, revived)
                 fireCanvasCustom(canvas, 'table:data:changed', { tableId: objectId })
@@ -398,6 +404,8 @@ export function setupDocumentSync(
             ? {
                 title: (clean.tableTitle as string) ?? 'Untitled Table',
                 formSchema: (clean.formSchema ?? null) as unknown,
+                accentColor: (clean.accentColor as string | undefined) ?? undefined,
+                showTitle: (clean.showTitle as boolean | undefined) ?? false,
               }
             : {}
         const connectorData =
@@ -489,6 +497,9 @@ export function setupDocumentSync(
       payload.subtype = 'table'
       payload.tableTitle = (data as unknown as { title?: string }).title ?? 'Untitled Table'
       payload.formSchema = (data as unknown as { formSchema?: unknown }).formSchema ?? null
+      const td = data as unknown as { accentColor?: string; showTitle?: boolean }
+      if (td.accentColor) payload.accentColor = td.accentColor
+      payload.showTitle = td.showTitle ?? false
     }
     if (data?.subtype === 'connector') {
       payload.subtype = 'connector'
@@ -558,6 +569,9 @@ export function setupDocumentSync(
       payload.subtype = 'table'
       payload.tableTitle = (data as unknown as { title?: string }).title ?? 'Untitled Table'
       payload.formSchema = (data as unknown as { formSchema?: unknown }).formSchema ?? null
+      const td = data as unknown as { accentColor?: string; showTitle?: boolean }
+      if (td.accentColor) payload.accentColor = td.accentColor
+      payload.showTitle = td.showTitle ?? false
     }
     if (data?.subtype === 'connector') {
       payload.subtype = 'connector'

@@ -167,8 +167,10 @@ async function spaceEvenly(
 }
 
 export interface ExecuteAiOptions {
-  /** Creates a frame container on the canvas. */
-  createFrame?: (params: { title: string; childIds: string[]; left: number; top: number; width: number; height: number }) => void
+  /** Creates a frame container on the canvas and returns its objectId. */
+  createFrame?: (params: { title: string; childIds: string[]; left: number; top: number; width: number; height: number }) => string
+  /** Sets a frame's child object IDs and syncs. Used after template creation. */
+  setFrameChildren?: (frameId: string, childIds: string[]) => void
   /** Creates a DataTable on the canvas and returns its objectId. */
   createTable?: (params: {
     left: number
@@ -263,8 +265,8 @@ export async function executeAiCommands(
           const frameLeft = Math.round(center.x - spec.frameWidth / 2)
           const frameTop = Math.round(center.y - spec.frameHeight / 2)
 
-          // Create frame first (no childIds yet — boardSync auto-captures via checkAndUpdateFrameMembership)
-          options.createFrame({
+          // Create frame first; childIds are set explicitly after all children are created
+          const templateFrameId = options.createFrame({
             title: spec.frameTitle,
             childIds: [],
             left: frameLeft,
@@ -272,6 +274,7 @@ export async function executeAiCommands(
             width: spec.frameWidth,
             height: spec.frameHeight,
           })
+          const templateChildIds: string[] = []
 
           // Create all child objects with absolute coords = frameLeft + relLeft
           for (const obj of spec.objects) {
@@ -290,6 +293,7 @@ export async function executeAiCommands(
                   : null,
               })
               createdIds.push(objectId)
+              templateChildIds.push(objectId)
               trackedBounds.push({
                 objectId,
                 left: frameLeft + obj.relLeft,
@@ -317,6 +321,7 @@ export async function executeAiCommands(
               { zIndex: baseZ + createIndex }
             )
             createdIds.push(objectId)
+            templateChildIds.push(objectId)
             trackedBounds.push({
               objectId,
               left: frameLeft + obj.relLeft,
@@ -325,6 +330,12 @@ export async function executeAiCommands(
               height: obj.height,
             })
             createIndex++
+          }
+          // Explicitly register all children with the frame so moving the frame moves them too.
+          // This is needed because Supabase-inserted objects arrive via realtime with isApplyingRemote=true,
+          // which skips the automatic checkAndUpdateFrameMembership path.
+          if (templateFrameId && templateChildIds.length > 0 && options?.setFrameChildren) {
+            options.setFrameChildren(templateFrameId, templateChildIds)
           }
         }
       } else if (cmd.action === 'createGrid') {
