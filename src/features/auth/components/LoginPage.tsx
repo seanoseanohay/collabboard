@@ -32,6 +32,7 @@ export function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [successMsg, setSuccessMsg] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const formRef = useRef<HTMLDivElement>(null)
 
@@ -58,17 +59,21 @@ export function LoginPage() {
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
+    setSuccessMsg(null)
     setLoading(true)
     try {
       if (mode === 'signup') {
-        await signUpWithEmail(email, password)
+        const { confirmationRequired } = await signUpWithEmail(email, password)
+        if (confirmationRequired) {
+          setSuccessMsg('Account created! Check your inbox for a confirmation link before signing in.')
+        }
       } else {
         await signInWithEmail(email, password)
       }
     } catch (err: unknown) {
       setError(
-        err && typeof err === 'object' && 'code' in err
-          ? getAuthErrorMessage(err as { code: string; message?: string })
+        err && typeof err === 'object' && 'message' in err
+          ? getAuthErrorMessage(err as { code?: string; message?: string })
           : 'Authentication failed.'
       )
     } finally {
@@ -165,6 +170,7 @@ export function LoginPage() {
             onClick={() => {
               setMode((m) => (m === 'signin' ? 'signup' : 'signin'))
               setError(null)
+              setSuccessMsg(null)
             }}
             style={styles.toggle}
           >
@@ -174,6 +180,7 @@ export function LoginPage() {
           </button>
 
           {error && <p style={styles.error}>{error}</p>}
+          {successMsg && <p style={styles.success}>{successMsg}</p>}
         </div>
       </section>
 
@@ -383,6 +390,16 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 8,
     fontSize: 13,
     border: '1px solid #fcc',
+  },
+  success: {
+    marginTop: 14,
+    padding: '10px 12px',
+    background: '#efffef',
+    color: '#1a7f37',
+    borderRadius: 8,
+    fontSize: 13,
+    border: '1px solid #aaddaa',
+    lineHeight: 1.5,
   },
 
   /* Features */

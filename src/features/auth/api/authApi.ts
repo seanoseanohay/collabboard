@@ -21,10 +21,11 @@ export async function signInWithEmail(
 export async function signUpWithEmail(
   email: string,
   password: string
-): Promise<void> {
+): Promise<{ confirmationRequired: boolean }> {
   const supabase = getSupabaseClient()
-  const { error } = await supabase.auth.signUp({ email, password })
+  const { data, error } = await supabase.auth.signUp({ email, password })
   if (error) throw error
+  return { confirmationRequired: data.session === null }
 }
 
 export async function signOutUser(): Promise<void> {

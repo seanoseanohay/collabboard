@@ -16,6 +16,7 @@ import { CursorPositionReadout } from './CursorPositionReadout'
 import { GridOverlay } from './GridOverlay'
 import { MapBorderOverlay } from './MapBorderOverlay'
 import { EmptyCanvasX } from './EmptyCanvasX'
+import { DebugConsole } from './DebugConsole'
 import { usePresence } from '../hooks/usePresence'
 import type { ToolType } from '../types/tools'
 import type { StickerKind } from '../lib/pirateStickerFactory'
@@ -40,6 +41,9 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
   const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false })
   const [presenceHovered, setPresenceHovered] = useState(false)
   const [objectCount, setObjectCount] = useState(0)
+  const [showDebugConsole, setShowDebugConsole] = useState(false)
+  const [canvasFps, setCanvasFps] = useState(0)
+  const [syncLatency, setSyncLatency] = useState<number | null>(null)
   const canvasContainerRef = useRef<HTMLDivElement>(null)
   const canvasZoomRef = useRef<FabricCanvasZoomHandle>(null)
   const gridRef = useRef<HTMLDivElement>(null)
@@ -104,6 +108,14 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
     setObjectCount(count)
   }, [])
 
+  const handleFpsChange = useCallback((fps: number) => {
+    setCanvasFps(fps)
+  }, [])
+
+  const handleSyncLatency = useCallback((ms: number) => {
+    setSyncLatency(ms)
+  }, [])
+
   // Sync title when board prop changes (e.g. after joinBoard)
   useEffect(() => {
     setTitleValue(board.title)
@@ -126,6 +138,17 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
     window.addEventListener('beforeunload', handler)
     return () => window.removeEventListener('beforeunload', handler)
   }, [captureThumbnail])
+
+  // Backtick toggles debug console
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return
+      if (e.key === '`') setShowDebugConsole((v) => !v)
+    }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [])
 
   const handleBack = useCallback(() => {
     captureThumbnail() // canvas still alive here — capture before navigating
@@ -282,6 +305,8 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
           onHistoryChange={handleHistoryChange}
           onObjectCountChange={handleObjectCountChange}
           onToolChange={setSelectedTool}
+          onFpsChange={handleFpsChange}
+          onSyncLatency={handleSyncLatency}
         />
         <CursorOverlay
           cursors={others}
@@ -292,6 +317,15 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
         {cursorPosition && (
           <CursorPositionReadout x={cursorPosition.x} y={cursorPosition.y} />
         )}
+        <DebugConsole
+          visible={showDebugConsole}
+          fps={canvasFps}
+          objectCount={objectCount}
+          zoom={viewportTransform?.[0] ?? 1}
+          presenceCount={others.length}
+          objectSyncLatency={syncLatency}
+          boardId={board.id}
+        />
       </div>
     </div>
   )

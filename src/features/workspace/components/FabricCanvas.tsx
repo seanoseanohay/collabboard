@@ -150,6 +150,8 @@ interface FabricCanvasProps {
   onHistoryChange?: (canUndo: boolean, canRedo: boolean) => void
   onObjectCountChange?: (count: number) => void
   onToolChange?: (tool: ToolType) => void
+  onFpsChange?: (fps: number) => void
+  onSyncLatency?: (ms: number) => void
 }
 
 /**
@@ -176,6 +178,8 @@ const FabricCanvasInner = (
     onHistoryChange,
     onObjectCountChange,
     onToolChange,
+    onFpsChange,
+    onSyncLatency,
   }: FabricCanvasProps,
   ref: React.Ref<FabricCanvasZoomHandle>
 ) => {
@@ -199,6 +203,10 @@ const FabricCanvasInner = (
   onObjectCountChangeRef.current = onObjectCountChange
   const onToolChangeRef = useRef(onToolChange)
   onToolChangeRef.current = onToolChange
+  const onFpsChangeRef = useRef(onFpsChange)
+  onFpsChangeRef.current = onFpsChange
+  const onSyncLatencyRef = useRef(onSyncLatency)
+  onSyncLatencyRef.current = onSyncLatency
   const lockOptsRef = useRef({ userId: userId ?? '', userName: userName ?? 'Anonymous' })
   lockOptsRef.current = { userId: userId ?? '', userName: userName ?? 'Anonymous' }
   const applyLockStateCallbackRef = useRef<LockStateCallbackRef['current']>(null)
@@ -1504,7 +1512,8 @@ const FabricCanvasInner = (
             boardId,
             applyLockStateCallbackRef,
             () => lockOptsRef.current.userId,
-            isRemoteChangeRef
+            isRemoteChangeRef,
+            (ms) => onSyncLatencyRef.current?.(ms)
           )
         : () => {}
 
@@ -1716,6 +1725,22 @@ const FabricCanvasInner = (
     })
     resizeObserver.observe(el)
 
+    // FPS tracking via Fabric after:render — counts canvas redraws per second
+    let fpsFrameCount = 0
+    let fpsWindowStart = performance.now()
+    const handleAfterRenderFps = () => {
+      fpsFrameCount++
+      const now = performance.now()
+      const elapsed = now - fpsWindowStart
+      if (elapsed >= 1000) {
+        const fps = Math.round((fpsFrameCount * 1000) / elapsed)
+        onFpsChangeRef.current?.(fps)
+        fpsFrameCount = 0
+        fpsWindowStart = now
+      }
+    }
+    fabricCanvas.on('after:render', handleAfterRenderFps)
+
     return () => {
       upperEl.removeEventListener('mousedown', onCaptureMouseDown, { capture: true })
       document.removeEventListener('mousemove', onMarqueeMouseMove)
@@ -1757,6 +1782,7 @@ const FabricCanvasInner = (
       fabricCanvas.off('selection:cleared', handleSelectionClearedForHistory)
       fabricCanvas.off('text:editing:entered', handleTextEditingEntered)
       fabricCanvas.off('text:editing:exited', handleTextEditingExited)
+      fabricCanvas.off('after:render', handleAfterRenderFps)
       canvasEl.removeEventListener('touchstart', handleTouchStart)
       canvasEl.removeEventListener('touchmove', handleTouchMove)
       canvasEl.removeEventListener('touchend', handleTouchEnd)

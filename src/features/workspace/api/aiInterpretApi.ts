@@ -1,11 +1,32 @@
 /**
  * AI Interpret API — invoke the ai-interpret Edge Function.
  * Sends natural language prompt, receives structured commands for the client to execute.
+ *
+ * Performance: known template prompts are detected client-side and bypass the Edge
+ * Function entirely (saves cold-start + 3 DB round-trips + OpenAI latency).
  */
 
 import { getSupabaseClient } from '@/shared/lib/supabase/config'
 
 const FUNCTION_NAME = 'ai-interpret'
+
+// Mirrors the template trigger phrases in the Edge Function system prompt.
+const TEMPLATE_PATTERNS: Array<{ pattern: RegExp; templateId: string }> = [
+  { pattern: /pros.{0,5}cons|pros\s+and\s+cons/i, templateId: 'pros-cons' },
+  { pattern: /\bswot\b|4[- ]quadrant/i, templateId: 'swot' },
+  { pattern: /user.{0,5}journey|journey\s+map/i, templateId: 'user-journey' },
+  { pattern: /\bretrospective\b|\bretro\b|what\s+went\s+well/i, templateId: 'retrospective' },
+]
+
+/** Returns a local applyTemplate response when the prompt clearly maps to a known template. */
+function detectTemplateLocally(prompt: string): AiInterpretResponse | null {
+  for (const { pattern, templateId } of TEMPLATE_PATTERNS) {
+    if (pattern.test(prompt)) {
+      return { commands: [{ action: 'applyTemplate', templateId }] }
+    }
+  }
+  return null
+}
 
 export interface AiInterpretResponse {
   commands: AiCommand[]
@@ -32,6 +53,9 @@ export async function invokeAiInterpret(
   prompt: string,
   options?: AiInterpretOptions
 ): Promise<AiInterpretResponse> {
+  const local = detectTemplateLocally(prompt)
+  if (local) return local
+
   const supabase = getSupabaseClient()
 
   const { data, error } = await supabase.functions.invoke<AiInterpretResponse & { error?: string }>(
