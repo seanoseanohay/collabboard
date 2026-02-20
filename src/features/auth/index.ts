@@ -7,6 +7,7 @@ export { useAuth } from './hooks/useAuth'
 export { LoginPage } from './components/LoginPage'
 export {
   signInWithGoogle,
+  signInWithGithub,
   signInWithEmail,
   signUpWithEmail,
   signOutUser,

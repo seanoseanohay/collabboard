@@ -9,6 +9,15 @@ export async function signInWithGoogle(): Promise<void> {
   })
 }
 
+export async function signInWithGithub(): Promise<void> {
+  const supabase = getSupabaseClient()
+  const redirectTo = typeof window !== 'undefined' ? `${window.location.origin}/` : undefined
+  await supabase.auth.signInWithOAuth({
+    provider: 'github',
+    options: { redirectTo },
+  })
+}
+
 export async function signInWithEmail(
   email: string,
   password: string
