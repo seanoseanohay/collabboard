@@ -141,6 +141,18 @@ const ToolIcons: Record<ToolType, React.ReactNode> = {
       <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
     </svg>
   ),
+  button: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="7" width="20" height="10" rx="3" />
+      <line x1="7" y1="12" x2="17" y2="12" />
+    </svg>
+  ),
+  'input-field': (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="7" width="20" height="10" rx="2" />
+      <line x1="6" y1="12" x2="8" y2="12" />
+    </svg>
+  ),
 }
 
 const INSERT_TOOLS: ToolType[] = ['rect', 'circle', 'triangle', 'line', 'draw', 'text', 'sticky', 'frame']
