@@ -4,7 +4,27 @@
 
 ## Current State
 
-**Table Polish + Template Redesign complete (2026-02-20).** All 6 tasks done and committed. TypeScript: 0 errors.
+**Template + DataTable bug fixes complete (2026-02-20).** Four issues fixed on top of the Table Polish + Template Redesign task. TypeScript: 0 errors (pre-existing `auth/index.ts` export error unrelated).
+
+### What Was Done (2026-02-20 — Bug Fixes)
+
+1. **SWOT frame overflow** — `TABLE_MIN_WIDTH = 280` silently inflated the 240px table specs past the 560px frame. Fixed: `frameWidth` → 620, right-column `relLeft` → 320, table widths → 280 in `templateRegistry.ts`.
+
+2. **Frame containment for templates** — Sticky/rect children (Pros & Cons) created via `createObject` arrived via realtime with `isApplyingRemote = true`, skipping `checkAndUpdateFrameMembership` → `frame.childIds` empty → moving frame left children behind.
+   - `createFrame` in `FabricCanvasZoomHandle` now returns `string` (the frame ID).
+   - New `setFrameChildren(frameId: string, childIds: string[]) => void` on `FabricCanvasZoomHandle`; fires `object:modified` to sync.
+   - `executeAiCommands.ts`: `templateChildIds: string[]` collects IDs for both table and non-table children; after loop calls `options.setFrameChildren(templateFrameId, templateChildIds)`.
+   - `ExecuteAiOptions.createFrame` return type changed to `string`; `setFrameChildren?` added.
+   - Wired through `AiPromptBar` (new prop + dep) → `WorkspacePage`.
+
+3. **accentColor / showTitle persistence** — Both fields were never written to Supabase or restored on load.
+   - `boardSync.ts` `emitAdd` and `buildPayload`: add `payload.accentColor` + `payload.showTitle` for `subtype === 'table'`.
+   - `tableData` loading block: adds `accentColor` and `showTitle` from `clean.*`.
+   - Remote-update handler for tables: merges `accentColor` + `showTitle` from `clean` into `existingData`.
+
+4. **Frame/Table rotation disabled + overlay zoom mismatch**
+   - `frameFactory.ts` and `dataTableFactory.ts`: `lockRotation: true` + `setControlsVisibility({ mtr: false })`.
+   - `FrameFormOverlay.tsx`: hide threshold `zoom < 0.15` → `zoom < 0.4`; removed `const minWidth = 320`; overlay `width: screenWidth` (no floor). Overlay now scales 1:1 with the canvas object at all zoom levels.
 
 ### What Was Done (2026-02-20 — Table Polish + Template Redesign)
 1. **DataTable schema** — `showTitle: boolean` + `accentColor?: string` on `DataTableData`; `headerColor?: string` on `FormColumn`; `dataTableFactory.ts` params updated with defaults.
@@ -12,7 +32,7 @@
 3. **View / Edit mode** — Double-click → edit (indigo border, controls); click outside → view (accent border, read-only). `editingTableId` in WorkspacePage; callbacks via FabricCanvas props.
 4. **`createGrid` command** — `{ action: 'createGrid', rows, cols, fill?, width?, height? }` → R×C sticky grid at viewport center. Added to `AiCommand` union + `executeAiCommands`.
 5. **`createTable` callback** — `ExecuteAiOptions.createTable`, `FabricCanvasZoomHandle.createTable` imperative handle, wired WorkspacePage → AiPromptBar → executeAiCommands. `TemplateObjectSpec` extended with `type: 'table'`.
-6. **Templates redesigned** — SWOT (4 colored DataTables, `showTitle: true`), Retrospective (1 table, 3 colored headers, `showTitle: false`), User Journey Map (1 wide table, Phase + 5 stage columns, 5 pre-populated rows).
+6. **Templates redesigned** — SWOT (4 colored DataTables, `showTitle: true`, frame 620×500), Retrospective (1 table, 3 colored headers, `showTitle: false`), User Journey Map (1 wide table, Phase + 5 stage columns, 5 pre-populated rows).
 
 ### Key Patterns for DataTable
 - `showTitle: false` → no title bar rendered, table is compact data grid only.
@@ -20,6 +40,9 @@
 - `isEditing` passed from `FrameFormOverlay` → `FrameFormPanel`; driven by `editingTableId === frame.objectId`.
 - Double-click on Fabric DataTable group → `onTableEditStart(id)`. Click on canvas (non-table) → `onTableEditEnd()`.
 - `createTable` in `FabricCanvasZoomHandle`: creates shape, sets formSchema, adds to canvas, returns objectId string.
+- `accentColor` and `showTitle` are now persisted to Supabase — always include them in `buildPayload` for tables.
+- Frame/DataTable objects both use `lockRotation: true` — never show rotation handle.
+- HTML overlay is hidden at `zoom < 0.4`; scales exactly to `screenWidth × screenHeight` (no minimum width floor).
 
 **MVP is complete.** Stroke width control and tldraw-style toolbar are in place. Zoom range extended to 0.001%–10000% (MIN_ZOOM 0.00001). Locking, sync, presence, Hand tool, zoom shortcuts + zoom UI, shape-tool fix, and paginated document load are done.
 

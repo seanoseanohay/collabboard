@@ -95,8 +95,15 @@
 - ~~**Boards page cleanup**~~ ✅ — Done. Then redesigned as **grid of cards** (not list): ordered by last_accessed_at; user_boards.last_accessed_at migration (20260218100000); joinBoard upserts it; formatLastAccessed "Opened X ago". Grid: gridAutoRows 130, columnGap 16, rowGap 20. Alignment fixes. Kebab menu: copy link, rename, delete.
 
 ## Current Status
-**Phase:** MVP + post-MVP complete. DataTable polish ✅ (2026-02-20): accent colors, optional title bar, view/edit mode. Template redesign ✅ (2026-02-20): SWOT/Retro/UserJourney now use DataTable objects with colored headers. `createGrid` AI command ✅. All 6 required AI layout/template commands working.
+**Phase:** MVP + post-MVP complete. DataTable polish ✅ (2026-02-20): accent colors, optional title bar, view/edit mode, frame containment, persistence. Template redesign ✅ (2026-02-20): SWOT/Retro/UserJourney now use DataTable objects with colored headers. `createGrid` AI command ✅. All 6 required AI layout/template commands working. Frame/Table no-rotate enforced.
 **Next:** Connector Phase 2, remaining branding (hero illustration).
+
+## Recently Added (2026-02-20 — Template/DataTable bug fixes)
+- ✅ **SWOT frame overflow fix** — `TABLE_MIN_WIDTH = 280` silently inflated 240px-wide tables past the 560px frame. Fixed: `frameWidth` 560 → 620, right-column `relLeft` 300 → 320, all table widths 240 → 280. Tables now fit exactly inside the frame.
+- ✅ **Frame containment for templates** — Sticky/rect children created via `createObject` (Supabase insert) arrived via realtime with `isApplyingRemote = true`, skipping `checkAndUpdateFrameMembership` → frame `childIds` empty → moving frame left children behind. Fix: `createFrame` returns frame ID; new `setFrameChildren(frameId, childIds)` on `FabricCanvasZoomHandle`; `executeAiCommands` collects `templateChildIds` per-loop and calls `setFrameChildren` after all children created. Wired through `ExecuteAiOptions`, `AiPromptBar`, `WorkspacePage`.
+- ✅ **accentColor / showTitle persistence** — Both fields were stored in Fabric `data` but never written to Supabase → reload reverted SWOT tables to uniform blue. Fixed: `emitAdd` and `buildPayload` in `boardSync.ts` now include `payload.accentColor` + `payload.showTitle` for tables; `tableData` loading restores them; remote-update handler merges them.
+- ✅ **Frame/Table rotation disabled** — `frameFactory.ts` and `dataTableFactory.ts` both set `lockRotation: true` + `setControlsVisibility({ mtr: false })` so rotation handles never appear on frames or tables.
+- ✅ **Overlay zoom misalignment fixed** — `FrameFormPanel` had `const minWidth = 320` locking the HTML overlay at 320px at all zoom levels. At 42% zoom the overlay was 320px while the canvas object was ~118px, making them appear far apart. Fixed: removed `minWidth` floor; overlay width = `screenWidth` exactly; hide threshold raised from `zoom < 0.15` to `zoom < 0.4` (matches `HIDE_TITLE_ZOOM_THRESHOLD`).
 
 ## Recently Added (2026-02-20 — Table Polish + Template Redesign)
 - ✅ **DataTable schema** — `showTitle: boolean` (hides title bar), `accentColor?: string` (border + header tint), `headerColor?: string` on `FormColumn` (per-column `<th>` background).
@@ -104,7 +111,7 @@
 - ✅ **View / Edit mode** — View (default): no footer, no delete controls, no type dropdowns, read-only `<span>` cells, `pointerEvents: none` on `<td>`. Edit (double-click): all controls visible, indigo border, cells editable. `editingTableId` state in WorkspacePage; `onTableEditStart`/`onTableEditEnd` via FabricCanvas props. Double-click sets id; click on non-table ends it.
 - ✅ **createGrid AI command** — `{ action: 'createGrid', rows, cols, fill?, width?, height? }` creates an R×C grid of stickies centered on viewport. Added to `AiCommand` union + handler in `executeAiCommands`.
 - ✅ **Template table type** — `TemplateObjectSpec.type: 'table'` with `showTitle`, `accentColor`, `formSchema` fields. `createTable` callback in `ExecuteAiOptions`; `FabricCanvasZoomHandle.createTable` imperative handle. `WorkspacePage` → `AiPromptBar` → `executeAiCommands` fully wired.
-- ✅ **SWOT template** — 4 DataTable objects (Strengths green, Weaknesses red, Opportunities blue, Threats amber); `showTitle: true`; 5 pre-filled rows each. Frame 560×500.
+- ✅ **SWOT template** — 4 DataTable objects (Strengths green, Weaknesses red, Opportunities blue, Threats amber); `showTitle: true`; 5 pre-filled rows each. Frame 620×500 (corrected from 560).
 - ✅ **Retrospective template** — 1 DataTable (700×360); `showTitle: false`; 3 columns with distinct `headerColor` (green/red/blue); 5 empty rows. Frame 740×420.
 - ✅ **User Journey Map template** — 1 DataTable (940×360); `showTitle: false`; Phase column + 5 stage columns (blue headers); 5 pre-populated rows (Actions/Tasks/Feelings/Pain Points/Opportunities). Frame 980×420.
 
@@ -122,8 +129,11 @@ OpenAI key permissions confirmed fixed. AI agent and parrot joke generation (use
 
 ## ⚠️ Look at Soon
 
-- **Grid pattern disappeared** — The tldraw-style 20px canvas grid (GridOverlay.tsx) is no longer visible. Was working: FabricCanvas transparent background, GridOverlay rendered behind canvas, SVG pattern + `#fafafa` fill, transforms with viewport. Investigate: verify GridOverlay is still rendered in WorkspacePage, `showGrid` state is wired, canvas `backgroundColor` is still `'transparent'`.
-- **Parchment/map treatment around canvas** — Canvas workspace needs the pirate-map aesthetic treatment. `MapBorderOverlay.tsx` exists (4 sepia gradient strips, compass corners, zoom-aware opacity, 🗺️ toggle) but the goal is a full parchment skin: aged-paper background for the infinite canvas, worn/vignette edges. Tied to MeBoard branding. Significant visual polish item.
+(No current items — grid + parchment border resolved 2026-02-20.)
+
+## Recently Fixed (2026-02-20 — Grid + Parchment)
+- ✅ **Grid overlay restored** — Root cause: `FabricCanvas.tsx` initialized with `backgroundColor: '#fafafa'` (opaque), covering the `GridOverlay` behind it. Fix: changed to `'transparent'`. Container already has `background: '#fafafa'`.
+- ✅ **Parchment border enhanced** — `MapBorderOverlay.tsx` rewritten: vignette (radial-gradient darkening toward edges), layered primary edge gradients (80px sepia) + warm inner highlight (48px lighter tone), SVG compass roses in all 4 corners (ring + cardinal/ordinal points + hub), zoom-aware opacity system preserved. All pure CSS/SVG, no image assets.
 
 ## Known Issues
 - ~~**Ungroup bug**~~ ✅ FIXED — Root cause: Fabric.js v7 tracks `parent` (permanent group ref) and `group` (transient ActiveSelection ref) separately. `canvas.remove(group)` leaves both set on children. (1) `child.group` caused `payloadWithSceneCoords` to double-apply the group transform → wrong DB position → `applyRemote` snap. (2) `child.parent` caused `ActiveSelection.exitGroup` to call `parent._enterGroup(child)` on deselect → child re-entered removed group → scrambled coords + unselectable. Fix: clear both `childRaw.group = undefined` and `childRaw.parent = undefined` before processing children in `ungroupSelected()` and Cmd+Shift+G handler. `FabricCanvas.tsx`.

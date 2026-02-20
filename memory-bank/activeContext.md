@@ -1,6 +1,15 @@
 # Active Context
 
 ## Current Focus (for next agent)
+**Template + DataTable bug fixes complete (2026-02-20).** Four separate issues resolved after the Table Polish + Template Redesign task:
+
+1. **SWOT frame overflow** — `TABLE_MIN_WIDTH = 280` silently expanded the 240px-wide tables, pushing the right column 20px past the 560px frame. Fixed: `frameWidth` → 620, right-column `relLeft` → 320, all table widths → 280.
+2. **Frame containment for templates** — Sticky/rect template children (Pros & Cons) are inserted via Supabase and arrive back via realtime with `isApplyingRemote = true`, causing `checkAndUpdateFrameMembership` to be skipped → frame `childIds` stayed empty → moving the frame left children behind. Fix: `createFrame` now returns the frame ID; new `setFrameChildren(frameId, childIds)` imperative handle; `executeAiCommands.ts` collects all `templateChildIds` and calls `setFrameChildren` after the loop. Wired through `ExecuteAiOptions`, `AiPromptBar`, `WorkspacePage`.
+3. **accentColor / showTitle not persisted** — Both fields were in the Fabric object's `data` but never written to the Supabase payload, so on reload SWOT tables reverted to uniform blue. Fixed: both `emitAdd` and `buildPayload` in `boardSync.ts` now include `payload.accentColor` and `payload.showTitle` for table objects; loading path restores them in `tableData`; remote-update handler merges them into `existingData`.
+4. **Frame/table rotation + overlay zoom mismatch** — (a) Frames and DataTables now set `lockRotation: true` + `setControlsVisibility({ mtr: false })` in their factory functions so rotation handles never appear. (b) `FrameFormPanel` had `const minWidth = 320` which locked the HTML overlay at 320px regardless of zoom — at 42% zoom the overlay was 320px while the canvas object was only ~118px. Fixed: removed the `minWidth` floor so the overlay scales proportionally with zoom; raised the hide threshold from `zoom < 0.15` to `zoom < 0.4` so overlays disappear cleanly before they get too small to interact with (matches the existing frame title threshold `HIDE_TITLE_ZOOM_THRESHOLD`).
+
+---
+
 **Table Polish + Template Redesign complete (2026-02-20).** All 6 tasks implemented:
 
 1. **DataTable schema extended** — `DataTableData` gains `showTitle: boolean` + `accentColor?: string`; `FormColumn` gains `headerColor?: string`; `dataTableFactory.ts` accepts both new params with defaults.
@@ -148,9 +157,7 @@ Frames are **visual containers** (Fabric Group: bg Rect + title IText) whose ass
 
 ## ⚠️ Look at Soon
 
-1. **Grid pattern disappeared** — The tldraw-style 20px grid overlay (GridOverlay.tsx) appears to have gone missing. Was working (FabricCanvas transparent background, GridOverlay behind canvas, transforms with viewport). Needs investigation: check that GridOverlay is still rendered in WorkspacePage, that `showGrid` state is wired correctly, and that the canvas background is still transparent.
-
-2. **Parchment/map border around the canvas** — Need to wrap the canvas workspace in a parchment/treasure-map aesthetic treatment. The `MapBorderOverlay.tsx` exists (4 sepia gradient strips + compass corners, zoom-aware opacity, 🗺️ toggle in toolbar) but the intent is to give the *entire* canvas area — not just the border strips — a parchment texture feel (aged paper background, worn edges, possibly a vignette). Think tldraw-style infinite canvas but with a pirate map skin. This is a significant visual polish item tied to the MeBoard branding.
+(All previous items resolved — grid + parchment border both fixed 2026-02-20.)
 
 ## Next Steps
 
