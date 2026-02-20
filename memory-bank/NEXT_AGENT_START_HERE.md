@@ -1,8 +1,25 @@
 # START HERE - Next Agent Context
 
-**Date:** 2026-02-19
+**Date:** 2026-02-20
 
 ## Current State
+
+**Table Polish + Template Redesign complete (2026-02-20).** All 6 tasks done and committed. TypeScript: 0 errors.
+
+### What Was Done (2026-02-20 — Table Polish + Template Redesign)
+1. **DataTable schema** — `showTitle: boolean` + `accentColor?: string` on `DataTableData`; `headerColor?: string` on `FormColumn`; `dataTableFactory.ts` params updated with defaults.
+2. **FrameFormOverlay accent + title bar** — Accent-driven border, column headers, title bar. `accentTint()` helper. `showTitle` flag controls title bar. `headerColor` per column.
+3. **View / Edit mode** — Double-click → edit (indigo border, controls); click outside → view (accent border, read-only). `editingTableId` in WorkspacePage; callbacks via FabricCanvas props.
+4. **`createGrid` command** — `{ action: 'createGrid', rows, cols, fill?, width?, height? }` → R×C sticky grid at viewport center. Added to `AiCommand` union + `executeAiCommands`.
+5. **`createTable` callback** — `ExecuteAiOptions.createTable`, `FabricCanvasZoomHandle.createTable` imperative handle, wired WorkspacePage → AiPromptBar → executeAiCommands. `TemplateObjectSpec` extended with `type: 'table'`.
+6. **Templates redesigned** — SWOT (4 colored DataTables, `showTitle: true`), Retrospective (1 table, 3 colored headers, `showTitle: false`), User Journey Map (1 wide table, Phase + 5 stage columns, 5 pre-populated rows).
+
+### Key Patterns for DataTable
+- `showTitle: false` → no title bar rendered, table is compact data grid only.
+- `accentColor: '#16a34a'` → green border + `#dcfce7` header tint. Accent map: green/red/blue/amber/default-blue.
+- `isEditing` passed from `FrameFormOverlay` → `FrameFormPanel`; driven by `editingTableId === frame.objectId`.
+- Double-click on Fabric DataTable group → `onTableEditStart(id)`. Click on canvas (non-table) → `onTableEditEnd()`.
+- `createTable` in `FabricCanvasZoomHandle`: creates shape, sets formSchema, adds to canvas, returns objectId string.
 
 **MVP is complete.** Stroke width control and tldraw-style toolbar are in place. Zoom range extended to 0.001%–10000% (MIN_ZOOM 0.00001). Locking, sync, presence, Hand tool, zoom shortcuts + zoom UI, shape-tool fix, and paginated document load are done.
 

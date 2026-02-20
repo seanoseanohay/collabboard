@@ -1,6 +1,15 @@
 # Active Context
 
 ## Current Focus (for next agent)
+**Table Polish + Template Redesign complete (2026-02-20).** All 6 tasks implemented:
+
+1. **DataTable schema extended** — `DataTableData` gains `showTitle: boolean` + `accentColor?: string`; `FormColumn` gains `headerColor?: string`; `dataTableFactory.ts` accepts both new params with defaults.
+2. **FrameFormOverlay accent + title bar** — Border color driven by `accentColor` (default `#93c5fd`); `accentTint()` maps 5 known accents to light backgrounds; title bar conditionally rendered (`showTitle` flag); column headers tinted via `col.headerColor ?? accentBg`.
+3. **View / Edit mode** — Default = view mode (no controls, read-only cells, draggable from full surface); double-click → edit mode (indigo border `#6366f1`, footer/delete/type-controls appear, cells editable). `editingTableId` state in `WorkspacePage`; `onTableEditStart`/`onTableEditEnd` callbacks wire through `FabricCanvas` → `WorkspacePage` → `FrameFormOverlay`.
+4. **TemplateObjectSpec table type** — `type: 'table'` added to union; `showTitle`, `accentColor`, `formSchema` fields. `createTable` callback added to `ExecuteAiOptions` and wired through `FabricCanvas.createTable` → `WorkspacePage` → `AiPromptBar`. `createGrid` command added to `AiCommand` union + handler in `executeAiCommands`.
+5. **Templates redesigned** — SWOT: 4 DataTable objects (green/red/blue/amber accents, `showTitle: true`, 5 pre-filled rows each). Retrospective: 1 wide table, 3 color-coded column headers, no title bar. User Journey Map: 1 wide table, Phase + 5 stage columns with blue headers, 5 pre-populated rows. `makeId()` helper generates fresh UUIDs at module load time.
+6. **All 6 required AI commands verified** — arrangeInGrid ✅, createGrid ✅, spaceEvenly ✅, SWOT template ✅, User Journey template ✅, Retrospective template ✅.
+
 **Frame/table title persistence fix (2026-02-20).** Frame and table titles had the same bug: setting the title to a small size (e.g. 2px fontSize) would jump back to a large size when moving. Root cause: when applying remote updates, we only synced `data` (title string, childIds/formSchema) and the group transform — we never synced the title IText child's `text` or `fontSize` from the revived payload. Fix in `boardSync.ts`: (1) Added `syncFrameOrTableTitleFromRevived(existing, revived)` — copies title IText's text and fontSize from revived to existing when applying remote for frames/tables. (2) In `text:editing:exited`, sync IText text to `data.title` for frame/table before `emitModify` so the payload has correct frameTitle/tableTitle.
 
 **Table object polish complete (2026-02-20).** Two bugs fixed in `FrameFormOverlay.tsx`:
@@ -136,6 +145,12 @@ Frames are **visual containers** (Fabric Group: bg Rect + title IText) whose ass
 ### Code Changes
 - **boardSync.ts:** Extracted `setupDocumentSync()` and `setupLockSync()`. `applyLockStateCallbackRef` lets document sync re-apply lock state after remote position updates. `setupBoardSync()` composes both.
 - **FabricCanvas.tsx:** Two effects — document sync (deps: width, height, boardId); lock sync (deps: boardId, userId, userName).
+
+## ⚠️ Look at Soon
+
+1. **Grid pattern disappeared** — The tldraw-style 20px grid overlay (GridOverlay.tsx) appears to have gone missing. Was working (FabricCanvas transparent background, GridOverlay behind canvas, transforms with viewport). Needs investigation: check that GridOverlay is still rendered in WorkspacePage, that `showGrid` state is wired correctly, and that the canvas background is still transparent.
+
+2. **Parchment/map border around the canvas** — Need to wrap the canvas workspace in a parchment/treasure-map aesthetic treatment. The `MapBorderOverlay.tsx` exists (4 sepia gradient strips + compass corners, zoom-aware opacity, 🗺️ toggle in toolbar) but the intent is to give the *entire* canvas area — not just the border strips — a parchment texture feel (aged paper background, worn edges, possibly a vignette). Think tldraw-style infinite canvas but with a pirate map skin. This is a significant visual polish item tied to the MeBoard branding.
 
 ## Next Steps
 

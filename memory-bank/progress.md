@@ -93,8 +93,18 @@
 - ~~**Boards page cleanup**~~ ✅ — Done. Then redesigned as **grid of cards** (not list): ordered by last_accessed_at; user_boards.last_accessed_at migration (20260218100000); joinBoard upserts it; formatLastAccessed "Opened X ago". Grid: gridAutoRows 130, columnGap 16, rowGap 20. Alignment fixes. Kebab menu: copy link, rename, delete.
 
 ## Current Status
-**Phase:** MVP + post-MVP complete. Frames ✅. Tables (DataTable) ✅ — standalone structured-data objects with HTML form overlay; column type selector hides on blur (hover-reveal); fully draggable via `pointer-events: none` overlay pattern. Duplicate, Copy & Paste ✅. Lasso selection ✅. AI Template Redesign ✅ (2026-02-19). Board list page fully featured. Viewport persistence + branding polish done. Font size control + sticker zoom scaling ✅. Ungroup bug ✅.
+**Phase:** MVP + post-MVP complete. DataTable polish ✅ (2026-02-20): accent colors, optional title bar, view/edit mode. Template redesign ✅ (2026-02-20): SWOT/Retro/UserJourney now use DataTable objects with colored headers. `createGrid` AI command ✅. All 6 required AI layout/template commands working.
 **Next:** Connector Phase 2, remaining branding (hero illustration).
+
+## Recently Added (2026-02-20 — Table Polish + Template Redesign)
+- ✅ **DataTable schema** — `showTitle: boolean` (hides title bar), `accentColor?: string` (border + header tint), `headerColor?: string` on `FormColumn` (per-column `<th>` background).
+- ✅ **FrameFormOverlay accent colors** — Border: `2px solid ${isEditing ? '#6366f1' : accent}`. Column `<th>` background: `col.headerColor ?? accentBg`. Title bar: `accentBg` background + `accent` text/border. `accentTint()` maps 5 preset accent colors to light tints; unknown accents fall back to `#f8fafc`.
+- ✅ **View / Edit mode** — View (default): no footer, no delete controls, no type dropdowns, read-only `<span>` cells, `pointerEvents: none` on `<td>`. Edit (double-click): all controls visible, indigo border, cells editable. `editingTableId` state in WorkspacePage; `onTableEditStart`/`onTableEditEnd` via FabricCanvas props. Double-click sets id; click on non-table ends it.
+- ✅ **createGrid AI command** — `{ action: 'createGrid', rows, cols, fill?, width?, height? }` creates an R×C grid of stickies centered on viewport. Added to `AiCommand` union + handler in `executeAiCommands`.
+- ✅ **Template table type** — `TemplateObjectSpec.type: 'table'` with `showTitle`, `accentColor`, `formSchema` fields. `createTable` callback in `ExecuteAiOptions`; `FabricCanvasZoomHandle.createTable` imperative handle. `WorkspacePage` → `AiPromptBar` → `executeAiCommands` fully wired.
+- ✅ **SWOT template** — 4 DataTable objects (Strengths green, Weaknesses red, Opportunities blue, Threats amber); `showTitle: true`; 5 pre-filled rows each. Frame 560×500.
+- ✅ **Retrospective template** — 1 DataTable (700×360); `showTitle: false`; 3 columns with distinct `headerColor` (green/red/blue); 5 empty rows. Frame 740×420.
+- ✅ **User Journey Map template** — 1 DataTable (940×360); `showTitle: false`; Phase column + 5 stage columns (blue headers); 5 pre-populated rows (Actions/Tasks/Feelings/Pain Points/Opportunities). Frame 980×420.
 
 ### AI Template Redesign ✅ (2026-02-19)
 - Client-side template registry (`templateRegistry.ts`) — 4 templates (pros-cons, swot, user-journey, retrospective) as pure TypeScript data specs.
@@ -107,6 +117,11 @@
 
 ## ~~🔴 Blocking Issue: AI Agent OpenAI Key Permissions~~ ✅ RESOLVED
 OpenAI key permissions confirmed fixed. AI agent and parrot joke generation (usePirateJokes) are now unblocked.
+
+## ⚠️ Look at Soon
+
+- **Grid pattern disappeared** — The tldraw-style 20px canvas grid (GridOverlay.tsx) is no longer visible. Was working: FabricCanvas transparent background, GridOverlay rendered behind canvas, SVG pattern + `#fafafa` fill, transforms with viewport. Investigate: verify GridOverlay is still rendered in WorkspacePage, `showGrid` state is wired, canvas `backgroundColor` is still `'transparent'`.
+- **Parchment/map treatment around canvas** — Canvas workspace needs the pirate-map aesthetic treatment. `MapBorderOverlay.tsx` exists (4 sepia gradient strips, compass corners, zoom-aware opacity, 🗺️ toggle) but the goal is a full parchment skin: aged-paper background for the infinite canvas, worn/vignette edges. Tied to MeBoard branding. Significant visual polish item.
 
 ## Known Issues
 - ~~**Ungroup bug**~~ ✅ FIXED — Root cause: Fabric.js v7 tracks `parent` (permanent group ref) and `group` (transient ActiveSelection ref) separately. `canvas.remove(group)` leaves both set on children. (1) `child.group` caused `payloadWithSceneCoords` to double-apply the group transform → wrong DB position → `applyRemote` snap. (2) `child.parent` caused `ActiveSelection.exitGroup` to call `parent._enterGroup(child)` on deselect → child re-entered removed group → scrambled coords + unselectable. Fix: clear both `childRaw.group = undefined` and `childRaw.parent = undefined` before processing children in `ungroupSelected()` and Cmd+Shift+G handler. `FabricCanvas.tsx`.
