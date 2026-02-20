@@ -168,14 +168,17 @@ export function applyLockState(
  * Call applyLockStateCallbackRef.current?.() after remote updates if lock sync is active.
  * getCurrentUserId: optional; used to ignore our own move-delta broadcasts and avoid applying them locally.
  * remoteChangeRef: optional mutable ref toggled true while canvas is mutated by remote events — lets history manager skip recording.
+ * onSyncLatency: optional; called with round-trip ms when our own write echoes back via postgres_changes.
  */
 export function setupDocumentSync(
   canvas: Canvas,
   boardId: string,
   applyLockStateCallbackRef: LockStateCallbackRef,
   getCurrentUserId?: () => string,
-  remoteChangeRef?: { current: boolean }
+  remoteChangeRef?: { current: boolean },
+  onSyncLatency?: (ms: number) => void
 ): () => void {
+  const pendingWriteTimestamps = new Map<string, number>()
   let isApplyingRemote = false
 
   const stripSyncFields = (d: Record<string, unknown>) => {
@@ -206,6 +209,11 @@ export function setupDocumentSync(
   }
 
   const applyRemote = async (objectId: string, data: Record<string, unknown>) => {
+    const writeSentAt = pendingWriteTimestamps.get(objectId)
+    if (writeSentAt !== undefined) {
+      pendingWriteTimestamps.delete(objectId)
+      onSyncLatency?.(Date.now() - writeSentAt)
+    }
     if (remoteChangeRef) remoteChangeRef.current = true
     try {
       const clean = stripSyncFields(data)
@@ -264,7 +272,9 @@ export function setupDocumentSync(
                 }
               }
               applyZIndex(existing, clean)
-              if (!isContainerGroup(existing) && !isFrameGroup(existing)) {
+              const existingSubtype = (existing.get('data') as { subtype?: string } | undefined)?.subtype
+              if (!isContainerGroup(existing) && !isFrameGroup(existing)
+                  && existingSubtype !== 'input-field' && existingSubtype !== 'button') {
                 updateStickyTextFontSize(existing)
                 updateStickyPlaceholderVisibility(existing)
               }
@@ -340,7 +350,8 @@ export function setupDocumentSync(
           applyZIndex(revived, clean)
           if (revived.type === 'group') {
             const revivedData = revived.get('data') as { subtype?: string } | undefined
-            if (revivedData?.subtype !== 'container' && revivedData?.subtype !== 'frame') {
+            if (revivedData?.subtype !== 'container' && revivedData?.subtype !== 'frame'
+                && revivedData?.subtype !== 'input-field' && revivedData?.subtype !== 'button') {
               updateStickyTextFontSize(revived)
               updateStickyPlaceholderVisibility(revived)
             }
@@ -407,11 +418,18 @@ export function setupDocumentSync(
       if (data.sourceFloatPoint) payload.sourceFloatPoint = data.sourceFloatPoint
       if (data.targetFloatPoint) payload.targetFloatPoint = data.targetFloatPoint
     }
+    if (obj.type === 'group' && data?.subtype === 'input-field') {
+      payload.subtype = 'input-field'
+    }
+    if (obj.type === 'group' && data?.subtype === 'button') {
+      payload.subtype = 'button'
+    }
     delete payload.data
     delete (payload as { layoutManager?: unknown }).layoutManager
     const z = (payload.zIndex as number) ?? Date.now()
     payload.zIndex = z
     setObjectZIndex(obj, z)
+    pendingWriteTimestamps.set(id, Date.now())
     writeDocument(boardId, id, payload).catch(console.error)
   }
 
@@ -466,9 +484,16 @@ export function setupDocumentSync(
       if (data.sourceFloatPoint) payload.sourceFloatPoint = data.sourceFloatPoint
       if (data.targetFloatPoint) payload.targetFloatPoint = data.targetFloatPoint
     }
+    if (obj.type === 'group' && data?.subtype === 'input-field') {
+      payload.subtype = 'input-field'
+    }
+    if (obj.type === 'group' && data?.subtype === 'button') {
+      payload.subtype = 'button'
+    }
     delete payload.data
     delete (payload as { layoutManager?: unknown }).layoutManager
     if (payload.zIndex === undefined) payload.zIndex = getObjectZIndex(obj)
+    pendingWriteTimestamps.set(id, Date.now())
     writeDocument(boardId, id, payload).catch(console.error)
   }
 
