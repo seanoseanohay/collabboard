@@ -26,9 +26,10 @@ interface AiPromptBarProps {
   createFrame?: (params: { title: string; childIds: string[]; left: number; top: number; width: number; height: number }) => void
   /** @deprecated Use createFrame instead. Kept for backward compatibility. */
   groupObjectIds?: (ids: string[]) => Promise<void>
+  getViewportCenter?: () => { x: number; y: number }
 }
 
-export function AiPromptBar({ boardId, getSelectedObjectIds, createFrame, groupObjectIds }: AiPromptBarProps) {
+export function AiPromptBar({ boardId, getSelectedObjectIds, createFrame, groupObjectIds, getViewportCenter }: AiPromptBarProps) {
   const [open, setOpen] = useState(false)
   const [prompt, setPrompt] = useState('')
   const [loading, setLoading] = useState(false)
@@ -41,9 +42,14 @@ export function AiPromptBar({ boardId, getSelectedObjectIds, createFrame, groupO
       setError(null)
       try {
         const selectedObjectIds = getSelectedObjectIds?.() ?? []
-        const { commands } = await invokeAiInterpret(boardId, text, { selectedObjectIds })
+        const viewportCenter = getViewportCenter?.()
+        const { commands } = await invokeAiInterpret(boardId, text, {
+          selectedObjectIds,
+          viewportCenter,
+        })
         const result = await executeAiCommands(boardId, commands, {
           createFrame: createFrame ?? undefined,
+          getViewportCenter,
         })
         if (!result.ok) {
           setError(result.error ?? 'Failed to execute')
@@ -61,7 +67,7 @@ export function AiPromptBar({ boardId, getSelectedObjectIds, createFrame, groupO
         setLoading(false)
       }
     },
-    [boardId, loading, createFrame, groupObjectIds]
+    [boardId, loading, createFrame, groupObjectIds, getViewportCenter]
   )
 
   const handleExampleClick = useCallback(

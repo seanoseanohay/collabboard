@@ -203,6 +203,7 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
           boardId={board.id}
           getSelectedObjectIds={() => canvasZoomRef.current?.getSelectedObjectIds() ?? []}
           createFrame={(params) => canvasZoomRef.current?.createFrame(params)}
+          getViewportCenter={() => canvasZoomRef.current?.getViewportCenter() ?? { x: 400, y: 300 }}
         />
         <button
           type="button"
