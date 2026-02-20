@@ -30,7 +30,7 @@ interface AiPromptBarProps {
 }
 
 interface LastResult {
-  source: 'template' | 'api'
+  source: 'local' | 'template' | 'api'
   usage?: AiUsage
 }
 
