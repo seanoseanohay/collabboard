@@ -13,6 +13,7 @@ import {
   type UpdateObjectProps,
   type QueryObjectsCriteria,
 } from '../api/aiClientApi'
+import { TEMPLATE_REGISTRY } from './templateRegistry'
 import { getDocumentsByIds } from '../api/documentsApi'
 import type { AiCommand } from '../api/aiInterpretApi'
 
@@ -142,8 +143,10 @@ async function spaceEvenly(
 }
 
 export interface ExecuteAiOptions {
-  /** Called after createFrame command: creates a frame container around all created objects. */
+  /** Creates a frame container on the canvas. */
   createFrame?: (params: { title: string; childIds: string[]; left: number; top: number; width: number; height: number }) => void
+  /** Returns the current viewport center in scene coordinates. */
+  getViewportCenter?: () => { x: number; y: number }
 }
 
 const FRAME_PADDING = 28
@@ -215,6 +218,47 @@ export async function executeAiCommands(
             width: maxRight - minLeft,
             height: maxBottom - minTop,
           })
+        }
+      } else if (cmd.action === 'applyTemplate') {
+        const spec = TEMPLATE_REGISTRY[cmd.templateId]
+        if (!spec || !options?.createFrame) {
+          // Unknown template or no createFrame callback — skip silently
+        } else {
+          const center = options.getViewportCenter?.() ?? { x: 400, y: 300 }
+          const frameLeft = Math.round(center.x - spec.frameWidth / 2)
+          const frameTop = Math.round(center.y - spec.frameHeight / 2)
+
+          // Create frame first (no childIds yet — boardSync auto-captures via checkAndUpdateFrameMembership)
+          options.createFrame({
+            title: spec.frameTitle,
+            childIds: [],
+            left: frameLeft,
+            top: frameTop,
+            width: spec.frameWidth,
+            height: spec.frameHeight,
+          })
+
+          // Create all child objects with absolute coords = frameLeft + relLeft
+          for (const obj of spec.objects) {
+            const objectId = await createObject(
+              boardId,
+              obj.type as CreateObjectType,
+              {
+                left: frameLeft + obj.relLeft,
+                top: frameTop + obj.relTop,
+                width: obj.width,
+                height: obj.height,
+                fill: obj.fill,
+                stroke: obj.stroke,
+                strokeWeight: obj.strokeWeight,
+                text: obj.text,
+                fontSize: obj.fontSize,
+              },
+              { zIndex: baseZ + createIndex }
+            )
+            createdIds.push(objectId)
+            createIndex++
+          }
         }
       } else if (cmd.action === 'groupCreated') {
         shouldGroup = true
