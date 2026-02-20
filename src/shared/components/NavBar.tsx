@@ -17,11 +17,11 @@ export function NavBar({ showSignIn = false, onSignInClick, isAuthenticated = fa
       </Link>
       <div style={styles.links}>
         {isAuthenticated && onSignOut ? (
-          <button onClick={onSignOut} style={styles.signOutBtn}>
+          <button onClick={onSignOut} style={styles.signOutBtn} className="btn-nav-white">
             Sign out
           </button>
         ) : showSignIn && onSignInClick ? (
-          <button onClick={onSignInClick} style={styles.signInBtn}>
+          <button onClick={onSignInClick} style={styles.signInBtn} className="btn-nav-gold">
             Log In
           </button>
         ) : null}
@@ -76,20 +76,16 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '8px 18px',
     fontSize: 14,
     fontWeight: 600,
-    background: 'transparent',
     border: '1px solid #d4a017',
     borderRadius: 6,
-    color: '#d4a017',
     cursor: 'pointer',
   },
   signOutBtn: {
     padding: '8px 18px',
     fontSize: 14,
     fontWeight: 600,
-    background: 'transparent',
     border: '1px solid rgba(255,255,255,0.4)',
     borderRadius: 6,
-    color: 'rgba(255,255,255,0.9)',
     cursor: 'pointer',
   },
 }
