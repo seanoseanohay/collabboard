@@ -141,6 +141,7 @@ export interface FabricCanvasZoomHandle {
     title: string; showTitle: boolean; accentColor?: string
     formSchema: FormSchema | null
   }) => string
+  createZoomSpiral: (options?: { count?: number }) => void
 }
 
 interface ConnectorDropState {
@@ -548,6 +549,38 @@ const FabricCanvasInner = (
       canvas.add(obj)
       canvas.requestRenderAll()
       return getObjectId(obj) ?? ''
+    },
+    createZoomSpiral: (options?: { count?: number }) => {
+      const canvas = canvasRef.current
+      const history = historyRef.current
+      if (!canvas) return
+      const count = Math.max(5, Math.min(60, options?.count ?? 30))
+      const center = (() => {
+        const vpt = canvas.viewportTransform ?? [1, 0, 0, 1, 0, 0]
+        const zoom = vpt[0]
+        return { x: (width / 2 - vpt[4]) / zoom, y: (height / 2 - vpt[5]) / zoom }
+      })()
+      const rMin = 100
+      const rMax = 5_000_000
+      const baseZ = Date.now()
+      const addActions: Array<{ type: 'add'; objectId: string; snapshot: Record<string, unknown> }> = []
+      for (let i = 0; i < count; i++) {
+        const t = count > 1 ? i / (count - 1) : 1
+        const r = rMin * Math.pow(rMax / rMin, t)
+        const theta = i * (2 * Math.PI / 6)
+        const x = center.x + r * Math.cos(theta)
+        const y = center.y + r * Math.sin(theta)
+        const sticker = createSticker('parrot', x, y, { assignId: true, zoom: 1 })
+        if (sticker) {
+          setObjectZIndex(sticker, baseZ + i)
+          canvas.add(sticker)
+          const id = getObjectId(sticker)
+          if (id) addActions.push({ type: 'add', objectId: id, snapshot: history?.snapshot(sticker) ?? {} })
+        }
+      }
+      if (addActions.length > 0) history?.pushCompound(addActions)
+      zoomApiRef.current?.zoomToFit()
+      canvas.requestRenderAll()
     },
     resetView: () => {
       const canvas = canvasRef.current

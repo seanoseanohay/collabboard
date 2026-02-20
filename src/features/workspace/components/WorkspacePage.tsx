@@ -16,6 +16,7 @@ import { CursorPositionReadout } from './CursorPositionReadout'
 import { GridOverlay } from './GridOverlay'
 import { MapBorderOverlay } from './MapBorderOverlay'
 import { EmptyCanvasX } from './EmptyCanvasX'
+import { EmptyCanvasPrompt } from './EmptyCanvasPrompt'
 import { DebugConsole } from './DebugConsole'
 import { FrameFormOverlay } from './FrameFormOverlay'
 import type { FormFrameSceneInfo, FormSchema } from '../lib/frameFormTypes'
@@ -319,6 +320,11 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
       <div ref={canvasContainerRef} style={styles.canvas}>
         <GridOverlay ref={gridRef} />
         <EmptyCanvasX objectCount={objectCount} zoom={viewportTransform?.[0] ?? 1} />
+        <EmptyCanvasPrompt
+          objectCount={objectCount}
+          boardReady={boardReady}
+          onCreateZoomSpiral={() => canvasZoomRef.current?.createZoomSpiral()}
+        />
         <MapBorderOverlay zoom={viewportTransform?.[0] ?? 1} visible={showMapBorder} />
         <FabricCanvas
           ref={canvasZoomRef}
