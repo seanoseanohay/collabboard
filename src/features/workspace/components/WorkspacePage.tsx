@@ -41,6 +41,7 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
   const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false })
   const [presenceHovered, setPresenceHovered] = useState(false)
   const [objectCount, setObjectCount] = useState(0)
+  const [selectedCount, setSelectedCount] = useState(0)
   const [showDebugConsole, setShowDebugConsole] = useState(false)
   const [canvasFps, setCanvasFps] = useState(0)
   const [syncLatency, setSyncLatency] = useState<number | null>(null)
@@ -106,6 +107,10 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
 
   const handleObjectCountChange = useCallback((count: number) => {
     setObjectCount(count)
+  }, [])
+
+  const handleSelectedCountChange = useCallback((count: number) => {
+    setSelectedCount(count)
   }, [])
 
   const handleFpsChange = useCallback((fps: number) => {
@@ -304,6 +309,7 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
           onSelectionChange={handleSelectionChange}
           onHistoryChange={handleHistoryChange}
           onObjectCountChange={handleObjectCountChange}
+          onSelectedCountChange={handleSelectedCountChange}
           onToolChange={setSelectedTool}
           onFpsChange={handleFpsChange}
           onSyncLatency={handleSyncLatency}
@@ -321,6 +327,7 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
           visible={showDebugConsole}
           fps={canvasFps}
           objectCount={objectCount}
+          selectedCount={selectedCount}
           zoom={viewportTransform?.[0] ?? 1}
           presenceCount={others.length}
           objectSyncLatency={syncLatency}

@@ -150,6 +150,7 @@ interface FabricCanvasProps {
   onHistoryChange?: (canUndo: boolean, canRedo: boolean) => void
   onObjectCountChange?: (count: number) => void
   onToolChange?: (tool: ToolType) => void
+  onSelectedCountChange?: (count: number) => void
   onFpsChange?: (fps: number) => void
   onSyncLatency?: (ms: number) => void
 }
@@ -178,6 +179,7 @@ const FabricCanvasInner = (
     onHistoryChange,
     onObjectCountChange,
     onToolChange,
+    onSelectedCountChange,
     onFpsChange,
     onSyncLatency,
   }: FabricCanvasProps,
@@ -201,6 +203,8 @@ const FabricCanvasInner = (
   onHistoryChangeRef.current = onHistoryChange
   const onObjectCountChangeRef = useRef(onObjectCountChange)
   onObjectCountChangeRef.current = onObjectCountChange
+  const onSelectedCountChangeRef = useRef(onSelectedCountChange)
+  onSelectedCountChangeRef.current = onSelectedCountChange
   const onToolChangeRef = useRef(onToolChange)
   onToolChangeRef.current = onToolChange
   const onFpsChangeRef = useRef(onFpsChange)
@@ -1562,9 +1566,14 @@ const FabricCanvasInner = (
     const notifySelectionChange = () => {
       const active = fabricCanvas.getActiveObject()
       if (!active) {
+        onSelectedCountChangeRef.current?.(0)
         onSelectionChangeRef.current?.(null)
         return
       }
+      const selCount = active.type === 'activeselection' && 'getObjects' in active
+        ? (active as unknown as { getObjects(): FabricObject[] }).getObjects().length
+        : 1
+      onSelectedCountChangeRef.current?.(selCount)
       const isActiveSelection = active.type === 'activeselection'
       const isGroup = active.type === 'group'
       const groupData = isGroup ? (active.get('data') as { subtype?: string } | undefined) : undefined

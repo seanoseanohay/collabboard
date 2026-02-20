@@ -12,6 +12,7 @@ interface DebugConsoleProps {
   visible: boolean
   fps: number
   objectCount: number
+  selectedCount: number
   zoom: number
   presenceCount: number
   /** Rolling average object→DB→echo round-trip in ms. Null until first measurement. */
@@ -44,6 +45,7 @@ export function DebugConsole({
   visible,
   fps,
   objectCount,
+  selectedCount,
   zoom,
   presenceCount,
   objectSyncLatency,
@@ -121,6 +123,7 @@ export function DebugConsole({
         <tbody>
           <Row label="FPS" value={fps > 0 ? `${fps}` : '—'} valueColor={fps > 0 ? fpsColor(fps) : '#94a3b8'} unit="fps" />
           <Row label="Objects" value={`${objectCount}`} />
+          {selectedCount > 0 && <Row label="Selected" value={`${selectedCount}`} valueColor="#60a5fa" />}
           <Row label="Zoom" value={`${zoomPct}`} unit="%" />
           <Row label="Peers" value={`${presenceCount}`} />
           <Row

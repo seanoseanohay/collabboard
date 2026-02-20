@@ -643,10 +643,8 @@ export function setupDocumentSync(
     })
   }
 
-  const emitMoveDeltaThrottledWithTargets = (target: FabricObject, precomputedTargets?: FabricObject[]) => {
-    const toSync = precomputedTargets ?? getObjectsToSync(target)
-    if (toSync.length === 0) return
-    const ids = toSync.map((o) => getObjectId(o)).filter((id): id is string => !!id)
+  const emitMoveDeltaThrottledWithTargets = (target: FabricObject) => {
+    const ids = cachedSyncIds ?? getObjectsToSync(target).map((o) => getObjectId(o)).filter((id): id is string => !!id)
     if (ids.length === 0) return
     const center = getTargetSceneCenter(target)
     const now = Date.now()
@@ -756,8 +754,26 @@ export function setupDocumentSync(
       if (id) framePrevPos.set(id, { left: target.left, top: target.top })
     }
   })
+  // During large multi-selection drag, enable Fabric object caching on the ActiveSelection.
+  // This renders all children to a single cached bitmap once, then just draws that bitmap
+  // per frame — dropping per-frame render cost from O(N) to O(1).
+  let dragCacheActive = false
+  let cachedSyncIds: string[] | null = null
+
   canvas.on('object:moving', (e) => {
     if (!e.target) return
+
+    if (!dragCacheActive && e.target.type === 'activeselection') {
+      const sel = e.target as FabricObject & { objectCaching?: boolean }
+      const childCount = 'getObjects' in sel
+        ? (sel as unknown as { getObjects(): FabricObject[] }).getObjects().length
+        : 0
+      if (childCount > 50) {
+        sel.objectCaching = true
+        sel.dirty = true
+        dragCacheActive = true
+      }
+    }
 
     // Propagate frame movement to its child canvas objects in real-time
     if (isFrame(e.target)) {
@@ -782,14 +798,16 @@ export function setupDocumentSync(
       }
     }
 
-    const syncTargets = getObjectsToSync(e.target)
-    const ids = new Set(
-      syncTargets
+    // Cache sync target IDs for the drag to avoid O(N) recomputation per frame
+    if (!cachedSyncIds) {
+      const syncTargets = getObjectsToSync(e.target)
+      cachedSyncIds = syncTargets
         .map((o) => getObjectId(o))
         .filter((id): id is string => !!id)
-    )
+    }
+    const ids = new Set(cachedSyncIds)
     if (ids.size > 0) updateConnectorsForObjects(ids)
-    emitMoveDeltaThrottledWithTargets(e.target, syncTargets)
+    emitMoveDeltaThrottledWithTargets(e.target)
   })
   const getTransformIds = (target: FabricObject): Set<string> =>
     new Set(
@@ -822,6 +840,15 @@ export function setupDocumentSync(
     }
   })
   canvas.on('object:modified', (e) => {
+    // Disable selection caching after transform ends so objects render at full fidelity
+    if (dragCacheActive && e.target) {
+      const sel = e.target as FabricObject & { objectCaching?: boolean }
+      sel.objectCaching = false
+      sel.dirty = true
+      canvas.requestRenderAll()
+    }
+    dragCacheActive = false
+    cachedSyncIds = null
     if (moveThrottleTimer) {
       clearTimeout(moveThrottleTimer)
       moveThrottleTimer = null
@@ -864,6 +891,11 @@ export function setupDocumentSync(
       emitRemove(e.target)
     }
   })
+  const handleDocSyncSelectionCleared = () => {
+    dragCacheActive = false
+    cachedSyncIds = null
+  }
+  canvas.on('selection:cleared', handleDocSyncSelectionCleared)
 
   return () => {
     unsub()
@@ -880,6 +912,7 @@ export function setupDocumentSync(
     canvas.off('text:editing:exited')
     canvas.off('object:modified')
     canvas.off('object:removed')
+    canvas.off('selection:cleared', handleDocSyncSelectionCleared)
   }
 }
 
