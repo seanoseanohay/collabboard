@@ -42,6 +42,26 @@
 
 **Planned canvas features** — See docs/PLANNED_CANVAS_FEATURES.md: Object grouping (Group ✅, Ungroup ✅), ~~Free draw~~ ✅, ~~Lasso selection~~ ✅, Multi-scale map vision. **Finished-product:** Connectors ✅, Frames ✅, Duplicate ✅, Copy & Paste ✅, ~~Marquee mode~~ ✅ (Alt+drag).
 
+## Recent Changes (2026-02-19 — AI Template Redesign)
+
+### AI Template Redesign
+- **templateRegistry.ts** — 4 client-side template specs (pros-cons, swot, user-journey, retrospective). Pure data, no I/O. Frame dimensions + child objects as `relLeft`/`relTop` offsets.
+- **executeAiCommands.ts** — `applyTemplate` branch: looks up spec from `TEMPLATE_REGISTRY`, creates frame first at viewport center (`getViewportCenter?.() ?? {x:400,y:300}`), creates children sequentially at `frameLeft + relLeft`. `getViewportCenter` added to `ExecuteAiOptions`.
+- **FabricCanvas.tsx** — `getViewportCenter()` added to `FabricCanvasZoomHandle`. Implemented in `useImperativeHandle` using `(width/2 - vpt[4]) / zoom`.
+- **AiPromptBar.tsx** — `getViewportCenter` prop; passed to `executeAiCommands` + `invokeAiInterpret`.
+- **WorkspacePage.tsx** — passes `getViewportCenter` from `canvasZoomRef`.
+- **ai-interpret/index.ts** — System prompt simplified (~40 lines vs ~80): template detection returns `applyTemplate` command only; viewport center injected into freeform user messages; `viewportCenter` extracted from request body.
+- Templates are frame-first, viewport-centered, defined entirely in TypeScript (no Edge Function redeploy needed to change layouts).
+- **ai-interpret Edge Function** redeployed 2026-02-19.
+
+### Critical z-index bug fix (boardSync.ts)
+- **Root cause:** `emitAdd` and `emitModify` called `obj.toObject(['data', 'objects'])` which does NOT include the custom `zIndex` property in Fabric.js serialization. For frames created with `setObjectZIndex(frame, 1)`, `payload.zIndex` came back `undefined`, causing the fallback `Date.now()` to overwrite the frame's z=1 with a massive timestamp — putting the frame visually ON TOP of all children.
+- **Fix:** Added `'zIndex'` to the toObject extra-keys array in both `emitAdd` and `emitModify`. Now pre-set z-indexes (including frame z=1) are serialized and preserved. New objects without a pre-set zIndex still get `Date.now()` as before.
+
+### Pros & Cons template redesign
+- Removed opaque rect backgrounds (were hiding stickies visually even when z-order was correct).
+- Replaced with clean 2-column layout: header stickies (green "Pros ✓" / red "Cons ✗") + 3 blank stickies per column. Matches Retrospective pattern.
+
 ## Recent Changes (2026-02-19 — Lasso Selection)
 
 ### Lasso Selection

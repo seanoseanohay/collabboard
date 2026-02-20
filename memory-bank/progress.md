@@ -90,8 +90,17 @@
 - ~~**Boards page cleanup**~~ ✅ — Done. Then redesigned as **grid of cards** (not list): ordered by last_accessed_at; user_boards.last_accessed_at migration (20260218100000); joinBoard upserts it; formatLastAccessed "Opened X ago". Grid: gridAutoRows 130, columnGap 16, rowGap 20. Alignment fixes. Kebab menu: copy link, rename, delete.
 
 ## Current Status
-**Phase:** MVP + post-MVP complete. Frames ✅. Duplicate, Copy & Paste ✅. Lasso selection ✅ (2026-02-19). Board list page fully featured. Viewport persistence + branding polish done. Font size control + sticker zoom scaling ✅. Ungroup bug ✅ (2026-02-19).
+**Phase:** MVP + post-MVP complete. Frames ✅. Duplicate, Copy & Paste ✅. Lasso selection ✅. AI Template Redesign ✅ (2026-02-19). Board list page fully featured. Viewport persistence + branding polish done. Font size control + sticker zoom scaling ✅. Ungroup bug ✅.
 **Next:** Connector Phase 2, Frame Phase 2 (form slots), remaining branding (hero illustration).
+
+### AI Template Redesign ✅ (2026-02-19)
+- Client-side template registry (`templateRegistry.ts`) — 4 templates (pros-cons, swot, user-journey, retrospective) as pure TypeScript data specs.
+- `applyTemplate` command in `AiCommand` union; `viewportCenter` in `AiInterpretOptions`.
+- `executeAiCommands` handles `applyTemplate`: frame-first at viewport center, children placed at `frameLeft + relLeft`.
+- `getViewportCenter()` on `FabricCanvasZoomHandle`; wired through `AiPromptBar` → `WorkspacePage`.
+- Edge Function system prompt simplified to intent detection only (~40 lines). Redeployed.
+- **z-index bug fix:** `emitAdd`/`emitModify` now include `'zIndex'` in `toObject()` extra keys so frame z=1 is preserved (was being overwritten with `Date.now()` causing frame to render on top of children).
+- Pros & Cons template redesigned: clean 2-column sticky layout, no opaque rect backgrounds.
 
 ## ~~🔴 Blocking Issue: AI Agent OpenAI Key Permissions~~ ✅ RESOLVED
 OpenAI key permissions confirmed fixed. AI agent and parrot joke generation (usePirateJokes) are now unblocked.
