@@ -89,6 +89,18 @@ import {
   type StrokeDash,
 } from './connectorFactory'
 
+/** Fire a custom (non-typed) Fabric canvas event. */
+const fireCanvasCustom = (canvas: Canvas, event: string, payload: object) =>
+  (canvas as unknown as { fire: (e: string, p: object) => void }).fire(event, payload)
+
+/** Register a handler for a custom (non-typed) Fabric canvas event. */
+const onCanvasCustom = (canvas: Canvas, event: string, handler: (e: object) => void) =>
+  (canvas as unknown as { on: (e: string, h: (p: object) => void) => void }).on(event, handler)
+
+/** Remove a handler for a custom (non-typed) Fabric canvas event. */
+const offCanvasCustom = (canvas: Canvas, event: string, handler: (e: object) => void) =>
+  (canvas as unknown as { off: (e: string, h: (p: object) => void) => void }).off(event, handler)
+
 const OBJ_ID_KEY = 'id'
 
 export function getObjectId(obj: FabricObject): string | null {
@@ -265,14 +277,18 @@ export function setupDocumentSync(
                 flipY: revived.flipY,
               })
               existing.setCoords()
-              // Sync frame childIds/title from remote
+              // Sync frame childIds/title/formSchema from remote
               if (isFrameGroup(existing)) {
                 const existingData = existing.get('data') as Record<string, unknown>
                 existing.set('data', {
                   ...existingData,
                   title: (clean.frameTitle as string) ?? existingData['title'],
                   childIds: (clean.childIds as string[]) ?? existingData['childIds'] ?? [],
+                  formSchema: Object.prototype.hasOwnProperty.call(clean, 'formSchema')
+                    ? (clean.formSchema ?? null)
+                    : (existingData['formSchema'] ?? null),
                 })
+                fireCanvasCustom(canvas, 'frame:data:changed', { frameId: objectId })
               }
               // Only sync text content for sticky groups (not container or frame groups)
               if (!isContainerGroup(existing) && !isFrameGroup(existing) && 'getObjects' in existing && 'getObjects' in revived) {
@@ -340,6 +356,7 @@ export function setupDocumentSync(
             ? {
                 title: (clean.frameTitle as string) ?? 'Frame',
                 childIds: (clean.childIds as string[]) ?? [],
+                formSchema: (clean.formSchema ?? null) as unknown,
               }
             : {}
         const connectorData =
@@ -389,6 +406,7 @@ export function setupDocumentSync(
             canvas.requestRenderAll()
           }
           isApplyingRemote = false
+          if (subtype === 'frame') fireCanvasCustom(canvas, 'frame:data:changed', { frameId: objectId })
         }
       } catch {
         /* ignore */
@@ -423,6 +441,7 @@ export function setupDocumentSync(
       payload.subtype = 'frame'
       payload.frameTitle = (data as unknown as { title?: string }).title ?? 'Frame'
       payload.childIds = (data as unknown as { childIds?: string[] }).childIds ?? []
+      payload.formSchema = (data as unknown as { formSchema?: unknown }).formSchema ?? null
     }
     if (data?.subtype === 'connector') {
       payload.subtype = 'connector'
@@ -487,6 +506,7 @@ export function setupDocumentSync(
       payload.subtype = 'frame'
       payload.frameTitle = (data as unknown as { title?: string }).title ?? 'Frame'
       payload.childIds = (data as unknown as { childIds?: string[] }).childIds ?? []
+      payload.formSchema = (data as unknown as { formSchema?: unknown }).formSchema ?? null
     }
     if (data?.subtype === 'connector') {
       payload.subtype = 'connector'
@@ -901,6 +921,30 @@ export function setupDocumentSync(
   }
   canvas.on('selection:cleared', handleDocSyncSelectionCleared)
 
+  // Auto-capture objects inside a frame when it's sent backward/to-back
+  const handleFrameCaptureBeforeSendBack = (e: { frame: FabricObject }) => {
+    const { frame } = e
+    const frameId = getObjectId(frame)
+    if (!frameId) return
+    const frameZIndex = getObjectZIndex(frame)
+    const existingChildIds = new Set(getFrameChildIds(frame))
+    const toCapture = canvas.getObjects().filter((o) => {
+      const id = getObjectId(o)
+      return (
+        id &&
+        !isFrame(o) &&
+        getObjectZIndex(o) > frameZIndex &&
+        !existingChildIds.has(id) &&
+        isObjectInsideFrame(o, frame)
+      )
+    }).map((o) => getObjectId(o)!)
+    if (toCapture.length > 0) {
+      setFrameChildIds(frame, [...existingChildIds, ...toCapture])
+      emitModify(frame)
+    }
+  }
+  onCanvasCustom(canvas, 'frame:captureBeforeSendBack', handleFrameCaptureBeforeSendBack as (e: object) => void)
+
   return () => {
     unsub()
     supabase.removeChannel(moveChannel)
@@ -917,6 +961,7 @@ export function setupDocumentSync(
     canvas.off('object:modified')
     canvas.off('object:removed')
     canvas.off('selection:cleared', handleDocSyncSelectionCleared)
+    offCanvasCustom(canvas, 'frame:captureBeforeSendBack', handleFrameCaptureBeforeSendBack as (e: object) => void)
   }
 }
 

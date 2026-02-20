@@ -48,7 +48,7 @@ export function createFrameShape(
   const titleText = new IText(title, {
     left: 12,
     top: 8,
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: 'bold',
     fill: '#475569',
     editable: true,

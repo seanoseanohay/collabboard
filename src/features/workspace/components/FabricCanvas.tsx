@@ -11,7 +11,8 @@ import type { ToolType } from '../types/tools'
 import { isShapeTool } from '../types/tools'
 import { createShape } from '../lib/shapeFactory'
 import { createFrameShape } from '../lib/frameFactory'
-import { setFrameChildIds } from '../lib/frameUtils'
+import { setFrameChildIds, isFrame, updateFrameTitleVisibility } from '../lib/frameUtils'
+import type { FormFrameSceneInfo, FormSchema } from '../lib/frameFormTypes'
 import {
   getStrokeWidthFromObject,
   setStrokeWidthOnObject,
@@ -91,6 +92,10 @@ export interface SelectionStrokeInfo {
   arrowMode: ArrowMode | null
   /** Stroke dash style for connector (null when not a connector). */
   strokeDash: StrokeDash | null
+  /** True when the selected object is a frame. */
+  isFrame: boolean
+  /** Form schema for the selected frame (null when not a frame or no schema). */
+  frameFormSchema: FormSchema | null
 }
 
 export interface FabricCanvasZoomHandle {
@@ -125,6 +130,8 @@ export interface FabricCanvasZoomHandle {
   setDrawBrushColor: (color: string) => void
   setDrawBrushWidth: (width: number) => void
   getViewportCenter: () => { x: number; y: number }
+  updateFrameFormData: (frameId: string, formSchema: FormSchema | null) => void
+  getFormFrameInfos: () => FormFrameSceneInfo[]
 }
 
 interface ConnectorDropState {
@@ -154,6 +161,7 @@ interface FabricCanvasProps {
   onBoardReady?: () => void
   onFpsChange?: (fps: number) => void
   onSyncLatency?: (ms: number) => void
+  onFormFramesChange?: (frames: FormFrameSceneInfo[]) => void
 }
 
 /**
@@ -184,6 +192,7 @@ const FabricCanvasInner = (
     onBoardReady,
     onFpsChange,
     onSyncLatency,
+    onFormFramesChange,
   }: FabricCanvasProps,
   ref: React.Ref<FabricCanvasZoomHandle>
 ) => {
@@ -199,6 +208,9 @@ const FabricCanvasInner = (
   onPointerMoveRef.current = onPointerMove
   const onViewportChangeRef = useRef(onViewportChange)
   onViewportChangeRef.current = onViewportChange
+  const onFormFramesChangeRef = useRef(onFormFramesChange)
+  onFormFramesChangeRef.current = onFormFramesChange
+  const notifyFormFramesRef = useRef<(() => void) | null>(null)
   const onSelectionChangeRef = useRef(onSelectionChange)
   onSelectionChangeRef.current = onSelectionChange
   const onHistoryChangeRef = useRef(onHistoryChange)
@@ -435,6 +447,36 @@ const FabricCanvasInner = (
         x: Math.round((width / 2 - vpt[4]) / zoom),
         y: Math.round((height / 2 - vpt[5]) / zoom),
       }
+    },
+    updateFrameFormData: (frameId: string, formSchema: FormSchema | null) => {
+      const canvas = canvasRef.current
+      if (!canvas) return
+      const frame = canvas.getObjects().find((o) => {
+        const d = o.get('data') as { id?: string } | undefined
+        return d?.id === frameId
+      })
+      if (!frame || !isFrame(frame)) return
+      const data = frame.get('data') as Record<string, unknown>
+      frame.set('data', { ...data, formSchema })
+      canvas.fire('object:modified', { target: frame })
+      notifyFormFramesRef.current?.()
+    },
+    getFormFrameInfos: (): FormFrameSceneInfo[] => {
+      const canvas = canvasRef.current
+      if (!canvas) return []
+      return canvas.getObjects().filter(isFrame).map((f) => {
+        const data = f.get('data') as { id?: string; formSchema?: FormSchema | null } | undefined
+        return {
+          frameId: data?.id ?? '',
+          sceneLeft: f.left,
+          sceneTop: f.top,
+          sceneWidth: (f as FabricObject & { width: number }).width,
+          sceneHeight: (f as FabricObject & { height: number }).height,
+          scaleX: f.scaleX ?? 1,
+          scaleY: f.scaleY ?? 1,
+          formSchema: data?.formSchema ?? null,
+        }
+      }).filter((f) => f.frameId)
     },
     resetView: () => {
       const canvas = canvasRef.current
@@ -728,9 +770,30 @@ const FabricCanvasInner = (
       return { x: (vp.x - t[4]) / zoom, y: (vp.y - t[5]) / zoom }
     }
 
+    const notifyFormFrames = () => {
+      const cb = onFormFramesChangeRef.current
+      if (!cb) return
+      const frames = fabricCanvas.getObjects().filter(isFrame).map((f) => {
+        const data = f.get('data') as { id?: string; formSchema?: FormSchema | null } | undefined
+        return {
+          frameId: data?.id ?? '',
+          sceneLeft: f.left,
+          sceneTop: f.top,
+          sceneWidth: (f as FabricObject & { width: number }).width,
+          sceneHeight: (f as FabricObject & { height: number }).height,
+          scaleX: f.scaleX ?? 1,
+          scaleY: f.scaleY ?? 1,
+          formSchema: data?.formSchema ?? null,
+        }
+      }).filter((info) => info.frameId)
+      cb(frames)
+    }
+    notifyFormFramesRef.current = notifyFormFrames
+
     const notifyViewport = () => {
       const vpt = fabricCanvas.viewportTransform
       if (vpt && onViewportChangeRef.current) onViewportChangeRef.current([...vpt])
+      updateFrameTitleVisibility(fabricCanvas)
     }
 
     const { applyZoom, zoomToFit, handleWheel } = createZoomHandlers(fabricCanvas, width, height, notifyViewport)
@@ -1527,7 +1590,7 @@ const FabricCanvasInner = (
             isRemoteChangeRef,
             (ms) => onSyncLatencyRef.current?.(ms),
             connectorCacheRefForSync,
-            () => onBoardReadyRef.current?.()
+            () => { onBoardReadyRef.current?.(); notifyFormFrames() }
           )
         : (() => { onBoardReadyRef.current?.(); return () => {} })()
 
@@ -1543,6 +1606,7 @@ const FabricCanvasInner = (
     const handleObjectAdded = (e: { target?: FabricObject }) => {
       const obj = e.target
       if (!obj) return
+      if (isFrame(obj)) notifyFormFrames()
       // Free-draw paths need an id for sync; assign before boardSync emitAdd
       if (obj.type === 'path' && !getObjectId(obj)) {
         setObjectId(obj, crypto.randomUUID())
@@ -1557,7 +1621,10 @@ const FabricCanvasInner = (
     }
 
     const handleObjectRemoved = (e: { target?: FabricObject }) => {
-      if (e.target) connectorCacheSet.delete(e.target)
+      if (e.target) {
+        connectorCacheSet.delete(e.target)
+        if (isFrame(e.target)) notifyFormFrames()
+      }
     }
 
     const hasITextChild = (obj: FabricObject): boolean => {
@@ -1591,13 +1658,18 @@ const FabricCanvasInner = (
       const canUngroup = isContainerGroup
       const isTextOnly = isTextOnlySelection(active)
       const isStickyNote = isStickyGroup(active)
-      const hasText = hasEditableText(active)
+      /** Stickers are fabric.Text (type 'text'); only size via corner handles can change — no fill/font controls. */
+      const isSticker = active.type === 'text'
+      const hasText = !isSticker && hasEditableText(active)
       const isConnectorObj = isConnector(active)
       const connectorInfo = isConnectorObj ? getConnectorData(active) : null
+      const frameFormSchema = isFrameGroup
+        ? ((active.get('data') as { formSchema?: FormSchema | null } | undefined)?.formSchema ?? null)
+        : null
       onSelectionChangeRef.current?.({
         strokeWidth: getStrokeWidthFromObject(active) ?? 0,
         strokeColor: getStrokeColorFromObject(active),
-        fill: getFillFromObject(active),
+        fill: isSticker ? null : getFillFromObject(active),
         canGroup,
         canUngroup,
         isTextOnly,
@@ -1607,6 +1679,8 @@ const FabricCanvasInner = (
         isConnector: isConnectorObj,
         arrowMode: connectorInfo?.arrowMode ?? null,
         strokeDash: connectorInfo?.strokeDash ?? null,
+        isFrame: isFrameGroup,
+        frameFormSchema,
       })
     }
 
@@ -1665,9 +1739,15 @@ const FabricCanvasInner = (
         if (target.type === 'group' && 'getObjects' in target) {
           const groupData = target.get('data') as { subtype?: string } | undefined
           if (groupData?.subtype !== 'container') updateStickyTextFontSize(target)
+          if (groupData?.subtype === 'frame') notifyFormFrames()
         }
       }
     }
+
+    // Notify when a remote frame update changes its data (formSchema, childIds, etc.)
+    const handleFrameDataChanged = () => notifyFormFrames()
+    const canvasAny = fabricCanvas as unknown as { on: (e: string, h: () => void) => void; off: (e: string, h: () => void) => void }
+    canvasAny.on('frame:data:changed', handleFrameDataChanged)
 
     const drawGrid = () => drawCanvasGrid(fabricCanvas)
     let connectorCacheArray: FabricObject[] = []
@@ -1822,6 +1902,8 @@ const FabricCanvasInner = (
       fabricCanvas.off('selection:cleared', handleSelectionClearedForHistory)
       fabricCanvas.off('text:editing:entered', handleTextEditingEntered)
       fabricCanvas.off('text:editing:exited', handleTextEditingExited)
+      canvasAny.off('frame:data:changed', handleFrameDataChanged)
+      notifyFormFramesRef.current = null
       if (fpsRafId !== null) cancelAnimationFrame(fpsRafId)
       canvasEl.removeEventListener('touchstart', handleTouchStart)
       canvasEl.removeEventListener('touchmove', handleTouchMove)

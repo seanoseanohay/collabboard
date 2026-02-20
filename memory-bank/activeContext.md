@@ -1,6 +1,11 @@
 # Active Context
 
 ## Current Focus (for next agent)
+**Frame Phase 2 complete (2026-02-20).** Three features shipped:
+1. **Send-to-back auto-capture** — `sendToBack`/`sendBackward` fire `frame:captureBeforeSendBack` canvas event; boardSync listener auto-adds objects above the frame in z-order whose centers are inside frame bounds to `childIds`.
+2. **Frame title zoom fix** — Titles hidden below 40% zoom (`HIDE_TITLE_ZOOM_THRESHOLD = 0.4`) via `updateFrameTitleVisibility` called from `notifyViewport` on every viewport change. Base fontSize reduced 14→12 in `frameFactory.ts`.
+3. **Frame Forms** — Schema-driven HTML form overlay positioned inside each frame. All field types (text, number, dropdown, checkbox, date). Full CRUD: add/rename/delete columns, add/delete rows, edit cells. Syncs via existing boardSync mechanism (formSchema stored in frame.data). Real-time collaborative. Files: `frameFormTypes.ts` (types), `FrameFormOverlay.tsx` (UI overlay), `frameUtils.ts` (helpers), `FabricCanvas.tsx` (notification system), `WorkspacePage.tsx` (render).
+
 **Ungroup bug fully fixed (2026-02-19).** Two-part root cause in Fabric.js v7:
 1. **Position jump** — `canvas.remove(group)` does not call `group.remove(child)`, so `child.group` still pointed to the removed Group. `emitAdd` → `payloadWithSceneCoords` detected `child.group` and applied the group matrix a second time onto already-scene-space coords → wrong DB write → `applyRemote` snapped objects to wrong positions.
 2. **Objects unselectable after deselect** — `child.parent` also still pointed to the removed Group. Fabric v7's `ActiveSelection.exitGroup` calls `object.parent._enterGroup(object, true)` when the initial post-ungroup ActiveSelection is discarded → child was shoved back into the removed Group, coordinates scrambled back to group-relative, `child.group` reset to removed Group → unselectable on next click.
@@ -30,7 +35,7 @@
 5. ~~**Frames**~~ ✅ — See Recent Changes below.
 6. **Canvas features** — ~~Free draw~~ ✅, ~~Ungroup bug~~ ✅, ~~Lasso selection~~ ✅. See docs/PLANNED_CANVAS_FEATURES.md.
 7. **Connector Phase 2** — port hover glow, double-click segment for waypoint, right-click context menu (Reset route, Reverse direction), auto-route.
-8. **Frame Phase 2** — "drop into frame" auto-capture works; next: per-frame add-row button, schema-driven form slots.
+8. ~~**Frame Phase 2**~~ ✅ — (a) Send-to-back auto-capture ✅, (b) Frame title zoom fix ✅, (c) Frame forms ✅. See Recent Changes above.
 
 **Parrot mascot layout pattern:**
 - `ParrotMascot` is `position: fixed, right: 20, top: 58`. Flex column, parrot on top, bubble below.

@@ -127,21 +127,21 @@ When an object is selected, mid-point handles become connector points. User can 
 
 ---
 
-## 6. Frames
+## 6. Frames — ✅ IMPLEMENTED (Phase 1) | Phase 2 Planned
 
 ### Goal
 Frames are container elements that organize content areas. Like Figma frames or Miro frames — labeled rectangular regions that group and structure board content.
 
-### Behavior
-- Create frame via toolbar or shortcut
-- Frame = bordered rect (optionally with title/label) that can contain other objects
-- Objects can be moved into/out of frames; frame resizes or objects clip (design TBD)
-- Frames help structure large boards (sections, columns, workflows)
+### Implemented (Phase 1)
+- Create frame via toolbar (Insert → Containers → Frame) or AI `createFrame` command
+- Frame = Fabric Group (bg Rect + title IText); children tracked in `data.childIds` (not Fabric children)
+- Objects dropped inside auto-capture via `checkAndUpdateFrameMembership`
+- Moving frame moves all children; title editable; synced to Supabase
+- See activeContext.md and `frameFactory.ts` / `frameUtils.ts` for architecture
 
-### Implementation Notes
-- May extend Group with subtype `frame`; or new Fabric object type
-- Sync: same as groups; frame is one document with children embedded or referenced
-- Effort: ~4–8 hours (depends on frame semantics: container vs clip region)
+### Phase 2 Planned (2026-02-20)
+1. **Send-to-back auto-capture:** When a frame is sent to back (or backward), all objects above it in z-order whose center is inside the frame bounds are auto-added to `childIds`. See `docs/plans/2026-02-20-frame-phase2-improvements.md`.
+2. **Frame title display:** Title appears disproportionately large when zoomed out. Fix: hide title below zoom threshold (e.g. 40%) and/or reduce base fontSize. Same design doc.
 
 ---
 

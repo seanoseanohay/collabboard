@@ -6,6 +6,11 @@
 
 import { Canvas, type FabricObject } from 'fabric'
 import { getObjectId, getObjectZIndex, setObjectZIndex, sortCanvasByZIndex } from './boardSync'
+import { isFrame } from './frameUtils'
+
+/** Helper to fire custom (non-Fabric-typed) canvas events. */
+const fireCustom = (canvas: Canvas, event: string, payload: object) =>
+  (canvas as unknown as { fire: (e: string, p: object) => void }).fire(event, payload)
 
 function getTargetObjects(canvas: Canvas): { active: FabricObject; objects: FabricObject[] } | null {
   const active = canvas.getActiveObject()
@@ -38,6 +43,8 @@ export function sendToBack(canvas: Canvas): void {
   const result = getTargetObjects(canvas)
   if (!result) return
   const { active, objects } = result
+  // Auto-capture objects inside frames before changing z-order
+  objects.filter(isFrame).forEach((frame) => fireCustom(canvas, 'frame:captureBeforeSendBack', { frame }))
   const all = canvas.getObjects()
   const minZ = all.reduce((m, o) => Math.min(m, getObjectZIndex(o)), Number.MAX_SAFE_INTEGER)
   objects.forEach((obj, i) => {
@@ -78,6 +85,8 @@ export function sendBackward(canvas: Canvas): void {
   const result = getTargetObjects(canvas)
   if (!result) return
   const { active, objects } = result
+  // Auto-capture objects inside frames before changing z-order
+  objects.filter(isFrame).forEach((frame) => fireCustom(canvas, 'frame:captureBeforeSendBack', { frame }))
   const all = canvas.getObjects().slice().sort((a, b) => getObjectZIndex(a) - getObjectZIndex(b))
   const minZ = all.length > 0 ? getObjectZIndex(all[0]!) : 0
   const currentZ = Math.min(...objects.map((o) => getObjectZIndex(o)))

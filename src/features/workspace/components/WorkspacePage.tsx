@@ -17,6 +17,8 @@ import { GridOverlay } from './GridOverlay'
 import { MapBorderOverlay } from './MapBorderOverlay'
 import { EmptyCanvasX } from './EmptyCanvasX'
 import { DebugConsole } from './DebugConsole'
+import { FrameFormOverlay } from './FrameFormOverlay'
+import type { FormFrameSceneInfo, FormSchema } from '../lib/frameFormTypes'
 import { usePresence } from '../hooks/usePresence'
 import type { ToolType } from '../types/tools'
 import type { StickerKind } from '../lib/pirateStickerFactory'
@@ -46,6 +48,7 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
   const [showDebugConsole, setShowDebugConsole] = useState(false)
   const [canvasFps, setCanvasFps] = useState(0)
   const [syncLatency, setSyncLatency] = useState<number | null>(null)
+  const [formFrames, setFormFrames] = useState<FormFrameSceneInfo[]>([])
   const canvasContainerRef = useRef<HTMLDivElement>(null)
   const canvasZoomRef = useRef<FabricCanvasZoomHandle>(null)
   const gridRef = useRef<HTMLDivElement>(null)
@@ -124,6 +127,14 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
 
   const handleSyncLatency = useCallback((ms: number) => {
     setSyncLatency(ms)
+  }, [])
+
+  const handleFormFramesChange = useCallback((frames: FormFrameSceneInfo[]) => {
+    setFormFrames(frames)
+  }, [])
+
+  const handleFrameFormSchemaChange = useCallback((frameId: string, schema: FormSchema | null) => {
+    canvasZoomRef.current?.updateFrameFormData(frameId, schema)
   }, [])
 
   // Sync title when board prop changes (e.g. after joinBoard)
@@ -319,6 +330,12 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
           onToolChange={setSelectedTool}
           onFpsChange={handleFpsChange}
           onSyncLatency={handleSyncLatency}
+          onFormFramesChange={handleFormFramesChange}
+        />
+        <FrameFormOverlay
+          frames={formFrames}
+          viewportTransform={viewportTransform}
+          onSchemaChange={handleFrameFormSchemaChange}
         />
         <CursorOverlay
           cursors={others}

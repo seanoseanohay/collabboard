@@ -78,7 +78,7 @@
 
 ### Finished-product requirements (documented 2026-02-18)
 - ~~**Connectors**~~ ✅ — Miro-style Phase 1 complete (2026-02-19): waypoints, arrowheads (none/end/both), stroke dash (solid/dashed/dotted), create-on-drop popup, floating endpoints on object delete, toolbar controls. Rotation/scale fix (2026-02-19): endpoints now re-anchor in real-time when connected objects are rotated or scaled (local + remote). Phase 2 nice-to-haves: port hover glow, double-click segment for waypoint, right-click context menu, auto-route.
-- ~~**Frames**~~ ✅ — Container elements. Draw with Frame tool (+ → Containers → Frame). Objects dropped inside auto-join via `childIds`. Moving frame moves all children. Title editable. Synced to Supabase. AI templates use `createFrame` command to wrap generated objects. See activeContext.md for full architecture. Phase 2: per-frame add-row, schema-driven form slots.
+- ~~**Frames**~~ ✅ — Container elements. Draw with Frame tool (+ → Containers → Frame). Objects dropped inside auto-join via `childIds`. Moving frame moves all children. Title editable. Synced to Supabase. AI templates use `createFrame` command to wrap generated objects. See activeContext.md for full architecture. **Phase 2 planned:** send-to-back auto-capture, frame title zoom fix (hide below threshold), per-frame add-row, form slots. See docs/plans/2026-02-20-frame-phase2-improvements.md.
 - ~~**Duplicate**~~ ✅ — Cmd+D or toolbar button. Fabric clone(); new UUIDs; +20,+20 offset; connectors floated via `floatConnectorBothEndpoints`. History compound add. 2026-02-19.
 - ~~**Copy & Paste**~~ ✅ — Cmd+C / Cmd+V. In-memory clipboard (clipboardStore.ts); serialize via toObject(['data','objects']); paste at cursor or viewport center; enlivenObjects revive; connectors floated. History compound add. 2026-02-19.
 - ~~**Marquee mode**~~ ✅ — Alt+drag (Select tool) draws selection box even when starting on large objects. FabricCanvas.tsx.
@@ -91,7 +91,7 @@
 
 ## Current Status
 **Phase:** MVP + post-MVP complete. Frames ✅. Duplicate, Copy & Paste ✅. Lasso selection ✅. AI Template Redesign ✅ (2026-02-19). Board list page fully featured. Viewport persistence + branding polish done. Font size control + sticker zoom scaling ✅. Ungroup bug ✅.
-**Next:** Connector Phase 2, Frame Phase 2 (form slots), remaining branding (hero illustration).
+**Next:** Connector Phase 2, Frame Phase 2 (send-to-back capture, title zoom fix, form slots), remaining branding (hero illustration).
 
 ### AI Template Redesign ✅ (2026-02-19)
 - Client-side template registry (`templateRegistry.ts`) — 4 templates (pros-cons, swot, user-journey, retrospective) as pure TypeScript data specs.
