@@ -68,12 +68,13 @@ import { getSupabaseClient } from '@/shared/lib/supabase/config'
 import {
   subscribeToDocuments,
   writeDocument,
+  writeDocumentsBatch,
   deleteDocument,
 } from '../api/documentsApi'
 import {
   subscribeToLocks,
-  acquireLock,
-  releaseLock,
+  acquireLocksBatch,
+  releaseLocksBatch,
   setupLockDisconnect,
   type LockEntry,
 } from '../api/locksApi'
@@ -184,12 +185,16 @@ export function setupDocumentSync(
   applyLockStateCallbackRef: LockStateCallbackRef,
   getCurrentUserId?: () => string,
   remoteChangeRef?: { current: boolean },
-  onSyncLatency?: (ms: number) => void
+  onSyncLatency?: (ms: number) => void,
+  connectorCacheRef?: { current: Set<FabricObject> }
 ): () => void {
   const pendingWriteTimestamps = new Map<string, number>()
   let isApplyingRemote = false
   // During initial bulk load, skip per-object sort+render; do one pass at the end
   let isBulkLoading = false
+
+  // Object ID → FabricObject index for O(1) lookups instead of O(N) canvas.getObjects().find()
+  const objectIndex = new Map<string, FabricObject>()
 
   const stripSyncFields = (d: Record<string, unknown>) => {
     const { updatedAt, ...rest } = d
@@ -227,7 +232,7 @@ export function setupDocumentSync(
     if (remoteChangeRef) remoteChangeRef.current = true
     try {
       const clean = stripSyncFields(data)
-      const existing = canvas.getObjects().find((o) => getObjectId(o) === objectId)
+      const existing = objectIndex.get(objectId)
       if (existing) {
         // Skip objects that we are currently transforming. Our own document writes echo back
         // via postgres_changes; applying stale data would overwrite the in-progress transform
@@ -393,7 +398,7 @@ export function setupDocumentSync(
   }
 
   const removeRemote = (objectId: string) => {
-    const obj = canvas.getObjects().find((o) => getObjectId(o) === objectId)
+    const obj = objectIndex.get(objectId)
     if (obj) {
       isApplyingRemote = true
       if (remoteChangeRef) remoteChangeRef.current = true
@@ -452,7 +457,7 @@ export function setupDocumentSync(
       if (isFrame(target)) {
         const childIds = getFrameChildIds(target)
         const children = childIds
-          .map((id) => canvas.getObjects().find((o) => getObjectId(o) === id))
+          .map((id) => objectIndex.get(id))
           .filter((o): o is FabricObject => !!o)
         return [target, ...children]
       }
@@ -470,9 +475,7 @@ export function setupDocumentSync(
   let lastMoveEmit = 0
   let pendingMoveIds = new Set<string>()
 
-  const emitModify = (obj: FabricObject) => {
-    const id = getObjectId(obj)
-    if (!id || isApplyingRemote) return
+  const buildPayload = (obj: FabricObject): Record<string, unknown> | null => {
     let payload = obj.toObject(['data', 'objects', 'zIndex']) as Record<string, unknown>
     payload = payloadWithSceneCoords(obj, payload)
     const data = payload.data as { subtype?: string; sourceObjectId?: string | null; sourcePort?: string; targetObjectId?: string | null; targetPort?: string; hasArrow?: boolean; arrowMode?: string; strokeDash?: string; waypoints?: unknown[]; sourceFloatPoint?: unknown; targetFloatPoint?: unknown } | undefined
@@ -505,8 +508,37 @@ export function setupDocumentSync(
     delete payload.data
     delete (payload as { layoutManager?: unknown }).layoutManager
     if (payload.zIndex === undefined) payload.zIndex = getObjectZIndex(obj)
+    return payload
+  }
+
+  const emitModify = (obj: FabricObject) => {
+    const id = getObjectId(obj)
+    if (!id || isApplyingRemote) return
+    const payload = buildPayload(obj)
+    if (!payload) return
     pendingWriteTimestamps.set(id, Date.now())
     writeDocument(boardId, id, payload).catch(console.error)
+  }
+
+  const flushPendingMovesBatch = () => {
+    if (pendingMoveIds.size === 0) return
+    const items: { objectId: string; data: Record<string, unknown> }[] = []
+    for (const id of pendingMoveIds) {
+      const target = objectIndex.get(id)
+      if (target) {
+        const payload = buildPayload(target)
+        if (payload) {
+          pendingWriteTimestamps.set(id, Date.now())
+          items.push({ objectId: id, data: payload })
+        }
+      }
+    }
+    pendingMoveIds.clear()
+    if (items.length > 1) {
+      writeDocumentsBatch(boardId, items).catch(console.error)
+    } else if (items.length === 1) {
+      writeDocument(boardId, items[0].objectId, items[0].data).catch(console.error)
+    }
   }
 
   const emitModifyThrottled = (obj: FabricObject) => {
@@ -521,19 +553,14 @@ export function setupDocumentSync(
     const elapsed = now - lastMoveEmit
     if (elapsed >= MOVE_THROTTLE_MS) {
       lastMoveEmit = now
-      toSync.forEach((o) => emitModify(o))
-      pendingMoveIds.clear()
+      flushPendingMovesBatch()
       return
     }
     if (!moveThrottleTimer) {
       moveThrottleTimer = setTimeout(() => {
         moveThrottleTimer = null
         lastMoveEmit = Date.now()
-        for (const id of pendingMoveIds) {
-          const target = canvas.getObjects().find((o) => getObjectId(o) === id)
-          if (target) emitModify(target)
-        }
-        pendingMoveIds.clear()
+        flushPendingMovesBatch()
       }, MOVE_THROTTLE_MS - elapsed)
     }
   }
@@ -545,16 +572,18 @@ export function setupDocumentSync(
   }
 
   const updateConnectorsForObjects = (objectIds: Set<string>) => {
-    canvas.getObjects().forEach((obj) => {
-      if (!isConnector(obj)) return
+    const connectors = connectorCacheRef?.current
+      ? Array.from(connectorCacheRef.current)
+      : canvas.getObjects().filter((obj) => isConnector(obj))
+    for (const obj of connectors) {
       const data = getConnectorData(obj)
-      if (!data) return
+      if (!data) continue
       const srcId = data.sourceObjectId
       const tgtId = data.targetObjectId
       if ((srcId && objectIds.has(srcId)) || (tgtId && objectIds.has(tgtId))) {
         updateConnectorEndpoints(obj, canvas)
       }
-    })
+    }
     canvas.requestRenderAll()
   }
 
@@ -587,12 +616,8 @@ export function setupDocumentSync(
       if (!p || getCurrentUserId?.() === p.userId || isApplyingRemote) return
       if (p.dx === 0 && p.dy === 0) return
       for (const objectId of p.objectIds) {
-        const obj = canvas.getObjects().find((o) => getObjectId(o) === objectId)
+        const obj = objectIndex.get(objectId)
         if (obj) {
-          // Add delta directly to left/top. These are in scene (canvas) space for
-          // standalone objects. The delta is the same whether measured at center or
-          // origin, so no calcTransformMatrix conversion is needed (which would give
-          // center coords and break objects with originX/Y != 'center').
           obj.set({ left: obj.left + p.dx, top: obj.top + p.dy })
           obj.setCoords()
         }
@@ -694,6 +719,8 @@ export function setupDocumentSync(
 
   canvas.on('object:added', (e) => {
     if (!e.target) return
+    const addedId = getObjectId(e.target)
+    if (addedId) objectIndex.set(addedId, e.target)
     emitAdd(e.target)
     if (!isApplyingRemote) {
       if (isFrame(e.target)) {
@@ -739,7 +766,7 @@ export function setupDocumentSync(
           const dy = frame.top - prev.top
           if (dx !== 0 || dy !== 0) {
             getFrameChildIds(frame).forEach((childId) => {
-              const child = canvas.getObjects().find((o) => getObjectId(o) === childId)
+              const child = objectIndex.get(childId)
               if (child) {
                 child.set({ left: child.left + dx, top: child.top + dy })
                 child.setCoords()
@@ -799,17 +826,38 @@ export function setupDocumentSync(
       deltaThrottleTimer = null
     }
     lastDeltaCenter = null
+    pendingMoveIds.clear()
     if (e.target) {
       const toSync = getObjectsToSync(e.target)
-      toSync.forEach((o) => emitModify(o))
-      // Update frame membership for every non-frame object that was just moved/resized
+      // Batch write: collect all payloads and send in one HTTP request
+      if (toSync.length > 1) {
+        const items: { objectId: string; data: Record<string, unknown> }[] = []
+        for (const obj of toSync) {
+          const id = getObjectId(obj)
+          if (!id || isApplyingRemote) continue
+          const payload = buildPayload(obj)
+          if (payload) {
+            pendingWriteTimestamps.set(id, Date.now())
+            items.push({ objectId: id, data: payload })
+          }
+        }
+        if (items.length > 0) {
+          writeDocumentsBatch(boardId, items).catch(console.error)
+        }
+      } else {
+        toSync.forEach((o) => emitModify(o))
+      }
       if (!isApplyingRemote) {
         toSync.filter((o) => !isFrame(o)).forEach((o) => checkAndUpdateFrameMembership(o))
       }
     }
   })
   canvas.on('object:removed', (e) => {
-    if (e.target) emitRemove(e.target)
+    if (e.target) {
+      const removedId = getObjectId(e.target)
+      if (removedId) objectIndex.delete(removedId)
+      emitRemove(e.target)
+    }
   })
 
   return () => {
@@ -818,6 +866,7 @@ export function setupDocumentSync(
     if (moveThrottleTimer) clearTimeout(moveThrottleTimer)
     if (deltaThrottleTimer) clearTimeout(deltaThrottleTimer)
     framePrevPos.clear()
+    objectIndex.clear()
     canvas.off('object:added')
     canvas.off('mouse:down')
     canvas.off('object:moving')
@@ -856,15 +905,22 @@ export function setupLockSync(
     applyLockState(canvas, lastLocks, lockOptions.userId)
   }
 
-  const handleBroadcastLockAcquired = (lock: LockEntry) => {
+  const handleBroadcastLockAcquired = (lock: LockEntry & { allIds?: string[] }) => {
     if (lock.userId === lockOptions.userId) return
-    lastLocks = [...lastLocks.filter((l) => l.objectId !== lock.objectId), lock]
+    const ids = lock.allIds ?? [lock.objectId]
+    const idSet = new Set(ids)
+    lastLocks = [
+      ...lastLocks.filter((l) => !idSet.has(l.objectId)),
+      ...ids.map((id) => ({ objectId: id, userId: lock.userId, userName: lock.userName, lastActive: lock.lastActive })),
+    ]
     applyLockState(canvas, lastLocks, lockOptions.userId)
   }
 
-  const handleBroadcastLockReleased = (objectId: string, userId: string) => {
+  const handleBroadcastLockReleased = (objectId: string, userId: string, allIds?: string[]) => {
     if (userId === lockOptions.userId) return
-    lastLocks = lastLocks.filter((l) => l.objectId !== objectId || l.userId !== userId)
+    const ids = allIds ?? [objectId]
+    const idSet = new Set(ids)
+    lastLocks = lastLocks.filter((l) => !idSet.has(l.objectId) || l.userId !== userId)
     applyLockState(canvas, lastLocks, lockOptions.userId)
   }
 
@@ -876,31 +932,22 @@ export function setupLockSync(
   }
 
   const tryAcquireLocks = async (objectIds: string[]): Promise<boolean> => {
-    const results = await Promise.all(
-      objectIds.map((id) =>
-        acquireLock(boardId, id, lockOptions.userId, lockOptions.userName, broadcastChannel ?? undefined)
-      )
-    )
-    const allOk = results.every(Boolean)
-    if (allOk) {
+    const ok = await acquireLocksBatch(boardId, objectIds, lockOptions.userId, lockOptions.userName, broadcastChannel ?? undefined)
+    if (ok) {
       objectIds.forEach((id) => currentLockIds.add(id))
       cancelLockDisconnect?.()
       cancelLockDisconnect = setupLockDisconnect(boardId, objectIds[0] ?? '')
     } else {
-      for (const id of objectIds) {
-        await releaseLock(boardId, id, lockOptions.userId, broadcastChannel ?? undefined)
-      }
+      await releaseLocksBatch(boardId, objectIds, lockOptions.userId, broadcastChannel ?? undefined)
     }
-    return allOk
+    return ok
   }
 
   const tryReleaseLocks = async (objectIds: string[]) => {
-    for (const id of objectIds) {
-      if (currentLockIds.has(id)) {
-        await releaseLock(boardId, id, lockOptions.userId, broadcastChannel ?? undefined)
-        currentLockIds.delete(id)
-      }
-    }
+    const toRelease = objectIds.filter((id) => currentLockIds.has(id))
+    if (toRelease.length === 0) return
+    await releaseLocksBatch(boardId, toRelease, lockOptions.userId, broadcastChannel ?? undefined)
+    toRelease.forEach((id) => currentLockIds.delete(id))
     if (currentLockIds.size === 0) {
       cancelLockDisconnect?.()
       cancelLockDisconnect = null
@@ -913,9 +960,10 @@ export function setupLockSync(
     const ids = objs.map((o) => getObjectId(o as FabricObject)).filter((id): id is string => !!id)
     if (ids.length === 0) return
 
-    const lockedByOthers = ids.some((id) =>
-      lastLocks.some((lock) => lock.objectId === id && lock.userId !== lockOptions.userId)
+    const otherLockIds = new Set(
+      lastLocks.filter((l) => l.userId !== lockOptions.userId).map((l) => l.objectId)
     )
+    const lockedByOthers = ids.some((id) => otherLockIds.has(id))
     if (lockedByOthers) {
       canvas.discardActiveObject()
       canvas.requestRenderAll()

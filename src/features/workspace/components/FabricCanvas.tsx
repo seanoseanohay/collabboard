@@ -1508,6 +1508,7 @@ const FabricCanvasInner = (
     zoomApiRef.current = { setZoom: applyZoom, zoomToFit }
 
     // Document sync only - never torn down when auth changes; pass getCurrentUserId so move-delta broadcast ignores our own messages
+    const connectorCacheRefForSync = { current: connectorCacheSet }
     const cleanupDocSync =
       boardId
         ? setupDocumentSync(
@@ -1516,7 +1517,8 @@ const FabricCanvasInner = (
             applyLockStateCallbackRef,
             () => lockOptsRef.current.userId,
             isRemoteChangeRef,
-            (ms) => onSyncLatencyRef.current?.(ms)
+            (ms) => onSyncLatencyRef.current?.(ms),
+            connectorCacheRefForSync
           )
         : () => {}
 

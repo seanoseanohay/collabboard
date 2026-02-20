@@ -97,8 +97,8 @@ export async function releaseLock(
 export function subscribeToLocks(
   boardId: string,
   onLocks: (locks: LockEntry[]) => void,
-  onBroadcastLockAcquired?: (lock: LockEntry) => void,
-  onBroadcastLockReleased?: (objectId: string, userId: string) => void
+  onBroadcastLockAcquired?: (lock: LockEntry & { allIds?: string[] }) => void,
+  onBroadcastLockReleased?: (objectId: string, userId: string, allIds?: string[]) => void
 ): { cleanup: () => void; channel: ReturnType<ReturnType<typeof getSupabaseClient>['channel']> } {
   const supabase = getSupabaseClient()
 
@@ -130,13 +130,14 @@ export function subscribeToLocks(
       'broadcast',
       { event: 'lock_acquired' },
       (payload) => {
-        const data = payload.payload as { objectId: string; userId: string; userName: string; lastActive: number }
+        const data = payload.payload as { objectId: string; userId: string; userName: string; lastActive: number; allIds?: string[] }
         if (onBroadcastLockAcquired) {
           onBroadcastLockAcquired({
             objectId: data.objectId,
             userId: data.userId,
             userName: data.userName,
             lastActive: data.lastActive,
+            allIds: data.allIds,
           })
         }
       }
@@ -145,9 +146,9 @@ export function subscribeToLocks(
       'broadcast',
       { event: 'lock_released' },
       (payload) => {
-        const data = payload.payload as { objectId: string; userId: string }
+        const data = payload.payload as { objectId: string; userId: string; allIds?: string[] }
         if (onBroadcastLockReleased) {
-          onBroadcastLockReleased(data.objectId, data.userId)
+          onBroadcastLockReleased(data.objectId, data.userId, data.allIds)
         }
       }
     )
@@ -161,6 +162,99 @@ export function subscribeToLocks(
   return {
     cleanup: () => supabase.removeChannel(channel),
     channel,
+  }
+}
+
+/** Acquire locks for multiple objects in batched DB calls (avoids connection exhaustion). */
+export async function acquireLocksBatch(
+  boardId: string,
+  objectIds: string[],
+  userId: string,
+  userName: string,
+  broadcastChannel?: ReturnType<ReturnType<typeof getSupabaseClient>['channel']>
+): Promise<boolean> {
+  if (objectIds.length === 0) return true
+  const supabase = getSupabaseClient()
+
+  // Check which locks already exist in a single query
+  const { data: existingRows } = await supabase
+    .from('locks')
+    .select('object_id, user_id')
+    .eq('board_id', boardId)
+    .in('object_id', objectIds)
+
+  const existingMap = new Map((existingRows ?? []).map((r) => [r.object_id, r.user_id]))
+
+  // If any lock is held by someone else, abort immediately
+  for (const [, lockUserId] of existingMap) {
+    if (lockUserId !== userId) return false
+  }
+
+  // Split into: our stale locks (UPDATE) and new locks (INSERT)
+  const toUpdate = objectIds.filter((id) => existingMap.get(id) === userId)
+  const toInsert = objectIds.filter((id) => !existingMap.has(id))
+
+  const now = Date.now()
+
+  // Batch update our stale locks
+  if (toUpdate.length > 0) {
+    await supabase
+      .from('locks')
+      .update({ last_active: now })
+      .eq('board_id', boardId)
+      .eq('user_id', userId)
+      .in('object_id', toUpdate)
+  }
+
+  // Batch insert new locks (chunks of 200 to stay within PostgREST limits)
+  const CHUNK = 200
+  for (let i = 0; i < toInsert.length; i += CHUNK) {
+    const chunk = toInsert.slice(i, i + CHUNK)
+    const rows = chunk.map((id) => ({
+      board_id: boardId,
+      object_id: id,
+      user_id: userId,
+      user_name: userName,
+      last_active: now,
+    }))
+    const { error } = await supabase.from('locks').insert(rows)
+    if (error) return false
+  }
+
+  // Single broadcast with all lock IDs
+  if (broadcastChannel) {
+    await broadcastChannel.send({
+      type: 'broadcast',
+      event: 'lock_acquired',
+      payload: { objectId: objectIds[0], userId, userName, lastActive: now, allIds: objectIds },
+    })
+  }
+  return true
+}
+
+/** Release locks for multiple objects in a single DB call. */
+export async function releaseLocksBatch(
+  boardId: string,
+  objectIds: string[],
+  userId: string,
+  broadcastChannel?: ReturnType<ReturnType<typeof getSupabaseClient>['channel']>
+): Promise<void> {
+  if (objectIds.length === 0) return
+  const supabase = getSupabaseClient()
+
+  await supabase
+    .from('locks')
+    .delete()
+    .eq('board_id', boardId)
+    .eq('user_id', userId)
+    .in('object_id', objectIds)
+
+  if (broadcastChannel) {
+    await broadcastChannel.send({
+      type: 'broadcast',
+      event: 'lock_released',
+      payload: { objectId: objectIds[0], userId, allIds: objectIds },
+    })
   }
 }
 
