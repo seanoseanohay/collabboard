@@ -7,6 +7,7 @@ import {
 } from '@/features/auth/api/authApi'
 import { NavBar } from '@/shared/components/NavBar'
 import { Footer } from '@/shared/components/Footer'
+import { HeroIllustration } from './HeroIllustration'
 
 const WHY_FEATURES = [
   {
@@ -90,9 +91,14 @@ export function LoginPage() {
             The collaborative whiteboard where crews plunder brilliant ideas —
             with a treasure map edge to set the adventure.
           </p>
-          <button onClick={scrollToForm} style={styles.heroBtn}>
+          <button onClick={scrollToForm} className="btn-gold" style={styles.heroBtn}>
             Claim yer canvas →
           </button>
+        </div>
+
+        {/* Hero illustration */}
+        <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>
+          <HeroIllustration />
         </div>
 
         {/* ── Login card ── */}
@@ -106,6 +112,7 @@ export function LoginPage() {
             type="button"
             onClick={handleGoogleSignIn}
             disabled={loading}
+            className="btn-gold"
             style={styles.googleBtn}
           >
             <span style={styles.googleIcon}>G</span>
@@ -141,6 +148,7 @@ export function LoginPage() {
             <button
               type="submit"
               disabled={loading}
+              className="btn-dark"
               style={styles.submitBtn}
               data-testid="login-submit"
             >
@@ -194,7 +202,7 @@ export function LoginPage() {
         </blockquote>
 
         {/* CTA */}
-        <button onClick={scrollToForm} style={styles.ctaBtn}>
+        <button onClick={scrollToForm} className="btn-gold" style={styles.ctaBtn}>
           Sign up free — claim yer treasure map canvas today 🗺️
         </button>
       </section>
@@ -260,8 +268,6 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '14px 28px',
     fontSize: 16,
     fontWeight: 700,
-    background: '#d4a017',
-    color: '#0d1117',
     border: 'none',
     borderRadius: 8,
     cursor: 'pointer',
@@ -298,8 +304,6 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
     border: 'none',
     borderRadius: 8,
-    background: '#d4a017',
-    color: '#0d1117',
     cursor: 'pointer',
     display: 'flex',
     alignItems: 'center',
@@ -357,8 +361,6 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 700,
     border: 'none',
     borderRadius: 8,
-    background: '#1a1a2e',
-    color: '#d4a017',
     cursor: 'pointer',
     letterSpacing: '0.2px',
   },
@@ -460,8 +462,6 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '16px 36px',
     fontSize: 16,
     fontWeight: 700,
-    background: '#d4a017',
-    color: '#0d1117',
     border: 'none',
     borderRadius: 8,
     cursor: 'pointer',
