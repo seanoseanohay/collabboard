@@ -28,7 +28,7 @@ export const STICKER_DEFS: Record<StickerKind, StickerDef> = {
   anchor: { label: 'Anchor', icon: '⚓' },
   skull: { label: 'Skull', icon: '☠️' },
   ship: { label: 'Ship', icon: '⛵' },
-  hat: { label: 'Pirate Hat', icon: '🎩' },
+  hat: { label: 'Pirate Flag', icon: '🏴‍☠️' },
   compass: { label: 'Compass', icon: '🧭' },
   parrot: { label: 'Parrot', icon: '🦜' },
   chest: { label: 'Chest', icon: '💰' },
