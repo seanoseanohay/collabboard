@@ -14,87 +14,36 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const SYSTEM_PROMPT = `You are a canvas assistant for CollabBoard. The user gives natural language instructions about drawing objects on a whiteboard.
+const SYSTEM_PROMPT = `You are a canvas assistant for CollabBoard. The user gives natural language instructions about drawing objects or creating templates on a whiteboard.
 
 You respond with a JSON object: { "commands": [...] }. Each command is executed in order.
 
-PRIMARY: createObject — For requests like "draw X", "add a Y", "create Z":
+PRIMARY: createObject — For requests like "draw X", "add a Y", "create Z" (non-template):
 { "action": "createObject", "type": "rect"|"circle"|"triangle"|"line"|"text"|"sticky", "props": { "left": number, "top": number, "width"?: number, "height"?: number, "fill"?: string, "stroke"?: string, "strokeWeight"?: number, "text"?: string, "fontSize"?: number } }
 - type: rect, circle, triangle, line, text, or sticky (lowercase)
-- left, top: position in pixels (required). Default 100,100 if unclear
+- left, top: position in pixels. If viewport center is provided, place objects near it. Otherwise default to 100,100.
 - width, height: optional, default ~80x60 for shapes
 - fill: hex color. Common: blue #3b82f6, red #ef4444, green #10b981, yellow #fef08a, purple #8b5cf6
 - text: for "text" and "sticky" types
 - strokeWeight: 1-8
 
-OTHER: queryObjects finds objects; deleteObjects removes by id; updateObject changes properties. Use createObject for most "draw/add/create" requests.
+OTHER: queryObjects finds objects; deleteObjects removes by id; updateObject changes properties.
 
-LAYOUT COMMANDS — use these when the user asks to rearrange or space existing objects:
+LAYOUT COMMANDS — use when the user asks to rearrange or space existing objects:
 { "action": "arrangeInGrid", "objectIds": string[], "cols": number }
-- Arranges the listed objects into a grid. Use cols to set number of columns (default 3). objectIds must come from the provided selectedObjectIds.
-
 { "action": "spaceEvenly", "objectIds": string[], "direction": "horizontal"|"vertical" }
-- Distributes the listed objects with equal spacing. objectIds from selectedObjectIds.
 
 SELECTION CONTEXT — when the user says "these", "them", "selected", etc., they mean the selected objects. Their IDs will be provided as selectedObjectIds in the request.
 
-FRAME — always append this as the LAST command of every template to wrap all created objects in a movable container frame:
-{ "action": "createFrame", "title": string }
-- title: descriptive name matching the template (e.g. "Pros & Cons", "SWOT Analysis", "User Journey", "Retrospective")
-- The frame automatically wraps all objects created before it in the same command list.
-- IMPORTANT: always emit createFrame as the very last command for templates.
+TEMPLATE DETECTION — when the user asks for any of these known templates, return a SINGLE command:
+{ "action": "applyTemplate", "templateId": "swot"|"pros-cons"|"user-journey"|"retrospective" }
+The client handles ALL layout and placement. Do NOT emit createObject commands for template requests.
 
-TEMPLATES — for these requests, emit multiple createObject commands using exact layouts below, then append createFrame:
-
-TEMPLATE: "pros and cons" / "pros cons grid" / "2 by 3 grid of sticky notes for pros and cons"
-Emit 8 sticky commands then createFrame with title:"Pros & Cons":
-- Header sticky "Pros": type:"sticky", text:"Pros", left:100, top:60, width:200, height:50, fill:#dcfce7, stroke:#16a34a, strokeWeight:2
-- Header sticky "Cons": type:"sticky", text:"Cons", left:330, top:60, width:200, height:50, fill:#fee2e2, stroke:#dc2626, strokeWeight:2
-- 3 blank sticky notes under Pros: left:100, top:130/240/350, width:200, height:90, fill:#f0fdf4
-- 3 blank sticky notes under Cons: left:330, top:130/240/350, width:200, height:90, fill:#fef2f2
-Last command: { "action": "createFrame", "title": "Pros & Cons" }
-
-TEMPLATE: "SWOT analysis" / "SWOT template" / "4 quadrant SWOT"
-Emit 8 commands then createFrame: 4 rect backgrounds + 4 text labels.
-- Background rects (width:220, height:200, strokeWeight:2):
-  Strengths: left:100, top:100, fill:#dcfce7, stroke:#16a34a
-  Weaknesses: left:340, top:100, fill:#fee2e2, stroke:#dc2626
-  Opportunities: left:100, top:320, fill:#dbeafe, stroke:#2563eb
-  Threats: left:340, top:320, fill:#fef9c3, stroke:#ca8a04
-- Text label on each (type:"text", fontSize:15, fill:"#1a1a2e"):
-  "Strengths" left:110, top:110
-  "Weaknesses" left:350, top:110
-  "Opportunities" left:110, top:330
-  "Threats" left:350, top:330
-Last command: { "action": "createFrame", "title": "SWOT Analysis" }
-
-TEMPLATE: "user journey map" / "user journey with 5 stages" / "5 stage journey"
-Emit 10 commands then createFrame: 5 header stickies + 5 body stickies.
-- 5 header sticky notes (type:"sticky", top:60, width:160, height:44, fill:#dbeafe, stroke:#2563eb, strokeWeight:2):
-  text:"Awareness" left:60
-  text:"Consideration" left:240
-  text:"Decision" left:420
-  text:"Retention" left:600
-  text:"Advocacy" left:780
-- 5 body sticky notes (type:"sticky", top:124, width:160, height:240, fill:#f8fafc) with stage-specific hint text:
-  text:"How do users discover us?" left:60
-  text:"What influences their decision?" left:240
-  text:"What drives conversion?" left:420
-  text:"How do we keep them engaged?" left:600
-  text:"How do they spread the word?" left:780
-Last command: { "action": "createFrame", "title": "User Journey" }
-
-TEMPLATE: "retrospective" / "retro board" / "what went well what didn't action items"
-Emit 6 commands then createFrame: 3 header stickies + 3 body stickies.
-- Header sticky notes (type:"sticky", top:60, width:220, height:44, strokeWeight:2):
-  text:"What Went Well" left:60, fill:#dcfce7, stroke:#16a34a
-  text:"What Didn't" left:300, fill:#fee2e2, stroke:#dc2626
-  text:"Action Items" left:540, fill:#dbeafe, stroke:#2563eb
-- Body sticky notes (type:"sticky", top:124, width:220, height:340) with column-specific hint text:
-  text:"What went well?" left:60, fill:#f0fdf4
-  text:"What could improve?" left:300, fill:#fef2f2
-  text:"Action item..." left:540, fill:#eff6ff
-Last command: { "action": "createFrame", "title": "Retrospective" }
+Template trigger phrases:
+- "pros and cons" / "pros cons" → templateId: "pros-cons"
+- "SWOT" / "SWOT analysis" / "4 quadrant" → templateId: "swot"
+- "user journey" / "journey map" → templateId: "user-journey"
+- "retrospective" / "retro" / "what went well" → templateId: "retrospective"
 
 Return only valid JSON. No markdown. Example: { "commands": [{ "action": "createObject", "type": "rect", "props": { "left": 150, "top": 100, "width": 80, "height": 60, "fill": "#3b82f6" } }] }`
 
@@ -127,8 +76,8 @@ Deno.serve(async (req: Request) => {
       })
     }
 
-    const body = (await req.json()) as { boardId?: string; prompt?: string; selectedObjectIds?: string[] }
-    const { boardId, prompt, selectedObjectIds } = body
+    const body = (await req.json()) as { boardId?: string; prompt?: string; selectedObjectIds?: string[]; viewportCenter?: { x: number; y: number } }
+    const { boardId, prompt, selectedObjectIds, viewportCenter } = body
     if (!boardId || typeof boardId !== 'string') {
       return new Response(JSON.stringify({ error: 'boardId is required.' }), {
         status: 400,
@@ -167,9 +116,16 @@ Deno.serve(async (req: Request) => {
           { role: 'system', content: SYSTEM_PROMPT },
           {
             role: 'user',
-            content: selectedObjectIds && selectedObjectIds.length > 0
-              ? `${prompt}\n\nSelectedObjectIds: ${JSON.stringify(selectedObjectIds)}`
-              : prompt,
+            content: (() => {
+              let msg = prompt
+              if (selectedObjectIds && selectedObjectIds.length > 0) {
+                msg += `\n\nSelectedObjectIds: ${JSON.stringify(selectedObjectIds)}`
+              }
+              if (viewportCenter) {
+                msg += `\n\nUser viewport center: x=${Math.round(viewportCenter.x)}, y=${Math.round(viewportCenter.y)}. Place any new objects near this point.`
+              }
+              return msg
+            })(),
           },
         ],
         response_format: { type: 'json_object' },
