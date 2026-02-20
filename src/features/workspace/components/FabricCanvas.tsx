@@ -1749,8 +1749,24 @@ const FabricCanvasInner = (
       notifySelectionChange()
     }
 
-    const handleObjectTransforming = () => {
+    let transformNotifyRaf: number | null = null
+    const handleObjectTransforming = (e?: { target?: FabricObject }) => {
       objectWasTransformed = true
+      // Keep the Table overlay in sync while dragging.
+      // Check if the object is a Table, or is a Frame whose childIds include a Table.
+      const target = e?.target
+      if (!target) return
+      const needsOverlayUpdate =
+        isDataTable(target) ||
+        (target.type === 'group' &&
+          (target.get('data') as { subtype?: string } | undefined)?.subtype === 'frame')
+      if (!needsOverlayUpdate) return
+      // Throttle via rAF so we get one overlay update per paint frame, not per Fabric event
+      if (transformNotifyRaf !== null) return
+      transformNotifyRaf = requestAnimationFrame(() => {
+        transformNotifyRaf = null
+        notifyFormFrames()
+      })
     }
 
     const handleObjectModified = (e: { target?: FabricObject }) => {
@@ -1903,6 +1919,7 @@ const FabricCanvasInner = (
       fabricCanvas.off('selection:created', handleSelectionCreated)
       fabricCanvas.off('selection:updated', handleSelectionUpdated)
       fabricCanvas.off('selection:cleared', handleSelectionCleared)
+      if (transformNotifyRaf !== null) cancelAnimationFrame(transformNotifyRaf)
       fabricCanvas.off('object:moving', handleObjectTransforming)
       fabricCanvas.off('object:scaling', handleObjectTransforming)
       fabricCanvas.off('object:rotating', handleObjectTransforming)
