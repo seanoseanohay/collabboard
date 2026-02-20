@@ -47,13 +47,14 @@ function drawArrowHead(
 /**
  * Draw arrowheads for all connectors on the canvas.
  * This should be called in the `after:render` event.
+ * Pass a pre-filtered connector list to avoid O(N) scan on every frame.
  */
-export function drawConnectorArrows(canvas: Canvas): void {
+export function drawConnectorArrows(canvas: Canvas, connectorCache?: FabricObject[]): void {
   const ctx = canvas.getContext()
   const vpt = canvas.viewportTransform
   if (!ctx || !vpt) return
 
-  const connectors = canvas.getObjects().filter((obj: FabricObject) => isConnector(obj))
+  const connectors = connectorCache ?? canvas.getObjects().filter((obj: FabricObject) => isConnector(obj))
   if (connectors.length === 0) return
 
   ctx.save()

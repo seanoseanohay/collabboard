@@ -112,6 +112,8 @@ export function subscribeToDocuments(
     onAdded: (objectId: string, data: Record<string, unknown>) => void
     onChanged: (objectId: string, data: Record<string, unknown>) => void
     onRemoved: (objectId: string) => void
+    onBulkLoadStart?: () => void
+    onBulkLoadComplete?: () => void
   }
 ): () => void {
   const supabase = getSupabaseClient()
@@ -119,6 +121,7 @@ export function subscribeToDocuments(
   const PAGE_SIZE = 1000
 
   const fetchInitial = async () => {
+    callbacks.onBulkLoadStart?.()
     let offset = 0
     let hasMore = true
     let loadIndex = 0
@@ -143,6 +146,7 @@ export function subscribeToDocuments(
       offset += PAGE_SIZE
       if (hasMore) await new Promise((r) => setTimeout(r, 0))
     }
+    callbacks.onBulkLoadComplete?.()
   }
 
   fetchInitial()

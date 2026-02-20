@@ -689,6 +689,9 @@ const FabricCanvasInner = (
       return []
     }
 
+    // Connector cache — updated on object:added/removed to avoid O(N) scan on every render frame
+    const connectorCacheSet = new Set<FabricObject>()
+
     let isPanning = false
     let isDrawing = false
     let spacePressed = false
@@ -1535,10 +1538,15 @@ const FabricCanvasInner = (
         setObjectZIndex(obj, Date.now())
         obj.set('perPixelTargetFind', true)
       }
+      if (isConnector(obj)) connectorCacheSet.add(obj)
       applyConnectorControls(obj)
       if (isEditableText(obj) || (obj.type === 'group' && getTextToEdit(obj))) {
         attachTextEditOnDblClick(obj)
       }
+    }
+
+    const handleObjectRemoved = (e: { target?: FabricObject }) => {
+      if (e.target) connectorCacheSet.delete(e.target)
     }
 
     const hasITextChild = (obj: FabricObject): boolean => {
@@ -1646,7 +1654,7 @@ const FabricCanvasInner = (
     }
 
     const drawGrid = () => drawCanvasGrid(fabricCanvas)
-    const drawArrows = () => drawConnectorArrows(fabricCanvas)
+    const drawArrows = () => drawConnectorArrows(fabricCanvas, Array.from(connectorCacheSet))
     const drawHoverPorts = () => {
       const ctx = fabricCanvas.getContext()
       const vpt = fabricCanvas.viewportTransform
@@ -1677,6 +1685,7 @@ const FabricCanvasInner = (
     }
     fabricCanvas.on('connector:draw:start' as never, handleConnectorDrawStart)
     fabricCanvas.on('object:added', handleObjectAdded)
+    fabricCanvas.on('object:removed', handleObjectRemoved)
     fabricCanvas.on('object:modified', handleObjectModified)
     fabricCanvas.on('selection:created', handleSelectionCreated)
     fabricCanvas.on('selection:updated', handleSelectionUpdated)
@@ -1759,6 +1768,7 @@ const FabricCanvasInner = (
       fabricCanvas.off('object:added', notifyObjectCount)
       fabricCanvas.off('object:removed', notifyObjectCount)
       fabricCanvas.off('object:added', handleObjectAdded)
+      fabricCanvas.off('object:removed', handleObjectRemoved)
       fabricCanvas.off('selection:created', handleSelectionCreated)
       fabricCanvas.off('selection:updated', handleSelectionUpdated)
       fabricCanvas.off('selection:cleared', handleSelectionCleared)

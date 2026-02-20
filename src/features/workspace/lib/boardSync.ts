@@ -110,11 +110,19 @@ export function setObjectZIndex(obj: FabricObject, z: number): void {
   obj.set(ZINDEX_KEY, z)
 }
 
-/** Sort canvas objects by zIndex (ascending); reorder so lowest is at back. */
+/** Sort canvas objects by zIndex (ascending); reorder so lowest is at back.
+ * Sorts Fabric's internal _objects array directly (O(N log N)) instead of calling
+ * bringObjectToFront N times (O(N²)) — critical for boards with many objects. */
 export function sortCanvasByZIndex(canvas: Canvas): void {
-  const objects = canvas.getObjects().slice()
-  objects.sort((a, b) => getObjectZIndex(a) - getObjectZIndex(b))
-  objects.forEach((obj) => canvas.bringObjectToFront(obj))
+  const internal = canvas as unknown as { _objects: FabricObject[] }
+  if (internal._objects) {
+    internal._objects.sort((a: FabricObject, b: FabricObject) => getObjectZIndex(a) - getObjectZIndex(b))
+  } else {
+    // Fallback for unexpected Fabric API change
+    const objects = canvas.getObjects().slice()
+    objects.sort((a, b) => getObjectZIndex(a) - getObjectZIndex(b))
+    objects.forEach((obj) => canvas.bringObjectToFront(obj))
+  }
   canvas.requestRenderAll()
 }
 
@@ -180,6 +188,8 @@ export function setupDocumentSync(
 ): () => void {
   const pendingWriteTimestamps = new Map<string, number>()
   let isApplyingRemote = false
+  // During initial bulk load, skip per-object sort+render; do one pass at the end
+  let isBulkLoading = false
 
   const stripSyncFields = (d: Record<string, unknown>) => {
     const { updatedAt, ...rest } = d
@@ -368,8 +378,10 @@ export function setupDocumentSync(
           canvas.add(revived)
           revived.setCoords()
           applyLockStateCallbackRef.current?.()
-          sortCanvasByZIndex(canvas)
-          canvas.requestRenderAll()
+          if (!isBulkLoading) {
+            sortCanvasByZIndex(canvas)
+            canvas.requestRenderAll()
+          }
           isApplyingRemote = false
         }
       } catch {
@@ -550,6 +562,14 @@ export function setupDocumentSync(
     onAdded: (objectId, data) => applyRemote(objectId, data),
     onChanged: (objectId, data) => applyRemote(objectId, data),
     onRemoved: removeRemote,
+    onBulkLoadStart: () => {
+      isBulkLoading = true
+    },
+    onBulkLoadComplete: () => {
+      isBulkLoading = false
+      sortCanvasByZIndex(canvas)
+      canvas.requestRenderAll()
+    },
   })
 
   // Move-delta broadcast: during drag we send (dx, dy) so other clients apply same vector (low lag, correct relative positions). On drop we write absolute to documents.
