@@ -86,6 +86,8 @@ export function FrameFormOverlay({ frames, viewportTransform, onSchemaChange, on
             key={frame.objectId}
             frameId={frame.objectId}
             title={frame.title}
+            showTitle={frame.showTitle}
+            accentColor={frame.accentColor}
             schema={schema}
             screenLeft={screenLeft}
             screenTop={screenTop}
@@ -109,6 +111,8 @@ export function FrameFormOverlay({ frames, viewportTransform, onSchemaChange, on
 interface PanelProps {
   frameId: string
   title: string
+  showTitle: boolean
+  accentColor?: string
   schema: FormSchema
   screenLeft: number
   screenTop: number
@@ -124,9 +128,24 @@ interface PanelProps {
   onTitleChange: (title: string) => void
 }
 
+const DEFAULT_ACCENT = '#93c5fd'
+
+function accentTint(hex: string): string {
+  const tints: Record<string, string> = {
+    '#16a34a': '#dcfce7',
+    '#dc2626': '#fee2e2',
+    '#2563eb': '#dbeafe',
+    '#ca8a04': '#fef9c3',
+    '#93c5fd': '#eff6ff',
+  }
+  return tints[hex] ?? '#f8fafc'
+}
+
 function FrameFormPanel({
   frameId,
   title,
+  showTitle,
+  accentColor,
   schema,
   screenLeft,
   screenTop,
@@ -148,6 +167,9 @@ function FrameFormPanel({
   const { columns, rows } = schema
   const baseFontSize = Math.min(Math.max(zoom * 12, 9), 13)
   const minWidth = 320
+
+  const accent = accentColor ?? DEFAULT_ACCENT
+  const accentBg = accentTint(accent)
 
   // ─── Column helpers ───────────────────────────────────────────────
   const addColumn = () => {
@@ -226,7 +248,7 @@ function FrameFormPanel({
     width: Math.max(screenWidth, minWidth),
     height: screenHeight,
     background: '#ffffff',
-    border: '2px solid #93c5fd',
+    border: `2px solid ${accent}`,
     borderRadius: 6,
     overflow: 'hidden',
     // pointer-events: none lets mousedown/mousemove reach the Fabric canvas below
@@ -288,8 +310,8 @@ function FrameFormPanel({
         alignItems: 'center',
         padding: '0 8px',
         height: TITLE_BAR_H,
-        borderBottom: '1px solid #bfdbfe',
-        background: '#eff6ff',
+        borderBottom: `1px solid ${accent}`,
+        background: accentBg,
         flexShrink: 0,
         gap: 4,
         boxSizing: 'border-box',
@@ -322,7 +344,7 @@ function FrameFormPanel({
             background: 'transparent',
             fontSize: TITLE_FONT,
             fontWeight: 700,
-            color: '#1d4ed8',
+            color: accent,
             fontFamily: 'inherit',
             padding: 0,
             pointerEvents: 'auto',
@@ -335,7 +357,7 @@ function FrameFormPanel({
             flex: 1,
             fontSize: TITLE_FONT,
             fontWeight: 700,
-            color: '#1d4ed8',
+            color: accent,
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
@@ -358,7 +380,7 @@ function FrameFormPanel({
   if (columns.length === 0) {
     return (
       <div key={frameId} style={{ ...overlayStyle, zIndex: FORM_Z_INDEX }}>
-        {titleBar}
+        {showTitle && titleBar}
         <div style={emptyStyle}>
           <span>No columns yet</span>
           <button
@@ -400,7 +422,7 @@ function FrameFormPanel({
 
   return (
     <div style={{ ...overlayStyle, zIndex: FORM_Z_INDEX }}>
-      {titleBar}
+      {showTitle && titleBar}
       <div style={scrollAreaStyle}>
         <table style={{ borderCollapse: 'collapse', width: '100%', tableLayout: 'fixed' }}>
           <thead>
@@ -410,7 +432,7 @@ function FrameFormPanel({
                 return (
                   <th
                     key={col.id}
-                    style={{ ...thStyle, pointerEvents: 'auto' }}
+                    style={{ ...thStyle, background: col.headerColor ?? accentBg, pointerEvents: 'auto' }}
                     onMouseEnter={() => setHoveredColId(col.id)}
                     onMouseLeave={() => setHoveredColId(null)}
                   >
