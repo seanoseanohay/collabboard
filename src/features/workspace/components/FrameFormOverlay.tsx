@@ -41,7 +41,6 @@ interface FormState {
 export function FrameFormOverlay({ frames, viewportTransform, onSchemaChange, onTitleChange }: FrameFormOverlayProps) {
   const [localSchemas, setLocalSchemas] = useState<FormState>({})
   const [editingColId, setEditingColId] = useState<string | null>(null)
-  const [colTypeMenuId, setColTypeMenuId] = useState<string | null>(null)
   const [dropdownOptionsEditing, setDropdownOptionsEditing] = useState<string | null>(null)
   const editColInputRef = useRef<HTMLInputElement>(null)
 
@@ -94,11 +93,9 @@ export function FrameFormOverlay({ frames, viewportTransform, onSchemaChange, on
             screenHeight={screenHeight}
             zoom={zoom}
             editingColId={editingColId}
-            colTypeMenuId={colTypeMenuId}
             dropdownOptionsEditing={dropdownOptionsEditing}
             editColInputRef={editColInputRef}
             onSetEditingColId={setEditingColId}
-            onSetColTypeMenuId={setColTypeMenuId}
             onSetDropdownOptionsEditing={setDropdownOptionsEditing}
             onUpdateSchema={(s) => updateSchema(frame.objectId, s)}
             onTitleChange={(t) => onTitleChange?.(frame.objectId, t)}
@@ -119,11 +116,9 @@ interface PanelProps {
   screenHeight: number
   zoom: number
   editingColId: string | null
-  colTypeMenuId: string | null
   dropdownOptionsEditing: string | null
   editColInputRef: React.RefObject<HTMLInputElement | null>
   onSetEditingColId: (id: string | null) => void
-  onSetColTypeMenuId: (id: string | null) => void
   onSetDropdownOptionsEditing: (id: string | null) => void
   onUpdateSchema: (schema: FormSchema) => void
   onTitleChange: (title: string) => void
@@ -139,11 +134,9 @@ function FrameFormPanel({
   screenHeight,
   zoom,
   editingColId,
-  colTypeMenuId,
   dropdownOptionsEditing,
   editColInputRef,
   onSetEditingColId,
-  onSetColTypeMenuId,
   onSetDropdownOptionsEditing,
   onUpdateSchema,
   onTitleChange,
@@ -182,7 +175,6 @@ function FrameFormPanel({
       ...schema,
       columns: columns.map((c) => (c.id === colId ? { ...c, type } : c)),
     })
-    onSetColTypeMenuId(null)
   }
 
   const deleteColumn = (colId: string) => {
@@ -297,6 +289,9 @@ function FrameFormPanel({
         flexShrink: 0,
         gap: 4,
         boxSizing: 'border-box',
+        // Let clicks pass through to the canvas for selection/drag,
+        // except on the title text / input itself (restored below).
+        pointerEvents: 'none',
       }}
     >
       {editingTitle ? (
@@ -326,6 +321,7 @@ function FrameFormPanel({
             color: '#1d4ed8',
             fontFamily: 'inherit',
             padding: 0,
+            pointerEvents: 'auto',
           }}
           autoFocus
         />
@@ -340,6 +336,7 @@ function FrameFormPanel({
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
             cursor: 'text',
+            pointerEvents: 'auto',
           }}
           title="Click to rename"
           onClick={() => {
@@ -427,14 +424,18 @@ function FrameFormPanel({
                       </span>
                     </span>
                   )}
-                  <div style={{ position: 'absolute', top: 2, right: 2, display: 'flex', gap: 2 }}>
-                    <button
-                      title="Change type"
-                      style={{ fontSize: 9, padding: '0 3px', border: '1px solid #e2e8f0', borderRadius: 3, background: '#fff', cursor: 'pointer', color: '#64748b' }}
-                      onClick={() => onSetColTypeMenuId(colTypeMenuId === col.id ? null : col.id)}
+                  <div style={{ position: 'absolute', top: 2, right: 2, display: 'flex', gap: 2, alignItems: 'center' }}>
+                    <select
+                      title="Change column type"
+                      value={col.type}
+                      onChange={(e) => setColumnType(col.id, e.target.value as FormFieldType)}
+                      onClick={(e) => e.stopPropagation()}
+                      style={{ fontSize: 9, padding: '0 2px', border: '1px solid #e2e8f0', borderRadius: 3, background: '#fff', cursor: 'pointer', color: '#64748b', height: 16 }}
                     >
-                      ▾
-                    </button>
+                      {FIELD_TYPE_OPTIONS.map((t) => (
+                        <option key={t} value={t}>{FIELD_TYPE_LABELS[t]}</option>
+                      ))}
+                    </select>
                     <button
                       title="Delete column"
                       style={{ fontSize: 9, padding: '0 3px', border: '1px solid #e2e8f0', borderRadius: 3, background: '#fff', cursor: 'pointer', color: '#ef4444' }}
@@ -443,13 +444,6 @@ function FrameFormPanel({
                       ✕
                     </button>
                   </div>
-                  {colTypeMenuId === col.id && (
-                    <TypeMenu
-                      currentType={col.type}
-                      onSelect={(t) => setColumnType(col.id, t)}
-                      onClose={() => onSetColTypeMenuId(null)}
-                    />
-                  )}
                 </th>
               ))}
               <th style={{ ...thStyle, width: DEL_COL_W, minWidth: DEL_COL_W }} />
@@ -588,56 +582,6 @@ function CellInput({ col, value, onChange, fontSize }: CellInputProps) {
   )
 }
 
-interface TypeMenuProps {
-  currentType: FormFieldType
-  onSelect: (t: FormFieldType) => void
-  onClose: () => void
-}
-
-function TypeMenu({ currentType, onSelect, onClose }: TypeMenuProps) {
-  return (
-    <div
-      style={{
-        position: 'absolute',
-        top: '100%',
-        right: 0,
-        zIndex: 9999,
-        background: '#fff',
-        border: '1px solid #e2e8f0',
-        borderRadius: 6,
-        boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
-        minWidth: 110,
-        padding: '4px 0',
-      }}
-    >
-      {FIELD_TYPE_OPTIONS.map((t) => (
-        <div
-          key={t}
-          style={{
-            padding: '5px 12px',
-            cursor: 'pointer',
-            background: t === currentType ? '#f1f5f9' : 'transparent',
-            fontWeight: t === currentType ? 600 : 400,
-            fontSize: 12,
-            color: '#334155',
-          }}
-          onClick={() => onSelect(t)}
-          onMouseLeave={() => {}}
-        >
-          {FIELD_TYPE_LABELS[t]}
-        </div>
-      ))}
-      <div style={{ borderTop: '1px solid #f1f5f9', marginTop: 2, paddingTop: 2 }}>
-        <div
-          style={{ padding: '4px 12px', cursor: 'pointer', fontSize: 11, color: '#94a3b8' }}
-          onClick={onClose}
-        >
-          Cancel
-        </div>
-      </div>
-    </div>
-  )
-}
 
 interface DropdownOptionEditorProps {
   col: FormColumn

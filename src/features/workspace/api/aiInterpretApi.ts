@@ -22,14 +22,23 @@ const TEMPLATE_PATTERNS: Array<{ pattern: RegExp; templateId: string }> = [
 function detectTemplateLocally(prompt: string): AiInterpretResponse | null {
   for (const { pattern, templateId } of TEMPLATE_PATTERNS) {
     if (pattern.test(prompt)) {
-      return { commands: [{ action: 'applyTemplate', templateId }] }
+      return { commands: [{ action: 'applyTemplate', templateId }], source: 'template' }
     }
   }
   return null
 }
 
+export interface AiUsage {
+  prompt_tokens: number
+  completion_tokens: number
+  total_tokens: number
+}
+
 export interface AiInterpretResponse {
   commands: AiCommand[]
+  /** 'template' = served from client-side registry, no API call made. 'api' = called Edge Function + OpenAI. */
+  source?: 'template' | 'api'
+  usage?: AiUsage
 }
 
 export type AiCommand =
@@ -76,5 +85,5 @@ export async function invokeAiInterpret(
     throw new Error('Invalid AI response: missing commands array')
   }
 
-  return data as AiInterpretResponse
+  return { commands: data.commands, source: 'api', usage: data.usage }
 }

@@ -209,6 +209,11 @@ Previously: `if (target) return` blocked drawing on top of any existing object. 
 - ✅ **ai-interpret** Edge Function uses OpenAI SDK + `wrapOpenAI` for tracing. All LLM calls (inputs, outputs, tokens, latency, errors) visible at smith.langchain.com.
 - Secrets: `LANGSMITH_TRACING=true`, `LANGSMITH_API_KEY`. Documented in SUPABASE_SETUP.md, AI_CLIENT_API.md.
 
+**In-app AI call visibility (2026-02-20):**
+- ✅ **ai-interpret Edge Function** now logs each request (`[ai-interpret] request` with boardId, userId, promptPreview) and token usage (`[ai-interpret] usage`) to Supabase Edge Function logs (Dashboard → Edge Functions → ai-interpret → Logs). Also returns `usage: { prompt_tokens, completion_tokens, total_tokens }` in the response body.
+- ✅ **aiInterpretApi.ts** — `AiInterpretResponse` now includes `source: 'template' | 'api'` and `usage?: AiUsage`. Template bypass sets `source: 'template'`. Edge Function response sets `source: 'api'` and forwards `usage`.
+- ✅ **AiPromptBar.tsx** — Modal stays open after a successful run and shows a result chip: gray "📋 Template applied — no AI call made" for templates; green "✦ AI generated · N tokens (X in / Y out)" for real API calls. `lastResult` state tracks source + usage.
+
 **Cursor lag fix — Broadcast + CSS interpolation:**
 - ✅ **Root cause 1:** Cursor positions were going through postgres_changes → Presence API → now through Supabase **Broadcast** (same zero-DB path as object move-deltas). Channel `cursor:${boardId}` uses `channel.send({ type:'broadcast', event:'cursor' })` for positions and `channel.track({ userId, name, color })` (Presence) for join/leave only.
 - ✅ **Root cause 2:** Debounce only sent after user stopped moving. Switched to **33ms throttle** so positions stream continuously during movement.

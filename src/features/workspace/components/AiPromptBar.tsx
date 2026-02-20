@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import { Z_INDEX } from '@/shared/constants/zIndex'
-import { invokeAiInterpret } from '../api/aiInterpretApi'
+import { invokeAiInterpret, type AiUsage } from '../api/aiInterpretApi'
 import { executeAiCommands } from '../lib/executeAiCommands'
 
 const DRAW_EXAMPLES = [
@@ -29,25 +29,32 @@ interface AiPromptBarProps {
   getViewportCenter?: () => { x: number; y: number }
 }
 
+interface LastResult {
+  source: 'template' | 'api'
+  usage?: AiUsage
+}
+
 export function AiPromptBar({ boardId, getSelectedObjectIds, createFrame, groupObjectIds, getViewportCenter }: AiPromptBarProps) {
   const [open, setOpen] = useState(false)
   const [prompt, setPrompt] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [lastResult, setLastResult] = useState<LastResult | null>(null)
 
   const runPrompt = useCallback(
     async (text: string) => {
       if (!text.trim() || loading) return
       setLoading(true)
       setError(null)
+      setLastResult(null)
       try {
         const selectedObjectIds = getSelectedObjectIds?.() ?? []
         const viewportCenter = getViewportCenter?.()
-        const { commands } = await invokeAiInterpret(boardId, text, {
+        const response = await invokeAiInterpret(boardId, text, {
           selectedObjectIds,
           viewportCenter,
         })
-        const result = await executeAiCommands(boardId, commands, {
+        const result = await executeAiCommands(boardId, response.commands, {
           createFrame: createFrame ?? undefined,
           getViewportCenter,
         })
@@ -55,7 +62,7 @@ export function AiPromptBar({ boardId, getSelectedObjectIds, createFrame, groupO
           setError(result.error ?? 'Failed to execute')
         } else {
           setPrompt('')
-          setOpen(false)
+          setLastResult({ source: response.source ?? 'api', usage: response.usage })
           // Legacy fallback: groupCreated without createFrame
           if (result.shouldGroup && result.createdIds.length >= 2 && groupObjectIds && !createFrame) {
             void groupObjectIds(result.createdIds)
@@ -89,7 +96,7 @@ export function AiPromptBar({ boardId, getSelectedObjectIds, createFrame, groupO
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => { setOpen(true); setLastResult(null) }}
         style={styles.trigger}
         title="Ask AI to draw"
       >
@@ -182,6 +189,15 @@ export function AiPromptBar({ boardId, getSelectedObjectIds, createFrame, groupO
             </form>
 
             {error && <p style={styles.error}>{error}</p>}
+            {lastResult && !error && (
+              <p style={lastResult.source === 'template' ? styles.resultTemplate : styles.resultApi}>
+                {lastResult.source === 'template'
+                  ? '📋 Template applied — no AI call made'
+                  : lastResult.usage
+                  ? `✦ AI generated · ${lastResult.usage.total_tokens} tokens (${lastResult.usage.prompt_tokens} in / ${lastResult.usage.completion_tokens} out)`
+                  : '✦ AI generated'}
+              </p>
+            )}
             <p style={styles.hint}>Deploy ai-interpret if you see &quot;Not authorized&quot;</p>
           </div>
         </div>
@@ -316,6 +332,24 @@ const styles: Record<string, React.CSSProperties> = {
     margin: '12px 0 0',
     fontSize: 13,
     color: '#dc2626',
+  },
+  resultTemplate: {
+    margin: '12px 0 0',
+    fontSize: 12,
+    color: '#6b7280',
+    background: '#f9fafb',
+    border: '1px solid #e5e7eb',
+    borderRadius: 6,
+    padding: '6px 10px',
+  },
+  resultApi: {
+    margin: '12px 0 0',
+    fontSize: 12,
+    color: '#065f46',
+    background: '#ecfdf5',
+    border: '1px solid #6ee7b7',
+    borderRadius: 6,
+    padding: '6px 10px',
   },
   hint: {
     margin: '8px 0 0',

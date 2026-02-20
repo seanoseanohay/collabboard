@@ -140,6 +140,8 @@ Deno.serve(async (req: Request) => {
       })
     }
 
+    console.log('[ai-interpret] request', { boardId, userId: user.id, promptPreview: prompt.slice(0, 100) })
+
     const openai = wrapOpenAI(new OpenAI({ apiKey }))
     const completion = await openai.chat.completions.create(
       {
@@ -172,6 +174,9 @@ Deno.serve(async (req: Request) => {
       }
     )
 
+    const usage = completion.usage
+    console.log('[ai-interpret] usage', { prompt_tokens: usage?.prompt_tokens, completion_tokens: usage?.completion_tokens, total_tokens: usage?.total_tokens })
+
     const content = completion.choices?.[0]?.message?.content
     if (!content) {
       return new Response(JSON.stringify({ error: 'No response from OpenAI.' }), {
@@ -188,10 +193,13 @@ Deno.serve(async (req: Request) => {
       })
     }
 
-    return new Response(JSON.stringify({ commands: parsed.commands }), {
-      status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    return new Response(
+      JSON.stringify({
+        commands: parsed.commands,
+        usage: usage ? { prompt_tokens: usage.prompt_tokens, completion_tokens: usage.completion_tokens, total_tokens: usage.total_tokens } : undefined,
+      }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     return new Response(JSON.stringify({ error: msg }), {
