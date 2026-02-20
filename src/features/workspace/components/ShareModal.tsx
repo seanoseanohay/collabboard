@@ -52,6 +52,10 @@ export function ShareModal({ board, onClose, onVisibilityChange }: ShareModalPro
     }
   }, [board.id])
 
+  const refreshMembers = useCallback(() => {
+    getBoardMembers(board.id).then((data) => setMembers(data)).catch(() => {})
+  }, [board.id])
+
   const handleAdd = useCallback(async () => {
     if (!input.trim()) {
       setMessage('Enter an email address')
@@ -70,11 +74,14 @@ export function ShareModal({ board, onClose, onVisibilityChange }: ShareModalPro
       setMessage(result.message)
       setStatus('success')
       setInput('')
+      if (result.added) {
+        refreshMembers()
+      }
     } catch (err) {
       setMessage(err instanceof Error ? err.message : 'Failed to add collaborator')
       setStatus('error')
     }
-  }, [board.id, input])
+  }, [board.id, input, refreshMembers])
 
   const handleEmail = useCallback(async () => {
     if (!input.trim()) {
