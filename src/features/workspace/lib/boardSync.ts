@@ -81,6 +81,7 @@ import { updateStickyTextFontSize, updateStickyPlaceholderVisibility } from './s
 import { isFrame, getFrameChildIds, setFrameChildIds } from './frameUtils'
 import {
   updateConnectorEndpoints,
+  syncConnectorMoveLock,
   getConnectorData,
   isConnector,
   getStrokeDashArray,
@@ -291,9 +292,14 @@ export function setupDocumentSync(
             existing.setCoords()
             applyZIndex(existing, clean)
             ensureTextEditable(existing)
+            if (isConnector(existing)) {
+              updateConnectorEndpoints(existing, canvas)
+              syncConnectorMoveLock(existing)
+            } else {
+              updateConnectorsForObjects(new Set([objectId]))
+            }
             applyLockStateCallbackRef.current?.()
             sortCanvasByZIndex(canvas)
-            if (!isConnector(existing)) updateConnectorsForObjects(new Set([objectId]))
             canvas.requestRenderAll()
           }
         } catch {
@@ -343,6 +349,7 @@ export function setupDocumentSync(
           ensureTextEditable(revived)
           if (subtype === 'connector') {
             updateConnectorEndpoints(revived, canvas)
+            syncConnectorMoveLock(revived)
             const cDash = (connectorData as { strokeDash?: string }).strokeDash
             if (cDash) revived.set('strokeDashArray', getStrokeDashArray(cDash as StrokeDash))
           }

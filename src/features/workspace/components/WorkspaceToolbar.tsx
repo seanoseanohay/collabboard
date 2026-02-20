@@ -73,19 +73,23 @@ function sliderValueToZoom(value: number): number {
 
 const ToolIcons: Record<ToolType, React.ReactNode> = {
   select: (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 4l6 12 3-6 5 0" />
+    // Classic arrow cursor: tip upper-left, diagonal body, tail with notch
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 2L4 17L9 13L12 21L13.5 20L10.5 12H16L4 2Z" />
     </svg>
   ),
   hand: (
+    // Open hand: four finger stems + rounded palm base
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8" />
+      <path d="M6 14v2a6 6 0 0 0 12 0v-3a2 2 0 0 0-4 0" />
     </svg>
   ),
   lasso: (
+    // Dashed loop (the selection area) + short rope tail
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 4c-2 0-4 1.5-5 3.5s0 4.5 1 6c1.5 2.5 4 4 7 4s5.5-1.5 7-4c1.5-2.5 1.5-5 0.5-6.5S16 6 14 6" />
-      <path d="M7 10c-1.5 0-3 .5-4 2s-.5 3 0 4c1 1.5 3 2.5 5 2.5" />
+      <path d="M5 12C5 7.6 8.1 4 12 4s7 3.6 7 8-3.1 8-7 8c-2 0-3.9-.9-5.2-2.4" strokeDasharray="2.5 2" />
+      <path d="M6.8 17.6C5.9 19.2 5.2 20.6 5 22" />
     </svg>
   ),
   rect: (

@@ -1,17 +1,29 @@
 /**
  * Connector control handles for Miro-style connectors.
- * Two modes:
+ * Three modes:
  *   1. Source-initiation controls: Replace ml/mr/mt/mb on connectable objects with blue circles
  *      that fire `connector:draw:start` on drag.
  *   2. Waypoint controls: Applied to connector Polylines when selected. Shows:
  *      - One draggable handle per user waypoint (filled blue circle with subtle ✕)
  *      - One phantom handle per segment midpoint (hollow circle) — drag to insert a waypoint
+ *   3. Floating endpoint handles: When source or target is not connected to an object, show a
+ *      draggable handle at that endpoint. Dropping near an object snaps and connects.
  */
 
 import { Control, controlsUtils, Point } from 'fabric'
 import type { Canvas, FabricObject, Polyline } from 'fabric'
 import type { ConnectorPort } from './connectorPortUtils'
-import { isConnector, getConnectorData, insertWaypoint, updateWaypoint } from './connectorFactory'
+import { findConnectorSnap } from './connectorPortUtils'
+import {
+  isConnector,
+  getConnectorData,
+  insertWaypoint,
+  updateWaypoint,
+  syncConnectorMoveLock,
+  moveFloatEndpoint,
+  reconnectEndpoint,
+} from './connectorFactory'
+import { getObjectId } from './boardSync'
 
 // --------------------------------------------------------------------------
 // Connector-initiation controls (on connectable objects)
@@ -195,12 +207,15 @@ export function applyConnectorWaypointControls(connector: FabricObject, canvas: 
     })
   }
 
-  // Segment midpoint phantom handles (for inserting new waypoints)
+  // Segment midpoint phantom handles (for inserting new waypoints).
+  // insertedWaypointIdx tracks the waypoint added on the first actionHandler fire;
+  // subsequent fires during the same drag update it instead of inserting again.
   const n = pts.length
   for (let i = 0; i < n - 1; i++) {
     const segIdx = i
     const capturedConnector = connector
     const capturedCanvas = canvas
+    let insertedWaypointIdx: number | null = null
 
     controls[`seg_${i}`] = new Control({
       actionName: 'segment_insert',
@@ -209,19 +224,118 @@ export function applyConnectorWaypointControls(connector: FabricObject, canvas: 
       sizeY: SEG_HANDLE_SIZE,
       positionHandler: makeMidpointPositionHandler(segIdx) as Control['positionHandler'],
       actionHandler: (_evt, _transform, x, y) => {
-        insertWaypoint(capturedConnector, capturedCanvas, segIdx, { x, y })
-        applyConnectorWaypointControls(capturedConnector, capturedCanvas)
+        if (insertedWaypointIdx === null) {
+          // First fire: insert the waypoint and remember its index
+          insertWaypoint(capturedConnector, capturedCanvas, segIdx, { x, y })
+          insertedWaypointIdx = segIdx
+        } else {
+          // Subsequent fires during same drag: just move the inserted waypoint
+          updateWaypoint(capturedConnector, capturedCanvas, insertedWaypointIdx, { x, y })
+        }
         capturedCanvas.requestRenderAll()
         return true
       },
       mouseUpHandler: (_evt, transform) => {
-        // Rebuild controls after insert so new waypoint appears immediately
+        insertedWaypointIdx = null
+        // Rebuild controls after insert so new waypoint handle appears
         applyConnectorWaypointControls(transform.target, canvas)
         transform.target.canvas?.fire('object:modified', { target: transform.target })
         return false
       },
       render: (ctx, left, top) => renderCircleHandle(ctx, left, top, SEG_HANDLE_SIZE, true),
     })
+  }
+
+  // --------------------------------------------------------------------------
+  // Floating endpoint handles (when source or target is not connected to an object)
+  // --------------------------------------------------------------------------
+
+  // Module-level tracking of the last drag position for endpoint handles.
+  // Drags are sequential so a single pair of variables is sufficient.
+  const addFloatingEndpointHandle = (endpointKey: 'source' | 'target', pointIndex: number) => {
+    const capturedConnector = connector
+    const capturedCanvas = canvas
+    let lastDragPoint: { x: number; y: number } | null = null
+    let hoverSnap: { x: number; y: number; port: ConnectorPort; objectId: string } | null = null
+
+    controls[`ep_${endpointKey}`] = new Control({
+      actionName: 'endpoint_move',
+      cursorStyle: 'crosshair',
+      sizeX: WP_HANDLE_SIZE + 2,
+      sizeY: WP_HANDLE_SIZE + 2,
+      positionHandler: controlsUtils.createPolyPositionHandler(pointIndex),
+      actionHandler: (_evt, _transform, x, y) => {
+        lastDragPoint = { x, y }
+        // Check for nearby connectable objects to snap to
+        const connectorData = getConnectorData(capturedConnector)
+        const otherEndpointId = endpointKey === 'source'
+          ? connectorData?.targetObjectId
+          : connectorData?.sourceObjectId
+        const sourceId = connectorData?.sourceObjectId
+        const targetId = connectorData?.targetObjectId
+        const snap = findConnectorSnap(capturedCanvas, { x, y }, [sourceId, targetId, otherEndpointId])
+        if (snap) {
+          hoverSnap = { x: snap.scenePoint.x, y: snap.scenePoint.y, port: snap.port, objectId: getObjectId(snap.obj) ?? '' }
+          moveFloatEndpoint(capturedConnector, capturedCanvas, endpointKey, snap.scenePoint)
+        } else {
+          hoverSnap = null
+          moveFloatEndpoint(capturedConnector, capturedCanvas, endpointKey, { x, y })
+        }
+        // Draw port highlight overlay during drag (fires via after:render)
+        capturedCanvas.set('_epDragSnap' as never, snap ? { obj: snap.obj, port: snap.port } : null)
+        capturedCanvas.requestRenderAll()
+        return true
+      },
+      mouseUpHandler: (_evt, transform) => {
+        const dropPoint = lastDragPoint ?? { x: 0, y: 0 }
+        const connData = getConnectorData(capturedConnector)
+        const otherEndpointId = endpointKey === 'source'
+          ? connData?.targetObjectId
+          : connData?.sourceObjectId
+        if (hoverSnap && hoverSnap.objectId) {
+          // Connect to the snapped object
+          reconnectEndpoint(capturedConnector, capturedCanvas, endpointKey, hoverSnap.objectId, hoverSnap.port, dropPoint)
+        } else {
+          // Leave floating at current position
+          reconnectEndpoint(capturedConnector, capturedCanvas, endpointKey, null, 'mt', dropPoint)
+          void otherEndpointId // suppress unused-var lint
+        }
+        hoverSnap = null
+        lastDragPoint = null
+        capturedCanvas.set('_epDragSnap' as never, null)
+        syncConnectorMoveLock(capturedConnector)
+        applyConnectorWaypointControls(capturedConnector, capturedCanvas)
+        transform.target.canvas?.fire('object:modified', { target: transform.target })
+        capturedCanvas.requestRenderAll()
+        return false
+      },
+      render: (ctx, left, top) => {
+        // Diamond-shaped handle to distinguish from waypoint circles
+        const s = (WP_HANDLE_SIZE + 2) / 2
+        ctx.save()
+        ctx.beginPath()
+        ctx.moveTo(left, top - s)
+        ctx.lineTo(left + s, top)
+        ctx.lineTo(left, top + s)
+        ctx.lineTo(left - s, top)
+        ctx.closePath()
+        ctx.fillStyle = '#f59e0b'
+        ctx.strokeStyle = '#fff'
+        ctx.lineWidth = 1.5
+        ctx.setLineDash([])
+        ctx.fill()
+        ctx.stroke()
+        ctx.restore()
+      },
+    })
+  }
+
+  // Add floating endpoint handles as needed
+  if (!data.sourceObjectId) {
+    addFloatingEndpointHandle('source', 0)
+  }
+  if (!data.targetObjectId) {
+    addFloatingEndpointHandle('target', pts.length - 1)
   }
 
   connector.controls = controls

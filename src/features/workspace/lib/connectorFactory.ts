@@ -282,6 +282,69 @@ export function updateWaypoint(
   updateConnectorEndpoints(connector, canvas)
 }
 
+/**
+ * Lock or unlock body movement on a connector based on whether both endpoints are connected.
+ * Connected endpoints should only be repositioned via waypoint handles, not by dragging the line.
+ * Floating connectors (at least one null endpoint) remain freely draggable.
+ */
+/**
+ * Update a floating endpoint's position (when user drags the endpoint handle on empty space).
+ * `endpointKey` is 'source' or 'target'.
+ */
+export function moveFloatEndpoint(
+  connector: FabricObject,
+  canvas: Canvas,
+  endpointKey: 'source' | 'target',
+  scenePoint: { x: number; y: number }
+): void {
+  if (endpointKey === 'source') {
+    setConnectorDataField(connector, { sourceFloatPoint: scenePoint })
+  } else {
+    setConnectorDataField(connector, { targetFloatPoint: scenePoint })
+  }
+  updateConnectorEndpoints(connector, canvas)
+}
+
+/**
+ * Connect a floating endpoint to a canvas object at the nearest port,
+ * or leave it floating if objectId is null (just update the float point).
+ */
+export function reconnectEndpoint(
+  connector: FabricObject,
+  canvas: Canvas,
+  endpointKey: 'source' | 'target',
+  objectId: string | null,
+  port: ConnectorPort,
+  floatPoint: { x: number; y: number }
+): void {
+  if (endpointKey === 'source') {
+    setConnectorDataField(connector, {
+      sourceObjectId: objectId,
+      sourcePort: port,
+      sourceFloatPoint: objectId ? undefined : floatPoint,
+    })
+  } else {
+    setConnectorDataField(connector, {
+      targetObjectId: objectId,
+      targetPort: port,
+      targetFloatPoint: objectId ? undefined : floatPoint,
+    })
+  }
+  updateConnectorEndpoints(connector, canvas)
+  syncConnectorMoveLock(connector)
+}
+
+export function syncConnectorMoveLock(connector: FabricObject): void {
+  if (!isConnector(connector)) return
+  const data = getConnectorData(connector)
+  if (!data) return
+  const fullyConnected = !!data.sourceObjectId && !!data.targetObjectId
+  connector.set('lockMovementX', fullyConnected)
+  connector.set('lockMovementY', fullyConnected)
+  // Also suppress the default move cursor so the user isn't misled
+  connector.set('hoverCursor', fullyConnected ? 'default' : 'move')
+}
+
 export function setConnectorArrowMode(connector: FabricObject, canvas: Canvas, mode: ArrowMode): void {
   setConnectorDataField(connector, { arrowMode: mode })
   updateConnectorEndpoints(connector, canvas)
