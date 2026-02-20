@@ -137,6 +137,10 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
     canvasZoomRef.current?.updateFrameFormData(objectId, schema)
   }, [])
 
+  const handleTableTitleChange = useCallback((objectId: string, title: string) => {
+    canvasZoomRef.current?.updateTableTitle(objectId, title)
+  }, [])
+
   // Sync title when board prop changes (e.g. after joinBoard)
   useEffect(() => {
     setTitleValue(board.title)
@@ -336,6 +340,7 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
           frames={formFrames}
           viewportTransform={viewportTransform}
           onSchemaChange={handleFrameFormSchemaChange}
+          onTitleChange={handleTableTitleChange}
         />
         <CursorOverlay
           cursors={others}

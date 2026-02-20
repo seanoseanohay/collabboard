@@ -1,10 +1,10 @@
 /**
  * FrameFormOverlay — HTML overlay positioned over DataTable canvas objects.
- * Renders a structured table (column headers + data rows) inside each DataTable.
+ * Covers the full table area (including title). Renders a compact editable title
+ * at the top and structured column/row data below.
  * Handles all CRUD: add column, rename column, change type, add row, edit cell, delete row.
  */
 import { useState, useRef, useCallback } from 'react'
-import { TABLE_HEADER_HEIGHT } from '../lib/dataTableFactory'
 import type { FormFrameSceneInfo, FormSchema, FormColumn, FormRow, FormFieldType } from '../lib/frameFormTypes'
 
 /** Sits above the canvas (zIndex=1) but below cursor readout (10). */
@@ -29,6 +29,8 @@ interface FrameFormOverlayProps {
   viewportTransform: number[] | null
   /** Called whenever form data changes; the caller should persist via updateFrameFormData. */
   onSchemaChange: (objectId: string, schema: FormSchema | null) => void
+  /** Called when the table title is edited; the caller should persist via updateTableTitle. */
+  onTitleChange?: (objectId: string, title: string) => void
 }
 
 interface FormState {
@@ -36,7 +38,7 @@ interface FormState {
   [objectId: string]: FormSchema | null
 }
 
-export function FrameFormOverlay({ frames, viewportTransform, onSchemaChange }: FrameFormOverlayProps) {
+export function FrameFormOverlay({ frames, viewportTransform, onSchemaChange, onTitleChange }: FrameFormOverlayProps) {
   const [localSchemas, setLocalSchemas] = useState<FormState>({})
   const [editingColId, setEditingColId] = useState<string | null>(null)
   const [colTypeMenuId, setColTypeMenuId] = useState<string | null>(null)
@@ -71,12 +73,11 @@ export function FrameFormOverlay({ frames, viewportTransform, onSchemaChange }: 
     <>
       {frames.map((frame) => {
         const schema = getSchema(frame)
-        // Form area occupies the table body below the title bar
-        const headerH = TABLE_HEADER_HEIGHT * frame.scaleY * zoom
+        // Overlay covers the full table area (title + data)
         const screenLeft = frame.sceneLeft * zoom + panX
-        const screenTop = frame.sceneTop * zoom + panY + headerH
+        const screenTop = frame.sceneTop * zoom + panY
         const screenWidth = frame.sceneWidth * frame.scaleX * zoom
-        const screenHeight = frame.sceneHeight * frame.scaleY * zoom - headerH
+        const screenHeight = frame.sceneHeight * frame.scaleY * zoom
 
         // Hide if zoomed too small to interact
         if (zoom < 0.15) return null
@@ -85,6 +86,7 @@ export function FrameFormOverlay({ frames, viewportTransform, onSchemaChange }: 
           <FrameFormPanel
             key={frame.objectId}
             frameId={frame.objectId}
+            title={frame.title}
             schema={schema}
             screenLeft={screenLeft}
             screenTop={screenTop}
@@ -99,6 +101,7 @@ export function FrameFormOverlay({ frames, viewportTransform, onSchemaChange }: 
             onSetColTypeMenuId={setColTypeMenuId}
             onSetDropdownOptionsEditing={setDropdownOptionsEditing}
             onUpdateSchema={(s) => updateSchema(frame.objectId, s)}
+            onTitleChange={(t) => onTitleChange?.(frame.objectId, t)}
           />
         )
       })}
@@ -108,6 +111,7 @@ export function FrameFormOverlay({ frames, viewportTransform, onSchemaChange }: 
 
 interface PanelProps {
   frameId: string
+  title: string
   schema: FormSchema
   screenLeft: number
   screenTop: number
@@ -122,10 +126,12 @@ interface PanelProps {
   onSetColTypeMenuId: (id: string | null) => void
   onSetDropdownOptionsEditing: (id: string | null) => void
   onUpdateSchema: (schema: FormSchema) => void
+  onTitleChange: (title: string) => void
 }
 
 function FrameFormPanel({
   frameId,
+  title,
   schema,
   screenLeft,
   screenTop,
@@ -140,7 +146,11 @@ function FrameFormPanel({
   onSetColTypeMenuId,
   onSetDropdownOptionsEditing,
   onUpdateSchema,
+  onTitleChange,
 }: PanelProps) {
+  const [editingTitle, setEditingTitle] = useState(false)
+  const [localTitle, setLocalTitle] = useState(title)
+  const titleInputRef = useRef<HTMLInputElement>(null)
   const { columns, rows } = schema
   const baseFontSize = Math.min(Math.max(zoom * 12, 9), 13)
   const minWidth = 320
@@ -223,11 +233,8 @@ function FrameFormPanel({
     width: Math.max(screenWidth, minWidth),
     height: screenHeight,
     background: '#ffffff',
-    borderTop: '1px solid #e2e8f0',
-    borderLeft: '1px solid #e2e8f0',
-    borderRight: '1px solid #e2e8f0',
-    borderBottom: '1px solid #e2e8f0',
-    borderRadius: '0 0 8px 8px',
+    border: '2px solid #93c5fd',
+    borderRadius: 6,
     overflow: 'hidden',
     pointerEvents: 'auto',
     boxSizing: 'border-box',
@@ -274,11 +281,82 @@ function FrameFormPanel({
     fontSize: baseFontSize,
   }
 
+  const titleBarFontSize = Math.min(Math.max(zoom * 11, 8), 13)
+
+  const titleBar = (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        padding: '0 8px',
+        height: Math.max(24, 28 * zoom),
+        minHeight: 20,
+        borderBottom: '1px solid #bfdbfe',
+        background: '#eff6ff',
+        flexShrink: 0,
+        gap: 4,
+      }}
+    >
+      {editingTitle ? (
+        <input
+          ref={titleInputRef}
+          value={localTitle}
+          onChange={(e) => setLocalTitle(e.target.value)}
+          onBlur={() => {
+            setEditingTitle(false)
+            const trimmed = localTitle.trim() || 'Untitled Table'
+            setLocalTitle(trimmed)
+            onTitleChange(trimmed)
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === 'Escape') {
+              e.currentTarget.blur()
+            }
+            e.stopPropagation()
+          }}
+          style={{
+            flex: 1,
+            border: 'none',
+            outline: 'none',
+            background: 'transparent',
+            fontSize: titleBarFontSize,
+            fontWeight: 700,
+            color: '#1d4ed8',
+            fontFamily: 'inherit',
+            padding: 0,
+          }}
+          autoFocus
+        />
+      ) : (
+        <span
+          style={{
+            flex: 1,
+            fontSize: titleBarFontSize,
+            fontWeight: 700,
+            color: '#1d4ed8',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            cursor: 'text',
+          }}
+          title="Click to rename"
+          onClick={() => {
+            setLocalTitle(title)
+            setEditingTitle(true)
+            setTimeout(() => titleInputRef.current?.select(), 0)
+          }}
+        >
+          {title || 'Untitled Table'}
+        </span>
+      )}
+    </div>
+  )
+
   if (columns.length === 0) {
     return (
       <div key={frameId} style={{ ...overlayStyle, zIndex: FORM_Z_INDEX }} onMouseDown={(e) => e.stopPropagation()}>
+        {titleBar}
         <div style={emptyStyle}>
-          <span style={{ fontSize: 24 }}>📋</span>
           <span>No columns yet</span>
           <button style={{ ...btnStyle, borderColor: '#6366f1', color: '#6366f1' }} onClick={addColumn}>
             + Add Column
@@ -316,6 +394,7 @@ function FrameFormPanel({
 
   return (
     <div style={{ ...overlayStyle, zIndex: FORM_Z_INDEX }} onMouseDown={(e) => e.stopPropagation()}>
+      {titleBar}
       <div style={scrollAreaStyle}>
         <table style={{ borderCollapse: 'collapse', width: '100%', tableLayout: 'fixed' }}>
           <thead>

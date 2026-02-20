@@ -133,6 +133,7 @@ export interface FabricCanvasZoomHandle {
   setDrawBrushWidth: (width: number) => void
   getViewportCenter: () => { x: number; y: number }
   updateFrameFormData: (frameId: string, formSchema: FormSchema | null) => void
+  updateTableTitle: (objectId: string, title: string) => void
   getFormFrameInfos: () => FormFrameSceneInfo[]
 }
 
@@ -463,13 +464,33 @@ const FabricCanvasInner = (
       canvas.fire('object:modified', { target: table })
       notifyFormFramesRef.current?.()
     },
+    updateTableTitle: (objectId: string, title: string) => {
+      const canvas = canvasRef.current
+      if (!canvas) return
+      const table = canvas.getObjects().find((o) => {
+        const d = o.get('data') as { id?: string } | undefined
+        return d?.id === objectId
+      })
+      if (!table || !isDataTable(table)) return
+      // Update the IText child so the canvas label stays in sync
+      const children = (table as unknown as { getObjects(): FabricObject[] }).getObjects?.()
+      const titleText = children?.find((c) => c.type === 'i-text')
+      if (titleText) titleText.set('text', title)
+      const data = table.get('data') as Record<string, unknown>
+      table.set('data', { ...data, title })
+      table.setCoords()
+      canvas.requestRenderAll()
+      canvas.fire('object:modified', { target: table })
+      notifyFormFramesRef.current?.()
+    },
     getFormFrameInfos: (): FormFrameSceneInfo[] => {
       const canvas = canvasRef.current
       if (!canvas) return []
       return canvas.getObjects().filter(isDataTable).map((t) => {
-        const data = t.get('data') as { id?: string; formSchema?: FormSchema | null } | undefined
+        const data = t.get('data') as { id?: string; title?: string; formSchema?: FormSchema | null } | undefined
         return {
           objectId: data?.id ?? '',
+          title: data?.title ?? 'Untitled Table',
           sceneLeft: t.left,
           sceneTop: t.top,
           sceneWidth: (t as FabricObject & { width: number }).width,
@@ -776,9 +797,10 @@ const FabricCanvasInner = (
       const cb = onFormFramesChangeRef.current
       if (!cb) return
       const tables = fabricCanvas.getObjects().filter(isDataTable).map((t) => {
-        const data = t.get('data') as { id?: string; formSchema?: FormSchema | null } | undefined
+        const data = t.get('data') as { id?: string; title?: string; formSchema?: FormSchema | null } | undefined
         return {
           objectId: data?.id ?? '',
+          title: data?.title ?? 'Untitled Table',
           sceneLeft: t.left,
           sceneTop: t.top,
           sceneWidth: (t as FabricObject & { width: number }).width,

@@ -27,6 +27,7 @@ export interface FormSchema {
 export interface FormFrameSceneInfo {
   /** The canvas object's id (DataTable). */
   objectId: string
+  title: string
   /** frame.left (scene, unscaled) */
   sceneLeft: number
   /** frame.top (scene, unscaled) */
