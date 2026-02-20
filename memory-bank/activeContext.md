@@ -211,8 +211,9 @@ Previously: `if (target) return` blocked drawing on top of any existing object. 
 
 **In-app AI call visibility (2026-02-20):**
 - ✅ **ai-interpret Edge Function** now logs each request (`[ai-interpret] request` with boardId, userId, promptPreview) and token usage (`[ai-interpret] usage`) to Supabase Edge Function logs (Dashboard → Edge Functions → ai-interpret → Logs). Also returns `usage: { prompt_tokens, completion_tokens, total_tokens }` in the response body.
-- ✅ **aiInterpretApi.ts** — `AiInterpretResponse` now includes `source: 'template' | 'api'` and `usage?: AiUsage`. Template bypass sets `source: 'template'`. Edge Function response sets `source: 'api'` and forwards `usage`.
-- ✅ **AiPromptBar.tsx** — Modal stays open after a successful run and shows a result chip: gray "📋 Template applied — no AI call made" for templates; green "✦ AI generated · N tokens (X in / Y out)" for real API calls. `lastResult` state tracks source + usage.
+- ✅ **aiInterpretApi.ts** — `AiInterpretResponse` now includes `source: 'local' | 'template' | 'api'` and `usage?: AiUsage`. Three tiers: (1) `detectSimpleShape()` for "draw a blue circle at 100, 100" patterns — instant, zero network; (2) `detectTemplateLocally()` for known template names — instant, zero network; (3) Edge Function + OpenAI for everything else.
+- ✅ **ai-interpret Edge Function** — `max_tokens` reduced 1024→300. System prompt split into `SYSTEM_PROMPT_CORE` (~750 tok) + `FORM_ADDENDUM` (~350 tok, appended only when prompt mentions "form"/"field"/"input"/"checkout"). Saves ~0.5s TTFT for non-form requests.
+- ✅ **AiPromptBar.tsx** — Modal stays open after a successful run and shows a result chip: blue "⚡ Generated locally — no API call" for simple shapes; gray "📋 Template applied — no API call" for templates; green "✦ AI · N tokens (X in / Y out)" for real API calls.
 
 **Cursor lag fix — Broadcast + CSS interpolation:**
 - ✅ **Root cause 1:** Cursor positions were going through postgres_changes → Presence API → now through Supabase **Broadcast** (same zero-DB path as object move-deltas). Channel `cursor:${boardId}` uses `channel.send({ type:'broadcast', event:'cursor' })` for positions and `channel.track({ userId, name, color })` (Presence) for join/leave only.

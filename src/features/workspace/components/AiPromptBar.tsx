@@ -190,11 +190,13 @@ export function AiPromptBar({ boardId, getSelectedObjectIds, createFrame, groupO
 
             {error && <p style={styles.error}>{error}</p>}
             {lastResult && !error && (
-              <p style={lastResult.source === 'template' ? styles.resultTemplate : styles.resultApi}>
-                {lastResult.source === 'template'
-                  ? '📋 Template applied — no AI call made'
+              <p style={lastResult.source === 'local' ? styles.resultLocal : lastResult.source === 'template' ? styles.resultTemplate : styles.resultApi}>
+                {lastResult.source === 'local'
+                  ? '⚡ Generated locally — no API call'
+                  : lastResult.source === 'template'
+                  ? '📋 Template applied — no API call'
                   : lastResult.usage
-                  ? `✦ AI generated · ${lastResult.usage.total_tokens} tokens (${lastResult.usage.prompt_tokens} in / ${lastResult.usage.completion_tokens} out)`
+                  ? `✦ AI · ${lastResult.usage.total_tokens} tokens (${lastResult.usage.prompt_tokens} in / ${lastResult.usage.completion_tokens} out)`
                   : '✦ AI generated'}
               </p>
             )}
@@ -332,6 +334,15 @@ const styles: Record<string, React.CSSProperties> = {
     margin: '12px 0 0',
     fontSize: 13,
     color: '#dc2626',
+  },
+  resultLocal: {
+    margin: '12px 0 0',
+    fontSize: 12,
+    color: '#1d4ed8',
+    background: '#eff6ff',
+    border: '1px solid #93c5fd',
+    borderRadius: 6,
+    padding: '6px 10px',
   },
   resultTemplate: {
     margin: '12px 0 0',

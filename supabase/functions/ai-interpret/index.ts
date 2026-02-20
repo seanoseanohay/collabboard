@@ -14,67 +14,59 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const SYSTEM_PROMPT = `You are a canvas assistant for MeBoard. The user gives natural language instructions about drawing objects or creating templates on a whiteboard.
+/**
+ * Core system prompt (~750 tokens). Sent for all requests.
+ * Form-specific layout rules are appended separately only when the prompt mentions a form.
+ */
+const SYSTEM_PROMPT_CORE = `You are a canvas assistant for MeBoard. Respond with JSON: { "commands": [...] }.
 
-You respond with a JSON object: { "commands": [...] }. Each command is executed in order.
-
-PRIMARY: createObject — For requests like "draw X", "add a Y", "create Z" (non-template):
+createObject — draw X / add Y / create Z:
 { "action": "createObject", "type": "rect"|"circle"|"triangle"|"line"|"text"|"sticky"|"input-field"|"button", "props": { "left": number, "top": number, "width"?: number, "height"?: number, "fill"?: string, "stroke"?: string, "strokeWeight"?: number, "text"?: string, "fontSize"?: number } }
-- type: rect, circle, triangle, line, text, sticky, input-field, or button (lowercase)
-- left, top: position in pixels. If viewport center is provided, place objects near it. Otherwise default to 100,100.
-- width, height: optional, default ~80x60 for shapes
-- fill: hex color. Common: blue #3b82f6, red #ef4444, green #10b981, yellow #fef08a, purple #8b5cf6
-- text: for "text", "sticky", "input-field", and "button" types
-- strokeWeight: 1-8
+- left/top: pixels. Use viewport center if provided, else default 100,100.
+- fill: hex. blue=#3b82f6 red=#ef4444 green=#10b981 yellow=#fef08a purple=#8b5cf6
+- input-field: white input box, placeholder in text. Default 280×40.
+- button: colored button, label in text. Default fill #3b82f6, size 280×44.
 
-FORM ELEMENT TYPES:
-- input-field: visual text input box (white bg, gray border, rounded corners). text prop = placeholder text shown inside. Default size 280×40.
-- button: clickable button shape. text prop = button label. fill prop = button color (default #3b82f6 blue). Default size 280×44.
+OTHER:
+{ "action": "queryObjects", "criteria"?: { "type"?: string, "fill"?: string }, "storeAs"?: string }
+{ "action": "deleteObjects", "objectIds"?: string[], "objectIdsFromPreviousQuery"?: boolean }
+{ "action": "updateObject", "objectId": string, "partialProps": {...} }
 
-OTHER: queryObjects finds objects; deleteObjects removes by id; updateObject changes properties.
-
-LAYOUT COMMANDS — use when the user asks to rearrange or space existing objects:
+LAYOUT (rearrange existing objects):
 { "action": "arrangeInGrid", "objectIds": string[], "cols": number }
 { "action": "spaceEvenly", "objectIds": string[], "direction": "horizontal"|"vertical" }
+- "2 columns"→cols:2, "2 rows"→cols:ceil(N/2), "in a row"→spaceEvenly horizontal, "in a column"→spaceEvenly vertical
 
-arrangeInGrid cols rules (N = number of objectIds):
-- "two columns" / "2 columns" → cols: 2
-- "three columns" / "3 columns" → cols: 3
-- "two rows" / "2 rows" → cols: ceil(N/2)  (e.g. 6 objects → cols 3, so 2 rows result)
-- "three rows" / "3 rows" → cols: ceil(N/3)
-- "in a row" / "single row" / "one row" / "straight line" → use spaceEvenly direction:"horizontal" instead
-- "in a column" / "single column" → use spaceEvenly direction:"vertical" instead
+SELECTION: "these"/"them"/"selected" = selectedObjectIds provided in request.
 
-SELECTION CONTEXT — when the user says "these", "them", "selected", etc., they mean the selected objects. Their IDs will be provided as selectedObjectIds in the request.
-
-TEMPLATE DETECTION — when the user asks for any of these known templates, return a SINGLE command:
+TEMPLATES — return ONE command; client handles layout:
 { "action": "applyTemplate", "templateId": "swot"|"pros-cons"|"user-journey"|"retrospective"|"login-form"|"signup-form"|"contact-form" }
-The client handles ALL layout and placement. Do NOT emit createObject commands for template requests.
+- pros/cons → pros-cons | SWOT/4-quadrant → swot | user journey/journey map → user-journey
+- retrospective/retro/what went well → retrospective
+- login/sign-in form → login-form | signup/register form → signup-form | contact form → contact-form
 
-Template trigger phrases:
-- "pros and cons" / "pros cons" → templateId: "pros-cons"
-- "SWOT" / "SWOT analysis" / "4 quadrant" → templateId: "swot"
-- "user journey" / "journey map" → templateId: "user-journey"
-- "retrospective" / "retro" / "what went well" → templateId: "retrospective"
-- "login form" / "sign in form" / "log in form" → templateId: "login-form"
-- "signup form" / "sign up form" / "register form" / "registration form" → templateId: "signup-form"
-- "contact form" / "contact us form" → templateId: "contact-form"
+Return only valid JSON. No markdown.`
 
-DYNAMIC FORM GENERATION — when the user asks for a custom form NOT matching the static templates above (e.g. "make a checkout form with card number, expiry, cvv, submit"):
-Generate createObject commands for each element in order, then end with a createFrame command.
+/**
+ * Appended only when the prompt mentions a custom form (not matching a known template).
+ * ~350 tokens. Skipping this for non-form prompts saves ~0.5s of TTFT.
+ */
+const FORM_ADDENDUM = `
 
-Layout rules (VX = viewportCenter.x, VY = viewportCenter.y; start at left=VX-140, top=VY-200 and stack downward):
-1. Title: type=text, left=VX-140, top=VY-200, width=280, height=28, fontSize=20, fill="#1e293b", text=form title
-2. Per field (gap=16px between title and first field; 16px between consecutive fields):
-   a. Label: type=text, width=280, height=20, fontSize=12, fill="#64748b", text=field name
-   b. Input: type=input-field, width=280, height=40 (use height=80 for textarea/message fields)
-   c. Gap between label top and input top: 28px (label h=20 + gap 8 = 28)
-   d. Next field starts 56px after current label top (28 label+input + 16 gap + 12 label offset = use label_top+84 for next label)
-   e. Simpler formula: label_top[i+1] = input_bottom[i] + 16
-3. Submit button: type=button, width=280, height=44, fill="#3b82f6", text=action label; top = last_input_bottom + 24
-4. End with: { "action": "createFrame", "title": "Form Title" }
+DYNAMIC FORM GENERATION — for custom forms not matching known templates (e.g. "checkout form with card number, expiry, cvv"):
+Generate createObject commands for each element, then end with createFrame.
 
-Return only valid JSON. No markdown. Example: { "commands": [{ "action": "createObject", "type": "rect", "props": { "left": 150, "top": 100, "width": 80, "height": 60, "fill": "#3b82f6" } }] }`
+Layout (VX=viewportCenter.x, VY=viewportCenter.y):
+1. Title: type=text, left=VX-140, top=VY-200, width=280, height=28, fontSize=20, fill="#1e293b"
+2. Per field: Label (type=text, height=20, fontSize=12, fill="#64748b") then Input (type=input-field, height=40; height=80 for textarea)
+   - label_top[i+1] = input_bottom[i] + 16
+3. Submit: type=button, width=280, height=44, fill="#3b82f6"; top = last_input_bottom + 24
+4. End: { "action": "createFrame", "title": "Form Title" }`
+
+/** Returns true when the prompt is likely asking for a custom form (not a known template). */
+function isFormRequest(prompt: string): boolean {
+  return /\bform\b|\bfields?\b|\binput\b|\bcheckout\b|\bwizard\b/i.test(prompt)
+}
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
@@ -140,15 +132,16 @@ Deno.serve(async (req: Request) => {
       })
     }
 
-    console.log('[ai-interpret] request', { boardId, userId: user.id, promptPreview: prompt.slice(0, 100) })
+    const systemPrompt = SYSTEM_PROMPT_CORE + (isFormRequest(prompt) ? FORM_ADDENDUM : '')
+    console.log('[ai-interpret] request', { boardId, userId: user.id, promptPreview: prompt.slice(0, 100), includesFormAddendum: isFormRequest(prompt) })
 
     const openai = wrapOpenAI(new OpenAI({ apiKey }))
     const completion = await openai.chat.completions.create(
       {
         model: 'gpt-4o-mini',
-        max_tokens: 1024,
+        max_tokens: 300,
         messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'system', content: systemPrompt },
           {
             role: 'user',
             content: (() => {
