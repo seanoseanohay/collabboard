@@ -169,6 +169,17 @@ async function spaceEvenly(
 export interface ExecuteAiOptions {
   /** Creates a frame container on the canvas. */
   createFrame?: (params: { title: string; childIds: string[]; left: number; top: number; width: number; height: number }) => void
+  /** Creates a DataTable on the canvas and returns its objectId. */
+  createTable?: (params: {
+    left: number
+    top: number
+    width: number
+    height: number
+    title: string
+    showTitle: boolean
+    accentColor?: string
+    formSchema: import('../lib/frameFormTypes').FormSchema | null
+  }) => string
   /** Returns the current viewport center in scene coordinates. */
   getViewportCenter?: () => { x: number; y: number }
 }
@@ -264,6 +275,31 @@ export async function executeAiCommands(
 
           // Create all child objects with absolute coords = frameLeft + relLeft
           for (const obj of spec.objects) {
+            if (obj.type === 'table') {
+              if (!options?.createTable) continue
+              const objectId = options.createTable({
+                left: frameLeft + obj.relLeft,
+                top: frameTop + obj.relTop,
+                width: obj.width,
+                height: obj.height,
+                title: obj.text ?? 'Table',
+                showTitle: obj.showTitle ?? false,
+                accentColor: obj.accentColor,
+                formSchema: obj.formSchema
+                  ? { columns: obj.formSchema.columns, rows: obj.formSchema.rows }
+                  : null,
+              })
+              createdIds.push(objectId)
+              trackedBounds.push({
+                objectId,
+                left: frameLeft + obj.relLeft,
+                top: frameTop + obj.relTop,
+                width: obj.width,
+                height: obj.height,
+              })
+              createIndex++
+              continue
+            }
             const objectId = await createObject(
               boardId,
               obj.type as CreateObjectType,
@@ -277,6 +313,43 @@ export async function executeAiCommands(
                 strokeWeight: obj.strokeWeight,
                 text: obj.text,
                 fontSize: obj.fontSize,
+              },
+              { zIndex: baseZ + createIndex }
+            )
+            createdIds.push(objectId)
+            trackedBounds.push({
+              objectId,
+              left: frameLeft + obj.relLeft,
+              top: frameTop + obj.relTop,
+              width: obj.width,
+              height: obj.height,
+            })
+            createIndex++
+          }
+        }
+      } else if (cmd.action === 'createGrid') {
+        const rows = typeof cmd.rows === 'number' ? Math.max(1, cmd.rows) : 2
+        const cols = typeof cmd.cols === 'number' ? Math.max(1, cmd.cols) : 3
+        const w = typeof cmd.width === 'number' ? cmd.width : 200
+        const h = typeof cmd.height === 'number' ? cmd.height : 120
+        const GAP = 16
+        const center = options?.getViewportCenter?.() ?? { x: 400, y: 300 }
+        const totalW = cols * w + (cols - 1) * GAP
+        const totalH = rows * h + (rows - 1) * GAP
+        const originLeft = Math.round(center.x - totalW / 2)
+        const originTop = Math.round(center.y - totalH / 2)
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            const objectId = await createObject(
+              boardId,
+              'sticky',
+              {
+                left: originLeft + c * (w + GAP),
+                top: originTop + r * (h + GAP),
+                width: w,
+                height: h,
+                fill: typeof cmd.fill === 'string' ? cmd.fill : '#fff9c4',
+                text: '',
               },
               { zIndex: baseZ + createIndex }
             )

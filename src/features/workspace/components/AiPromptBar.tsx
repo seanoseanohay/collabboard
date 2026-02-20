@@ -24,6 +24,11 @@ interface AiPromptBarProps {
   boardId: string
   getSelectedObjectIds?: () => string[]
   createFrame?: (params: { title: string; childIds: string[]; left: number; top: number; width: number; height: number }) => void
+  createTable?: (params: {
+    left: number; top: number; width: number; height: number
+    title: string; showTitle: boolean; accentColor?: string
+    formSchema: import('../lib/frameFormTypes').FormSchema | null
+  }) => string
   /** @deprecated Use createFrame instead. Kept for backward compatibility. */
   groupObjectIds?: (ids: string[]) => Promise<void>
   getViewportCenter?: () => { x: number; y: number }
@@ -34,7 +39,7 @@ interface LastResult {
   usage?: AiUsage
 }
 
-export function AiPromptBar({ boardId, getSelectedObjectIds, createFrame, groupObjectIds, getViewportCenter }: AiPromptBarProps) {
+export function AiPromptBar({ boardId, getSelectedObjectIds, createFrame, createTable, groupObjectIds, getViewportCenter }: AiPromptBarProps) {
   const [open, setOpen] = useState(false)
   const [prompt, setPrompt] = useState('')
   const [loading, setLoading] = useState(false)
@@ -56,6 +61,7 @@ export function AiPromptBar({ boardId, getSelectedObjectIds, createFrame, groupO
         })
         const result = await executeAiCommands(boardId, response.commands, {
           createFrame: createFrame ?? undefined,
+          createTable: createTable ?? undefined,
           getViewportCenter,
         })
         if (!result.ok) {
@@ -74,7 +80,7 @@ export function AiPromptBar({ boardId, getSelectedObjectIds, createFrame, groupO
         setLoading(false)
       }
     },
-    [boardId, loading, createFrame, groupObjectIds, getViewportCenter]
+    [boardId, loading, createFrame, createTable, groupObjectIds, getViewportCenter]
   )
 
   const handleExampleClick = useCallback(

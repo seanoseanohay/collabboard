@@ -13,7 +13,7 @@ import { createShape } from '../lib/shapeFactory'
 import { createFrameShape } from '../lib/frameFactory'
 import { setFrameChildIds, updateFrameTitleVisibility } from '../lib/frameUtils'
 import { createDataTableShape } from '../lib/dataTableFactory'
-import { isDataTable, updateTableTitleVisibility, getTableData } from '../lib/dataTableUtils'
+import { isDataTable, updateTableTitleVisibility, getTableData, setTableFormSchema } from '../lib/dataTableUtils'
 import type { FormFrameSceneInfo, FormSchema } from '../lib/frameFormTypes'
 import {
   getStrokeWidthFromObject,
@@ -135,6 +135,11 @@ export interface FabricCanvasZoomHandle {
   updateFrameFormData: (frameId: string, formSchema: FormSchema | null) => void
   updateTableTitle: (objectId: string, title: string) => void
   getFormFrameInfos: () => FormFrameSceneInfo[]
+  createTable: (params: {
+    left: number; top: number; width: number; height: number
+    title: string; showTitle: boolean; accentColor?: string
+    formSchema: FormSchema | null
+  }) => string
 }
 
 interface ConnectorDropState {
@@ -510,6 +515,26 @@ const FabricCanvasInner = (
           formSchema: tableData?.formSchema ?? null,
         }
       }).filter((t) => t.objectId)
+    },
+    createTable: (params: {
+      left: number; top: number; width: number; height: number
+      title: string; showTitle: boolean; accentColor?: string
+      formSchema: FormSchema | null
+    }): string => {
+      const canvas = canvasRef.current
+      if (!canvas) return ''
+      const obj = createDataTableShape(
+        params.left, params.top, params.width, params.height,
+        params.title, true, params.showTitle, params.accentColor
+      )
+      if (params.formSchema) {
+        setTableFormSchema(obj, params.formSchema)
+        const existing = obj.get('data') as Record<string, unknown>
+        obj.set('data', { ...existing, formSchema: params.formSchema })
+      }
+      canvas.add(obj)
+      canvas.requestRenderAll()
+      return getObjectId(obj) ?? ''
     },
     resetView: () => {
       const canvas = canvasRef.current

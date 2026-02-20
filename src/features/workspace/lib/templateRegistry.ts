@@ -6,7 +6,7 @@
  */
 
 export interface TemplateObjectSpec {
-  type: 'rect' | 'text' | 'sticky' | 'input-field' | 'button'
+  type: 'rect' | 'text' | 'sticky' | 'input-field' | 'button' | 'table'
   relLeft: number
   relTop: number
   width: number
@@ -16,6 +16,13 @@ export interface TemplateObjectSpec {
   strokeWeight?: number
   text?: string
   fontSize?: number
+  // Table-only fields:
+  showTitle?: boolean
+  accentColor?: string
+  formSchema?: {
+    columns: Array<{ id: string; name: string; type: 'text' | 'number' | 'dropdown' | 'checkbox' | 'date'; headerColor?: string }>
+    rows: Array<{ id: string; values: Record<string, string | number | boolean> }>
+  }
 }
 
 export interface TemplateSpec {

@@ -127,6 +127,7 @@ export type AiCommand =
   | { action: 'createFrame'; title?: string }
   | { action: 'groupCreated' }
   | { action: 'applyTemplate'; templateId: string }
+  | { action: 'createGrid'; rows: number; cols: number; fill?: string; width?: number; height?: number }
 
 export interface AiInterpretOptions {
   selectedObjectIds?: string[]
