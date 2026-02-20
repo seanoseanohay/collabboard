@@ -281,7 +281,9 @@ function FrameFormPanel({
     fontSize: baseFontSize,
   }
 
-  const titleBarFontSize = Math.min(Math.max(zoom * 11, 8), 13)
+  // Title bar uses fixed screen-pixel dimensions — it must NOT scale with zoom.
+  const TITLE_BAR_H = 28
+  const TITLE_FONT = 12
 
   const titleBar = (
     <div
@@ -289,12 +291,12 @@ function FrameFormPanel({
         display: 'flex',
         alignItems: 'center',
         padding: '0 8px',
-        height: Math.max(24, 28 * zoom),
-        minHeight: 20,
+        height: TITLE_BAR_H,
         borderBottom: '1px solid #bfdbfe',
         background: '#eff6ff',
         flexShrink: 0,
         gap: 4,
+        boxSizing: 'border-box',
       }}
     >
       {editingTitle ? (
@@ -319,7 +321,7 @@ function FrameFormPanel({
             border: 'none',
             outline: 'none',
             background: 'transparent',
-            fontSize: titleBarFontSize,
+            fontSize: TITLE_FONT,
             fontWeight: 700,
             color: '#1d4ed8',
             fontFamily: 'inherit',
@@ -331,7 +333,7 @@ function FrameFormPanel({
         <span
           style={{
             flex: 1,
-            fontSize: titleBarFontSize,
+            fontSize: TITLE_FONT,
             fontWeight: 700,
             color: '#1d4ed8',
             overflow: 'hidden',
