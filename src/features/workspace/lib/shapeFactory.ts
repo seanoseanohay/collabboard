@@ -208,6 +208,77 @@ export function createShape(
       })
       return withId(group)
     }
+    case 'input-field': {
+      const inputW = Math.max(1, width)
+      const inputH = Math.max(1, height)
+      const bg = new Rect({
+        left: 0,
+        top: 0,
+        width: inputW,
+        height: inputH,
+        fill: '#ffffff',
+        stroke: '#94a3b8',
+        strokeWidth: 1.5,
+        rx: 6,
+        ry: 6,
+        originX: 'left',
+        originY: 'top',
+      })
+      const placeholderText = new IText('Enter value...', {
+        left: 10,
+        top: Math.max(0, Math.round((inputH - 13) / 2)),
+        fontSize: 13,
+        fill: '#9ca3af',
+        originX: 'left',
+        originY: 'top',
+        editable: true,
+      })
+      const group = new Group([bg, placeholderText], {
+        left,
+        top,
+        originX: 'left',
+        originY: 'top',
+      })
+      group.set('data', { subtype: 'input-field' })
+      return withId(group)
+    }
+    case 'button': {
+      const btnW = Math.max(1, width)
+      const btnH = Math.max(1, height)
+      const bg = new Rect({
+        left: 0,
+        top: 0,
+        width: btnW,
+        height: btnH,
+        fill: '#3b82f6',
+        stroke: '',
+        strokeWidth: 0,
+        rx: 6,
+        ry: 6,
+        originX: 'left',
+        originY: 'top',
+      })
+      const label = new IText('Button', {
+        left: 0,
+        top: Math.max(0, Math.round((btnH - 14) / 2)),
+        width: btnW,
+        textAlign: 'center',
+        fontSize: 14,
+        fontWeight: 'bold',
+        fill: '#ffffff',
+        originX: 'left',
+        originY: 'top',
+        editable: true,
+      })
+      const group = new Group([bg, label], {
+        left,
+        top,
+        originX: 'left',
+        originY: 'top',
+      })
+      group.set('data', { subtype: 'button' })
+      return withId(group)
+    }
     default:
       return null
   }
