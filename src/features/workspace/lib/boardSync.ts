@@ -911,7 +911,7 @@ export function setupDocumentSync(
       if (getObjectId(objToSync)) {
         // Sync IText text to data.title for frame/table so payload has correct frameTitle/tableTitle
         if (objToSync.type === 'group') {
-          const data = objToSync.get('data') as { subtype?: string } | undefined
+          const data = objToSync.get('data') as { subtype?: string; title?: string } | undefined
           if ((data?.subtype === 'frame' || data?.subtype === 'table') && e.target.type === 'i-text') {
             const text = (e.target.get('text') as string) ?? ''
             objToSync.set('data', { ...data, title: text || (data.title ?? '') })

@@ -13,7 +13,7 @@ import { createShape } from '../lib/shapeFactory'
 import { createFrameShape } from '../lib/frameFactory'
 import { setFrameChildIds, updateFrameTitleVisibility } from '../lib/frameUtils'
 import { createDataTableShape } from '../lib/dataTableFactory'
-import { isDataTable, updateTableTitleVisibility } from '../lib/dataTableUtils'
+import { isDataTable, updateTableTitleVisibility, getTableData } from '../lib/dataTableUtils'
 import type { FormFrameSceneInfo, FormSchema } from '../lib/frameFormTypes'
 import {
   getStrokeWidthFromObject,
@@ -487,17 +487,19 @@ const FabricCanvasInner = (
       const canvas = canvasRef.current
       if (!canvas) return []
       return canvas.getObjects().filter(isDataTable).map((t) => {
-        const data = t.get('data') as { id?: string; title?: string; formSchema?: FormSchema | null } | undefined
+        const tableData = getTableData(t)
         return {
-          objectId: data?.id ?? '',
-          title: data?.title ?? 'Untitled Table',
+          objectId: tableData?.id ?? '',
+          title: tableData?.title ?? 'Untitled Table',
+          showTitle: tableData?.showTitle ?? false,
+          accentColor: tableData?.accentColor,
           sceneLeft: t.left,
           sceneTop: t.top,
           sceneWidth: (t as FabricObject & { width: number }).width,
           sceneHeight: (t as FabricObject & { height: number }).height,
           scaleX: t.scaleX ?? 1,
           scaleY: t.scaleY ?? 1,
-          formSchema: data?.formSchema ?? null,
+          formSchema: tableData?.formSchema ?? null,
         }
       }).filter((t) => t.objectId)
     },
@@ -797,17 +799,19 @@ const FabricCanvasInner = (
       const cb = onFormFramesChangeRef.current
       if (!cb) return
       const tables = fabricCanvas.getObjects().filter(isDataTable).map((t) => {
-        const data = t.get('data') as { id?: string; title?: string; formSchema?: FormSchema | null } | undefined
+        const tableData = getTableData(t)
         return {
-          objectId: data?.id ?? '',
-          title: data?.title ?? 'Untitled Table',
+          objectId: tableData?.id ?? '',
+          title: tableData?.title ?? 'Untitled Table',
+          showTitle: tableData?.showTitle ?? false,
+          accentColor: tableData?.accentColor,
           sceneLeft: t.left,
           sceneTop: t.top,
           sceneWidth: (t as FabricObject & { width: number }).width,
           sceneHeight: (t as FabricObject & { height: number }).height,
           scaleX: t.scaleX ?? 1,
           scaleY: t.scaleY ?? 1,
-          formSchema: data?.formSchema ?? null,
+          formSchema: tableData?.formSchema ?? null,
         }
       }).filter((info) => info.objectId)
       cb(tables)

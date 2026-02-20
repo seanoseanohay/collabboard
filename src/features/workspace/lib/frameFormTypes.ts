@@ -11,6 +11,7 @@ export interface FormColumn {
   type: FormFieldType
   /** Only used when type === 'dropdown'. */
   options?: string[]
+  headerColor?: string   // optional per-column <th> background tint
 }
 
 export interface FormRow {
@@ -28,6 +29,8 @@ export interface FormFrameSceneInfo {
   /** The canvas object's id (DataTable). */
   objectId: string
   title: string
+  showTitle: boolean       // NEW
+  accentColor?: string     // NEW
   /** frame.left (scene, unscaled) */
   sceneLeft: number
   /** frame.top (scene, unscaled) */

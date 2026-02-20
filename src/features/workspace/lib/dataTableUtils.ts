@@ -12,6 +12,8 @@ export interface DataTableData {
   id: string
   subtype: 'table'
   title: string
+  showTitle: boolean        // false = no title bar rendered
+  accentColor?: string      // drives border + column header tint
   formSchema: FormSchema | null
 }
 
@@ -27,6 +29,8 @@ export function getTableData(obj: FabricObject): DataTableData | null {
     id: data.id ?? '',
     subtype: 'table',
     title: data.title ?? 'Untitled Table',
+    showTitle: data.showTitle ?? false,
+    accentColor: data.accentColor,
     formSchema: data.formSchema ?? null,
   }
 }

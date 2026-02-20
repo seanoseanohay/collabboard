@@ -24,7 +24,9 @@ export function createDataTableShape(
   width: number,
   height: number,
   title = 'Untitled Table',
-  assignId = true
+  assignId = true,
+  showTitle = false,
+  accentColor?: string,
 ): FabricObject {
   const w = Math.max(width, TABLE_MIN_WIDTH)
   const h = Math.max(height, TABLE_MIN_HEIGHT)
@@ -63,9 +65,9 @@ export function createDataTableShape(
 
   if (assignId) {
     const id = crypto.randomUUID()
-    group.set('data', { id, subtype: 'table', title, formSchema: null })
+    group.set('data', { id, subtype: 'table', title, showTitle, accentColor, formSchema: null })
   } else {
-    group.set('data', { subtype: 'table', formSchema: null })
+    group.set('data', { subtype: 'table', showTitle, accentColor, formSchema: null })
   }
   return group
 }
