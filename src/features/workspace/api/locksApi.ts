@@ -28,34 +28,26 @@ export async function acquireLock(
     .eq('object_id', objectId)
     .maybeSingle()
 
-  if (existing && existing.user_id !== userId) return false
-
-  // Use INSERT instead of UPSERT - database enforces mutual exclusion via unique constraint
-  // If another user already holds the lock, INSERT will fail with unique constraint violation
-  const { error } = await supabase.from('locks').insert({
-    board_id: boardId,
-    object_id: objectId,
-    user_id: userId,
-    user_name: userName,
-    last_active: Date.now(),
-  })
-
-  // Error code 23505 = unique constraint violation (lock already held by another user)
-  if (error) {
-    // If it's our own lock, update it (reacquiring after connection drop)
-    if (existing && existing.user_id === userId) {
-      const { error: updateError } = await supabase
-        .from('locks')
-        .update({ last_active: Date.now() })
-        .eq('board_id', boardId)
-        .eq('object_id', objectId)
-        .eq('user_id', userId)
-      
-      if (updateError) return false
-    } else {
-      // Lock held by someone else - acquisition failed
-      return false
-    }
+  if (existing) {
+    if (existing.user_id !== userId) return false
+    // We already own this lock (stale from previous session) — refresh the timestamp directly
+    const { error: updateError } = await supabase
+      .from('locks')
+      .update({ last_active: Date.now() })
+      .eq('board_id', boardId)
+      .eq('object_id', objectId)
+      .eq('user_id', userId)
+    if (updateError) return false
+  } else {
+    // No existing lock — INSERT (database unique constraint prevents race with another user)
+    const { error } = await supabase.from('locks').insert({
+      board_id: boardId,
+      object_id: objectId,
+      user_id: userId,
+      user_name: userName,
+      last_active: Date.now(),
+    })
+    if (error) return false
   }
 
   // Broadcast lock acquisition for instant propagation (<100ms)

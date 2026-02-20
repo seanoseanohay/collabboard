@@ -116,7 +116,7 @@ export function subscribeToDocuments(
 ): () => void {
   const supabase = getSupabaseClient()
 
-  const PAGE_SIZE = 50
+  const PAGE_SIZE = 1000
 
   const fetchInitial = async () => {
     let offset = 0

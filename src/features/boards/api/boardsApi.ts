@@ -70,16 +70,18 @@ export async function joinBoard(
 ): Promise<BoardMeta> {
   const supabase = getSupabaseClient()
 
-  await supabase.from('board_members').upsert(
-    { board_id: boardId, user_id: userId },
-    { onConflict: 'board_id,user_id' }
-  )
-
-  const { data: board, error } = await supabase
-    .from('boards')
-    .select('id, title, created_at, is_public, owner_id')
-    .eq('id', boardId)
-    .single()
+  // board_members upsert and boards fetch are independent — run in parallel
+  const [, { data: board, error }] = await Promise.all([
+    supabase.from('board_members').upsert(
+      { board_id: boardId, user_id: userId },
+      { onConflict: 'board_id,user_id' }
+    ),
+    supabase
+      .from('boards')
+      .select('id, title, created_at, is_public, owner_id')
+      .eq('id', boardId)
+      .single(),
+  ])
 
   if (error || !board) throw new Error('Board not found')
 
