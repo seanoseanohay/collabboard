@@ -143,6 +143,7 @@ function FrameFormPanel({
 }: PanelProps) {
   const [editingTitle, setEditingTitle] = useState(false)
   const [localTitle, setLocalTitle] = useState(title)
+  const [hoveredColId, setHoveredColId] = useState<string | null>(null)
   const titleInputRef = useRef<HTMLInputElement>(null)
   const { columns, rows } = schema
   const baseFontSize = Math.min(Math.max(zoom * 12, 9), 13)
@@ -228,7 +229,9 @@ function FrameFormPanel({
     border: '2px solid #93c5fd',
     borderRadius: 6,
     overflow: 'hidden',
-    pointerEvents: 'auto',
+    // pointer-events: none lets mousedown/mousemove reach the Fabric canvas below
+    // so the table can be selected and dragged. Interactive children re-enable with auto.
+    pointerEvents: 'none',
     boxSizing: 'border-box',
     display: 'flex',
     flexDirection: 'column',
@@ -246,6 +249,7 @@ function FrameFormPanel({
     gap: 4,
     padding: '4px 6px',
     borderTop: '1px solid #e2e8f0',
+    pointerEvents: 'auto',
     background: '#f8fafc',
     flexShrink: 0,
   }
@@ -353,11 +357,14 @@ function FrameFormPanel({
 
   if (columns.length === 0) {
     return (
-      <div key={frameId} style={{ ...overlayStyle, zIndex: FORM_Z_INDEX }} onMouseDown={(e) => e.stopPropagation()}>
+      <div key={frameId} style={{ ...overlayStyle, zIndex: FORM_Z_INDEX }}>
         {titleBar}
         <div style={emptyStyle}>
           <span>No columns yet</span>
-          <button style={{ ...btnStyle, borderColor: '#6366f1', color: '#6366f1' }} onClick={addColumn}>
+          <button
+            style={{ ...btnStyle, borderColor: '#6366f1', color: '#6366f1', pointerEvents: 'auto' }}
+            onClick={addColumn}
+          >
             + Add Column
           </button>
         </div>
@@ -392,60 +399,72 @@ function FrameFormPanel({
   }
 
   return (
-    <div style={{ ...overlayStyle, zIndex: FORM_Z_INDEX }} onMouseDown={(e) => e.stopPropagation()}>
+    <div style={{ ...overlayStyle, zIndex: FORM_Z_INDEX }}>
       {titleBar}
       <div style={scrollAreaStyle}>
         <table style={{ borderCollapse: 'collapse', width: '100%', tableLayout: 'fixed' }}>
           <thead>
             <tr>
-              {columns.map((col) => (
-                <th key={col.id} style={thStyle}>
-                  {editingColId === col.id ? (
-                    <input
-                      ref={editColInputRef as React.RefObject<HTMLInputElement>}
-                      autoFocus
-                      defaultValue={col.name}
-                      style={{ width: '100%', fontSize: 'inherit', border: 'none', background: 'transparent', outline: '1px solid #6366f1', padding: '1px 2px' }}
-                      onBlur={(e) => { renameColumn(col.id, e.target.value); onSetEditingColId(null) }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') { renameColumn(col.id, (e.target as HTMLInputElement).value); onSetEditingColId(null) }
-                        if (e.key === 'Escape') onSetEditingColId(null)
-                      }}
-                    />
-                  ) : (
-                    <span
-                      title={col.name}
-                      style={{ cursor: 'pointer', display: 'block' }}
-                      onClick={() => onSetEditingColId(col.id)}
-                    >
-                      {col.name}
-                      <span style={{ fontWeight: 400, color: '#94a3b8', marginLeft: 4, fontSize: '0.85em' }}>
-                        {FIELD_TYPE_LABELS[col.type]}
+              {columns.map((col) => {
+                const isHovered = hoveredColId === col.id
+                return (
+                  <th
+                    key={col.id}
+                    style={{ ...thStyle, pointerEvents: 'auto' }}
+                    onMouseEnter={() => setHoveredColId(col.id)}
+                    onMouseLeave={() => setHoveredColId(null)}
+                  >
+                    {editingColId === col.id ? (
+                      <input
+                        ref={editColInputRef as React.RefObject<HTMLInputElement>}
+                        autoFocus
+                        defaultValue={col.name}
+                        style={{ width: '100%', fontSize: 'inherit', border: 'none', background: 'transparent', outline: '1px solid #6366f1', padding: '1px 2px' }}
+                        onBlur={(e) => { renameColumn(col.id, e.target.value); onSetEditingColId(null) }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') { renameColumn(col.id, (e.target as HTMLInputElement).value); onSetEditingColId(null) }
+                          if (e.key === 'Escape') onSetEditingColId(null)
+                        }}
+                      />
+                    ) : (
+                      <span
+                        title={col.name}
+                        style={{ cursor: 'pointer', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                        onClick={() => onSetEditingColId(col.id)}
+                      >
+                        {col.name}
+                        {!isHovered && (
+                          <span style={{ fontWeight: 400, color: '#94a3b8', marginLeft: 4, fontSize: '0.85em' }}>
+                            {FIELD_TYPE_LABELS[col.type]}
+                          </span>
+                        )}
                       </span>
-                    </span>
-                  )}
-                  <div style={{ position: 'absolute', top: 2, right: 2, display: 'flex', gap: 2, alignItems: 'center' }}>
-                    <select
-                      title="Change column type"
-                      value={col.type}
-                      onChange={(e) => setColumnType(col.id, e.target.value as FormFieldType)}
-                      onClick={(e) => e.stopPropagation()}
-                      style={{ fontSize: 9, padding: '0 2px', border: '1px solid #e2e8f0', borderRadius: 3, background: '#fff', cursor: 'pointer', color: '#64748b', height: 16 }}
-                    >
-                      {FIELD_TYPE_OPTIONS.map((t) => (
-                        <option key={t} value={t}>{FIELD_TYPE_LABELS[t]}</option>
-                      ))}
-                    </select>
-                    <button
-                      title="Delete column"
-                      style={{ fontSize: 9, padding: '0 3px', border: '1px solid #e2e8f0', borderRadius: 3, background: '#fff', cursor: 'pointer', color: '#ef4444' }}
-                      onClick={() => deleteColumn(col.id)}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                </th>
-              ))}
+                    )}
+                    {isHovered && (
+                      <div style={{ position: 'absolute', top: 2, right: 2, display: 'flex', gap: 2, alignItems: 'center' }}>
+                        <select
+                          title="Change column type"
+                          value={col.type}
+                          onChange={(e) => setColumnType(col.id, e.target.value as FormFieldType)}
+                          onClick={(e) => e.stopPropagation()}
+                          style={{ fontSize: 9, padding: '0 2px', border: '1px solid #e2e8f0', borderRadius: 3, background: '#fff', cursor: 'pointer', color: '#64748b', height: 16 }}
+                        >
+                          {FIELD_TYPE_OPTIONS.map((t) => (
+                            <option key={t} value={t}>{FIELD_TYPE_LABELS[t]}</option>
+                          ))}
+                        </select>
+                        <button
+                          title="Delete column"
+                          style={{ fontSize: 9, padding: '0 3px', border: '1px solid #e2e8f0', borderRadius: 3, background: '#fff', cursor: 'pointer', color: '#ef4444' }}
+                          onClick={() => deleteColumn(col.id)}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    )}
+                  </th>
+                )
+              })}
               <th style={{ ...thStyle, width: DEL_COL_W, minWidth: DEL_COL_W }} />
             </tr>
           </thead>
@@ -453,7 +472,7 @@ function FrameFormPanel({
             {rows.map((row) => (
               <tr key={row.id}>
                 {columns.map((col) => (
-                  <td key={col.id} style={tdStyle}>
+                  <td key={col.id} style={{ ...tdStyle, pointerEvents: 'auto' }}>
                     <CellInput
                       col={col}
                       value={row.values[col.id]}
@@ -469,7 +488,7 @@ function FrameFormPanel({
                     )}
                   </td>
                 ))}
-                <td style={{ ...tdStyle, width: DEL_COL_W, minWidth: DEL_COL_W, textAlign: 'center' }}>
+                <td style={{ ...tdStyle, width: DEL_COL_W, minWidth: DEL_COL_W, textAlign: 'center', pointerEvents: 'auto' }}>
                   <button
                     title="Delete row"
                     style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 11, lineHeight: 1, padding: 2 }}
