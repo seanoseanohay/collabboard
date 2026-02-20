@@ -1,14 +1,5 @@
 import { getSupabaseClient } from '@/shared/lib/supabase/config'
 
-export async function signInWithGoogle(): Promise<void> {
-  const supabase = getSupabaseClient()
-  const redirectTo = typeof window !== 'undefined' ? `${window.location.origin}/` : undefined
-  await supabase.auth.signInWithOAuth({
-    provider: 'google',
-    options: { redirectTo },
-  })
-}
-
 export async function signInWithGithub(): Promise<void> {
   const supabase = getSupabaseClient()
   const redirectTo = typeof window !== 'undefined' ? `${window.location.origin}/` : undefined

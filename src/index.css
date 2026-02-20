@@ -13,7 +13,7 @@ body {
 
 /* ── MeBoard button hover states ── */
 
-/* Gold CTA buttons — Google sign-in, hero CTA, features CTA */
+/* Gold CTA buttons — hero CTA, features CTA */
 .btn-gold {
   background: #d4a017;
   color: #0d1117;
@@ -32,6 +32,17 @@ body {
 }
 .btn-dark:hover:not(:disabled) {
   background: #16213e;
+}
+
+/* GitHub OAuth button */
+.btn-github {
+  background: #24292f;
+  color: #fff;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+.btn-github:hover:not(:disabled) {
+  background: #2f363d;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
 }
 
 /* NavBar Log In button (gold text at rest) */

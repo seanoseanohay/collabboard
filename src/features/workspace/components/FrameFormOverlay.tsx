@@ -79,8 +79,8 @@ export function FrameFormOverlay({ frames, viewportTransform, editingTableId, on
         const screenWidth = frame.sceneWidth * frame.scaleX * zoom
         const screenHeight = frame.sceneHeight * frame.scaleY * zoom
 
-        // Hide if zoomed too small to interact
-        if (zoom < 0.15) return null
+        // Hide if zoomed too small to interact usefully
+        if (zoom < 0.4) return null
 
         return (
           <FrameFormPanel
@@ -170,7 +170,6 @@ function FrameFormPanel({
   const titleInputRef = useRef<HTMLInputElement>(null)
   const { columns, rows } = schema
   const baseFontSize = Math.min(Math.max(zoom * 12, 9), 13)
-  const minWidth = 320
 
   const accent = accentColor ?? DEFAULT_ACCENT
   const accentBg = accentTint(accent)
@@ -249,7 +248,7 @@ function FrameFormPanel({
     position: 'absolute',
     left: screenLeft,
     top: screenTop,
-    width: Math.max(screenWidth, minWidth),
+    width: screenWidth,
     height: screenHeight,
     background: '#ffffff',
     border: `2px solid ${isEditing ? '#6366f1' : accent}`,

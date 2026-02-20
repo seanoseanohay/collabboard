@@ -61,7 +61,9 @@ export function createFrameShape(
     top,
     originX: 'left',
     originY: 'top',
+    lockRotation: true,
   })
+  group.setControlsVisibility({ mtr: false })
 
   if (assignId) {
     const id = crypto.randomUUID()

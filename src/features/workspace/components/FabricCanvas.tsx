@@ -1071,6 +1071,7 @@ const FabricCanvasInner = (
             fabricCanvas.add(sticker)
             fabricCanvas.setActiveObject(sticker)
             fabricCanvas.requestRenderAll()
+            onToolChangeRef.current?.('select')
           }
         }
         return
@@ -1300,6 +1301,7 @@ const FabricCanvasInner = (
                 setTimeout(() => tryEnterTextEditing(mainText), 50)
               }
             }
+            onToolChangeRef.current?.('select')
           }
         }
         previewObj = null
@@ -1914,7 +1916,11 @@ const FabricCanvasInner = (
         fabricCanvas.discardActiveObject()
       }
     }
+    const handlePathCreated = () => {
+      if (toolRef.current === 'draw') onToolChangeRef.current?.('select')
+    }
     fabricCanvas.on('connector:draw:start' as never, handleConnectorDrawStart)
+    fabricCanvas.on('path:created', handlePathCreated)
     fabricCanvas.on('object:added', handleObjectAdded)
     fabricCanvas.on('object:removed', handleObjectRemoved)
     fabricCanvas.on('object:modified', handleObjectModified)
@@ -1997,6 +2003,7 @@ const FabricCanvasInner = (
       fabricCanvas.off('after:render', drawArrows)
       fabricCanvas.off('after:render', drawHoverPorts)
       fabricCanvas.off('connector:draw:start' as never, handleConnectorDrawStart)
+      fabricCanvas.off('path:created', handlePathCreated)
       fabricCanvas.off('object:modified', handleObjectModified)
       fabricCanvas.off('object:added', notifyObjectCount)
       fabricCanvas.off('object:removed', notifyObjectCount)
