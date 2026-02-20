@@ -151,6 +151,7 @@ interface FabricCanvasProps {
   onObjectCountChange?: (count: number) => void
   onToolChange?: (tool: ToolType) => void
   onSelectedCountChange?: (count: number) => void
+  onBoardReady?: () => void
   onFpsChange?: (fps: number) => void
   onSyncLatency?: (ms: number) => void
 }
@@ -180,6 +181,7 @@ const FabricCanvasInner = (
     onObjectCountChange,
     onToolChange,
     onSelectedCountChange,
+    onBoardReady,
     onFpsChange,
     onSyncLatency,
   }: FabricCanvasProps,
@@ -205,6 +207,8 @@ const FabricCanvasInner = (
   onObjectCountChangeRef.current = onObjectCountChange
   const onSelectedCountChangeRef = useRef(onSelectedCountChange)
   onSelectedCountChangeRef.current = onSelectedCountChange
+  const onBoardReadyRef = useRef(onBoardReady)
+  onBoardReadyRef.current = onBoardReady
   const onToolChangeRef = useRef(onToolChange)
   onToolChangeRef.current = onToolChange
   const onFpsChangeRef = useRef(onFpsChange)
@@ -1522,9 +1526,10 @@ const FabricCanvasInner = (
             () => lockOptsRef.current.userId,
             isRemoteChangeRef,
             (ms) => onSyncLatencyRef.current?.(ms),
-            connectorCacheRefForSync
+            connectorCacheRefForSync,
+            () => onBoardReadyRef.current?.()
           )
-        : () => {}
+        : (() => { onBoardReadyRef.current?.(); return () => {} })()
 
     const attachTextEditOnDblClick = (obj: FabricObject) => {
       const handler = () => {

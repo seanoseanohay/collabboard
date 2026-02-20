@@ -7,6 +7,10 @@ body {
   margin: 0;
 }
 
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 /* ── MeBoard button hover states ── */
 
 /* Gold CTA buttons — Google sign-in, hero CTA, features CTA */

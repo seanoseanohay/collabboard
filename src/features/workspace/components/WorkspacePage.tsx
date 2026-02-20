@@ -42,6 +42,7 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
   const [presenceHovered, setPresenceHovered] = useState(false)
   const [objectCount, setObjectCount] = useState(0)
   const [selectedCount, setSelectedCount] = useState(0)
+  const [boardReady, setBoardReady] = useState(false)
   const [showDebugConsole, setShowDebugConsole] = useState(false)
   const [canvasFps, setCanvasFps] = useState(0)
   const [syncLatency, setSyncLatency] = useState<number | null>(null)
@@ -111,6 +112,10 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
 
   const handleSelectedCountChange = useCallback((count: number) => {
     setSelectedCount(count)
+  }, [])
+
+  const handleBoardReady = useCallback(() => {
+    setBoardReady(true)
   }, [])
 
   const handleFpsChange = useCallback((fps: number) => {
@@ -310,6 +315,7 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
           onHistoryChange={handleHistoryChange}
           onObjectCountChange={handleObjectCountChange}
           onSelectedCountChange={handleSelectedCountChange}
+          onBoardReady={handleBoardReady}
           onToolChange={setSelectedTool}
           onFpsChange={handleFpsChange}
           onSyncLatency={handleSyncLatency}
@@ -333,6 +339,14 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
           objectSyncLatency={syncLatency}
           boardId={board.id}
         />
+        {!boardReady && (
+          <div style={styles.loadingOverlay}>
+            <div style={styles.loadingContent}>
+              <div style={styles.spinner} />
+              <span style={styles.loadingText}>Loading board…</span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -445,5 +459,33 @@ const styles: Record<string, React.CSSProperties> = {
     width: '100%',
     position: 'relative',
     overflow: 'hidden',
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    inset: 0,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: '#fafafa',
+    zIndex: 10000,
+  },
+  loadingContent: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    alignItems: 'center',
+    gap: 16,
+  },
+  spinner: {
+    width: 32,
+    height: 32,
+    border: '3px solid #e5e7eb',
+    borderTopColor: '#3b82f6',
+    borderRadius: '50%',
+    animation: 'spin 0.8s linear infinite',
+  },
+  loadingText: {
+    fontSize: 14,
+    fontWeight: 500,
+    color: '#6b7280',
   },
 }

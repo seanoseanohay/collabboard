@@ -186,7 +186,8 @@ export function setupDocumentSync(
   getCurrentUserId?: () => string,
   remoteChangeRef?: { current: boolean },
   onSyncLatency?: (ms: number) => void,
-  connectorCacheRef?: { current: Set<FabricObject> }
+  connectorCacheRef?: { current: Set<FabricObject> },
+  onBoardReady?: () => void
 ): () => void {
   const pendingWriteTimestamps = new Map<string, number>()
   let isApplyingRemote = false
@@ -597,11 +598,14 @@ export function setupDocumentSync(
     onRemoved: removeRemote,
     onBulkLoadStart: () => {
       isBulkLoading = true
+      ;(canvas as unknown as { renderOnAddRemove: boolean }).renderOnAddRemove = false
     },
     onBulkLoadComplete: () => {
       isBulkLoading = false
+      ;(canvas as unknown as { renderOnAddRemove: boolean }).renderOnAddRemove = true
       sortCanvasByZIndex(canvas)
       canvas.requestRenderAll()
+      onBoardReady?.()
     },
   })
 
