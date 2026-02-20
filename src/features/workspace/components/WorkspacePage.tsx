@@ -49,6 +49,7 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
   const [canvasFps, setCanvasFps] = useState(0)
   const [syncLatency, setSyncLatency] = useState<number | null>(null)
   const [formFrames, setFormFrames] = useState<FormFrameSceneInfo[]>([])
+  const [editingTableId, setEditingTableId] = useState<string | null>(null)
   const canvasContainerRef = useRef<HTMLDivElement>(null)
   const canvasZoomRef = useRef<FabricCanvasZoomHandle>(null)
   const gridRef = useRef<HTMLDivElement>(null)
@@ -335,10 +336,13 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
           onFpsChange={handleFpsChange}
           onSyncLatency={handleSyncLatency}
           onFormFramesChange={handleFormFramesChange}
+          onTableEditStart={(id) => setEditingTableId(id)}
+          onTableEditEnd={() => setEditingTableId(null)}
         />
         <FrameFormOverlay
           frames={formFrames}
           viewportTransform={viewportTransform}
+          editingTableId={editingTableId}
           onSchemaChange={handleFrameFormSchemaChange}
           onTitleChange={handleTableTitleChange}
         />

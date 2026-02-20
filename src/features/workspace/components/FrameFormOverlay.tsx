@@ -27,6 +27,7 @@ function generateId() {
 interface FrameFormOverlayProps {
   frames: FormFrameSceneInfo[]
   viewportTransform: number[] | null
+  editingTableId: string | null
   /** Called whenever form data changes; the caller should persist via updateFrameFormData. */
   onSchemaChange: (objectId: string, schema: FormSchema | null) => void
   /** Called when the table title is edited; the caller should persist via updateTableTitle. */
@@ -38,7 +39,7 @@ interface FormState {
   [objectId: string]: FormSchema | null
 }
 
-export function FrameFormOverlay({ frames, viewportTransform, onSchemaChange, onTitleChange }: FrameFormOverlayProps) {
+export function FrameFormOverlay({ frames, viewportTransform, editingTableId, onSchemaChange, onTitleChange }: FrameFormOverlayProps) {
   const [localSchemas, setLocalSchemas] = useState<FormState>({})
   const [editingColId, setEditingColId] = useState<string | null>(null)
   const [dropdownOptionsEditing, setDropdownOptionsEditing] = useState<string | null>(null)
@@ -88,6 +89,7 @@ export function FrameFormOverlay({ frames, viewportTransform, onSchemaChange, on
             title={frame.title}
             showTitle={frame.showTitle}
             accentColor={frame.accentColor}
+            isEditing={editingTableId === frame.objectId}
             schema={schema}
             screenLeft={screenLeft}
             screenTop={screenTop}
@@ -113,6 +115,7 @@ interface PanelProps {
   title: string
   showTitle: boolean
   accentColor?: string
+  isEditing: boolean
   schema: FormSchema
   screenLeft: number
   screenTop: number
@@ -146,6 +149,7 @@ function FrameFormPanel({
   title,
   showTitle,
   accentColor,
+  isEditing,
   schema,
   screenLeft,
   screenTop,
@@ -248,7 +252,7 @@ function FrameFormPanel({
     width: Math.max(screenWidth, minWidth),
     height: screenHeight,
     background: '#ffffff',
-    border: `2px solid ${accent}`,
+    border: `2px solid ${isEditing ? '#6366f1' : accent}`,
     borderRadius: 6,
     overflow: 'hidden',
     // pointer-events: none lets mousedown/mousemove reach the Fabric canvas below
@@ -436,7 +440,7 @@ function FrameFormPanel({
                     onMouseEnter={() => setHoveredColId(col.id)}
                     onMouseLeave={() => setHoveredColId(null)}
                   >
-                    {editingColId === col.id ? (
+                    {isEditing && editingColId === col.id ? (
                       <input
                         ref={editColInputRef as React.RefObject<HTMLInputElement>}
                         autoFocus
@@ -451,18 +455,18 @@ function FrameFormPanel({
                     ) : (
                       <span
                         title={col.name}
-                        style={{ cursor: 'pointer', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis' }}
-                        onClick={() => onSetEditingColId(col.id)}
+                        style={{ cursor: isEditing ? 'pointer' : 'default', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                        onClick={() => isEditing && onSetEditingColId(col.id)}
                       >
                         {col.name}
-                        {!isHovered && (
+                        {isEditing && !isHovered && (
                           <span style={{ fontWeight: 400, color: '#94a3b8', marginLeft: 4, fontSize: '0.85em' }}>
                             {FIELD_TYPE_LABELS[col.type]}
                           </span>
                         )}
                       </span>
                     )}
-                    {isHovered && (
+                    {isEditing && isHovered && (
                       <div style={{ position: 'absolute', top: 2, right: 2, display: 'flex', gap: 2, alignItems: 'center' }}>
                         <select
                           title="Change column type"
@@ -487,21 +491,22 @@ function FrameFormPanel({
                   </th>
                 )
               })}
-              <th style={{ ...thStyle, width: DEL_COL_W, minWidth: DEL_COL_W }} />
+              <th style={{ ...thStyle, width: DEL_COL_W, minWidth: DEL_COL_W, display: isEditing ? undefined : 'none' }} />
             </tr>
           </thead>
           <tbody>
             {rows.map((row) => (
               <tr key={row.id}>
                 {columns.map((col) => (
-                  <td key={col.id} style={{ ...tdStyle, pointerEvents: 'auto' }}>
+                  <td key={col.id} style={{ ...tdStyle, pointerEvents: isEditing ? 'auto' : 'none' }}>
                     <CellInput
                       col={col}
                       value={row.values[col.id]}
                       onChange={(v) => updateCell(row.id, col.id, v)}
                       fontSize={baseFontSize}
+                      isEditing={isEditing}
                     />
-                    {dropdownOptionsEditing === col.id && (
+                    {isEditing && dropdownOptionsEditing === col.id && (
                       <DropdownOptionEditor
                         col={col}
                         onSave={(text) => { setColumnOptions(col.id, text); onSetDropdownOptionsEditing(null) }}
@@ -510,7 +515,7 @@ function FrameFormPanel({
                     )}
                   </td>
                 ))}
-                <td style={{ ...tdStyle, width: DEL_COL_W, minWidth: DEL_COL_W, textAlign: 'center', pointerEvents: 'auto' }}>
+                <td style={{ ...tdStyle, width: DEL_COL_W, minWidth: DEL_COL_W, textAlign: 'center', pointerEvents: isEditing ? 'auto' : 'none', display: isEditing ? undefined : 'none' }}>
                   <button
                     title="Delete row"
                     style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 11, lineHeight: 1, padding: 2 }}
@@ -524,21 +529,23 @@ function FrameFormPanel({
           </tbody>
         </table>
       </div>
-      <div style={footerStyle}>
-        <button style={btnStyle} onClick={addRow}>+ Row</button>
-        <button style={btnStyle} onClick={addColumn}>+ Column</button>
-        {columns.some((c) => c.type === 'dropdown') && (
-          <button
-            style={btnStyle}
-            onClick={() => {
-              const dc = columns.find((c) => c.type === 'dropdown')
-              if (dc) onSetDropdownOptionsEditing(dc.id)
-            }}
-          >
-            Edit Options
-          </button>
-        )}
-      </div>
+      {isEditing && (
+        <div style={footerStyle}>
+          <button style={btnStyle} onClick={addRow}>+ Row</button>
+          <button style={btnStyle} onClick={addColumn}>+ Column</button>
+          {columns.some((c) => c.type === 'dropdown') && (
+            <button
+              style={btnStyle}
+              onClick={() => {
+                const dc = columns.find((c) => c.type === 'dropdown')
+                if (dc) onSetDropdownOptionsEditing(dc.id)
+              }}
+            >
+              Edit Options
+            </button>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -550,9 +557,10 @@ interface CellInputProps {
   value: string | number | boolean | undefined
   onChange: (v: string | number | boolean) => void
   fontSize: number
+  isEditing: boolean
 }
 
-function CellInput({ col, value, onChange, fontSize }: CellInputProps) {
+function CellInput({ col, value, onChange, fontSize, isEditing }: CellInputProps) {
   const inputStyle: React.CSSProperties = {
     width: '100%',
     fontSize,
@@ -561,6 +569,18 @@ function CellInput({ col, value, onChange, fontSize }: CellInputProps) {
     background: 'transparent',
     padding: '1px 2px',
     boxSizing: 'border-box',
+  }
+
+  if (!isEditing) {
+    if (col.type === 'checkbox') {
+      return <input type="checkbox" checked={!!value} disabled style={{ cursor: 'default', margin: '0 auto', display: 'block' }} />
+    }
+    const display = value === '' || value === undefined || value === null ? '' : String(value)
+    return (
+      <span style={{ fontSize, color: display ? '#1e293b' : '#94a3b8', padding: '1px 2px', display: 'block', minHeight: '1.2em' }}>
+        {display}
+      </span>
+    )
   }
 
   if (col.type === 'checkbox') {

@@ -165,6 +165,8 @@ interface FabricCanvasProps {
   onFpsChange?: (fps: number) => void
   onSyncLatency?: (ms: number) => void
   onFormFramesChange?: (frames: FormFrameSceneInfo[]) => void
+  onTableEditStart?: (objectId: string) => void
+  onTableEditEnd?: () => void
 }
 
 /**
@@ -196,6 +198,8 @@ const FabricCanvasInner = (
     onFpsChange,
     onSyncLatency,
     onFormFramesChange,
+    onTableEditStart,
+    onTableEditEnd,
   }: FabricCanvasProps,
   ref: React.Ref<FabricCanvasZoomHandle>
 ) => {
@@ -214,6 +218,10 @@ const FabricCanvasInner = (
   const onFormFramesChangeRef = useRef(onFormFramesChange)
   onFormFramesChangeRef.current = onFormFramesChange
   const notifyFormFramesRef = useRef<(() => void) | null>(null)
+  const onTableEditStartRef = useRef(onTableEditStart)
+  useEffect(() => { onTableEditStartRef.current = onTableEditStart }, [onTableEditStart])
+  const onTableEditEndRef = useRef(onTableEditEnd)
+  useEffect(() => { onTableEditEndRef.current = onTableEditEnd }, [onTableEditEnd])
   const onSelectionChangeRef = useRef(onSelectionChange)
   onSelectionChangeRef.current = onSelectionChange
   const onHistoryChangeRef = useRef(onHistoryChange)
@@ -1000,6 +1008,11 @@ const FabricCanvasInner = (
       const tool = toolRef.current
       objectWasTransformed = false  // Reset at start of each mouse interaction
 
+      // End table edit mode when clicking on something that is not a DataTable
+      if (!target || !isDataTable(target as FabricObject)) {
+        onTableEditEndRef.current?.()
+      }
+
       // Universal rule for all drawing tools:
       //   - Clicking a resize/rotate handle of the ACTIVE object → let Fabric handle (resize/rotate)
       //   - Clicking the body of any object, or empty space → always create a new object
@@ -1340,6 +1353,15 @@ const FabricCanvasInner = (
     const handleDblClick = (opt: { target?: unknown; scenePoint?: { x: number; y: number }; viewportPoint?: { x: number; y: number } }) => {
       const target = opt.target as FabricObject | undefined
       if (!target) return
+
+      // Double-click on a DataTable → enter edit mode
+      if (isDataTable(target)) {
+        const data = getTableData(target)
+        if (data?.id) {
+          onTableEditStartRef.current?.(data.id)
+          return
+        }
+      }
 
       // Double-click on a connector waypoint → delete that waypoint
       if (isConnector(target)) {
