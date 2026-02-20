@@ -20,9 +20,11 @@ export type AiCommand =
   | { action: 'spaceEvenly'; objectIds: string[]; direction?: 'horizontal' | 'vertical' }
   | { action: 'createFrame'; title?: string }
   | { action: 'groupCreated' }
+  | { action: 'applyTemplate'; templateId: string }
 
 export interface AiInterpretOptions {
   selectedObjectIds?: string[]
+  viewportCenter?: { x: number; y: number }
 }
 
 export async function invokeAiInterpret(
@@ -34,7 +36,7 @@ export async function invokeAiInterpret(
 
   const { data, error } = await supabase.functions.invoke<AiInterpretResponse & { error?: string }>(
     FUNCTION_NAME,
-    { body: { boardId, prompt, selectedObjectIds: options?.selectedObjectIds } }
+    { body: { boardId, prompt, selectedObjectIds: options?.selectedObjectIds, viewportCenter: options?.viewportCenter } }
   )
 
   if (error) {
