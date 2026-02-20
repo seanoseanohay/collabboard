@@ -232,6 +232,25 @@ export function setupDocumentSync(
     }
   }
 
+  /** Copy title IText (text, fontSize) from revived to existing for frame/table groups.
+   * Prevents title from jumping to default size when applying remote updates (e.g. on move). */
+  const syncFrameOrTableTitleFromRevived = (
+    existing: FabricObject,
+    revived: FabricObject
+  ) => {
+    if (!('getObjects' in existing) || !('getObjects' in revived)) return
+    const existingChildren = (existing as { getObjects: () => FabricObject[] }).getObjects()
+    const revivedChildren = (revived as { getObjects: () => FabricObject[] }).getObjects()
+    const existingTitle = existingChildren.find((c) => c.type === 'i-text')
+    const revivedTitle = revivedChildren.find((c) => c.type === 'i-text')
+    if (existingTitle && revivedTitle) {
+      const text = (revivedTitle.get('text') as string) ?? ''
+      const fontSize = revivedTitle.get('fontSize')
+      existingTitle.set('text', text)
+      if (typeof fontSize === 'number') existingTitle.set('fontSize', fontSize)
+    }
+  }
+
   const applyZIndex = (obj: FabricObject, data: Record<string, unknown>) => {
     const z = (data.zIndex as number) ?? Date.now()
     setObjectZIndex(obj, z)
@@ -282,7 +301,7 @@ export function setupDocumentSync(
                 flipY: revived.flipY,
               })
               existing.setCoords()
-              // Sync frame childIds/title from remote
+              // Sync frame childIds/title from remote, and preserve title IText (text, fontSize)
               if (isFrameGroup(existing)) {
                 const existingData = existing.get('data') as Record<string, unknown>
                 existing.set('data', {
@@ -290,9 +309,10 @@ export function setupDocumentSync(
                   title: (clean.frameTitle as string) ?? existingData['title'],
                   childIds: (clean.childIds as string[]) ?? existingData['childIds'] ?? [],
                 })
+                syncFrameOrTableTitleFromRevived(existing, revived)
                 fireCanvasCustom(canvas, 'frame:data:changed', { frameId: objectId })
               }
-              // Sync table title/formSchema from remote
+              // Sync table title/formSchema from remote, and preserve title IText (text, fontSize)
               if (isTableGroup(existing)) {
                 const existingData = existing.get('data') as Record<string, unknown>
                 existing.set('data', {
@@ -302,6 +322,7 @@ export function setupDocumentSync(
                     ? (clean.formSchema ?? null)
                     : (existingData['formSchema'] ?? null),
                 })
+                syncFrameOrTableTitleFromRevived(existing, revived)
                 fireCanvasCustom(canvas, 'table:data:changed', { tableId: objectId })
               }
               // Only sync text content for sticky groups (not container, frame, or table groups)
@@ -888,6 +909,14 @@ export function setupDocumentSync(
     if (e.target) {
       const objToSync = e.target.group || e.target
       if (getObjectId(objToSync)) {
+        // Sync IText text to data.title for frame/table so payload has correct frameTitle/tableTitle
+        if (objToSync.type === 'group') {
+          const data = objToSync.get('data') as { subtype?: string } | undefined
+          if ((data?.subtype === 'frame' || data?.subtype === 'table') && e.target.type === 'i-text') {
+            const text = (e.target.get('text') as string) ?? ''
+            objToSync.set('data', { ...data, title: text || (data.title ?? '') })
+          }
+        }
         emitModify(objToSync)
         if (objToSync.type === 'group') updateStickyPlaceholderVisibility(objToSync)
       }

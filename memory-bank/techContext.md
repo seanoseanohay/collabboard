@@ -21,9 +21,13 @@
 - **Supabase Auth** (Google + Email)
 
 ### AI Integration
-- **OpenAI GPT-4o-mini** (primary — ai-interpret Edge Function)
+- **OpenAI GPT-4o-mini** (primary — ai-interpret Edge Function). `max_tokens: 300`.
 - Fallback: Anthropic Claude (post-MVP)
-- **Observability:** LangSmith for tracing, token usage, latency, and errors (smith.langchain.com)
+- **Observability:** LangSmith (`wrapOpenAI`) for tracing, token usage, latency, and errors at smith.langchain.com. Required Supabase secrets: `LANGSMITH_TRACING=true`, `LANGSMITH_API_KEY`, `LANGSMITH_TRACING_BACKGROUND=false`, `LANGSMITH_PROJECT=meboard`. Edge Function also logs via `console.log` (visible in Supabase Dashboard → Edge Functions → ai-interpret → Logs).
+- **Performance — three-tier resolution in `invokeAiInterpret`:**
+  1. `detectSimpleShape()` — regex match for "draw/add/create/make a [color] [shape] [at X, Y]"; returns instantly, zero network.
+  2. `detectTemplateLocally()` — regex match for known template names; returns instantly, zero network.
+  3. Edge Function + OpenAI — for all other prompts. System prompt is core (~750 tok) + optional form addendum (~350 tok) appended only when prompt mentions form/field/input/checkout/wizard.
 
 ### Deployment
 - **Vercel** (frontend)

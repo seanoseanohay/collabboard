@@ -43,14 +43,21 @@
 - AI commands serialized per board
 
 ## AI Agent Execution Model
-1. Cloud Function receives request
-2. Per-board execution queue (serialized)
-3. Reserve zIndex block via transaction
-4. Plan in memory
-5. Single atomic multi-path `.update()` (objects + metadata + checks)
-6. Return summary
 
-**Observability:** LangSmith traces all ai-interpret LLM calls (inputs, outputs, tokens, latency, errors). Set `LANGSMITH_TRACING=true` and `LANGSMITH_API_KEY` in Supabase Edge Function secrets.
+**Three-tier resolution (fastest first):**
+1. **Local shape** (`detectSimpleShape`) — regex parses "draw/add/create/make a [color] [shape] [at X,Y]". Returns `source:'local'` instantly, zero network. Covers 13 color names + circle/rect/square/triangle/line/text/sticky and variants.
+2. **Local template** (`detectTemplateLocally`) — regex matches pros-cons / swot / user-journey / retrospective / login-form / signup-form / contact-form. Returns `source:'template'` instantly, zero network.
+3. **Edge Function + OpenAI** — all other prompts. `source:'api'`, returns `usage: { prompt_tokens, completion_tokens, total_tokens }`.
+
+**Edge Function (ai-interpret):**
+- Auth: `supabase.auth.getUser(token)` inside the function (gateway JWT verify disabled via `verify_jwt=false` in config.toml + `--no-verify-jwt` deploy flag — the function checks auth itself).
+- Checks: signed-in user → board exists → user is board member (all before OpenAI call).
+- System prompt: `SYSTEM_PROMPT_CORE` (~750 tokens) + `FORM_ADDENDUM` (~350 tokens, appended only when `isFormRequest(prompt)` is true — detects "form/field/input/checkout/wizard").
+- `max_tokens: 300` (simple commands ~20-60 tokens; forms ~150-250 tokens).
+- Logs `[ai-interpret] request` and `[ai-interpret] usage` to Supabase Edge Function logs.
+- Returns `{ commands, usage }`.
+
+**Observability:** LangSmith (`wrapOpenAI`) traces all OpenAI calls. Required Supabase secrets: `LANGSMITH_TRACING=true`, `LANGSMITH_API_KEY`, `LANGSMITH_TRACING_BACKGROUND=false` (critical — ensures flush before Edge Function exits), `LANGSMITH_PROJECT=meboard`.
 
 ## Presence / Cursors
 - **Cursor positions: Supabase Broadcast** — same low-latency WebSocket path as object move-deltas. `channel.send({ type: 'broadcast', event: 'cursor', payload: { userId, x, y, name, color, lastActive } })`. Fire-and-forget, no server-side state reconciliation.
