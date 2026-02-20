@@ -31,32 +31,27 @@ export interface TemplateSpec {
 const PROS_CONS: TemplateSpec = {
   id: 'pros-cons',
   frameTitle: 'Pros & Cons',
-  frameWidth: 540,
-  frameHeight: 460,
+  frameWidth: 500,
+  frameHeight: 420,
   objects: [
-    // Section header labels
-    { type: 'text', relLeft: 20, relTop: 52, width: 240, height: 40,
-      text: 'Pros', fill: '#166534', fontSize: 16 },
-    { type: 'text', relLeft: 280, relTop: 52, width: 240, height: 40,
-      text: 'Cons', fill: '#991b1b', fontSize: 16 },
-    // Section background rects
-    { type: 'rect', relLeft: 20, relTop: 100, width: 240, height: 340,
-      fill: '#f0fdf4', stroke: '#16a34a', strokeWeight: 2 },
-    { type: 'rect', relLeft: 280, relTop: 100, width: 240, height: 340,
-      fill: '#fef2f2', stroke: '#dc2626', strokeWeight: 2 },
-    // Sticky note fields (3 per column)
-    { type: 'sticky', relLeft: 30, relTop: 110, width: 220, height: 90,
-      fill: '#dcfce7', text: '' },
-    { type: 'sticky', relLeft: 30, relTop: 220, width: 220, height: 90,
-      fill: '#dcfce7', text: '' },
-    { type: 'sticky', relLeft: 30, relTop: 330, width: 220, height: 90,
-      fill: '#dcfce7', text: '' },
-    { type: 'sticky', relLeft: 290, relTop: 110, width: 220, height: 90,
-      fill: '#fee2e2', text: '' },
-    { type: 'sticky', relLeft: 290, relTop: 220, width: 220, height: 90,
-      fill: '#fee2e2', text: '' },
-    { type: 'sticky', relLeft: 290, relTop: 330, width: 220, height: 90,
-      fill: '#fee2e2', text: '' },
+    // Column header stickies
+    { type: 'sticky', relLeft: 20, relTop: 52, width: 220, height: 44,
+      fill: '#dcfce7', stroke: '#16a34a', strokeWeight: 2, text: 'Pros ✓' },
+    { type: 'sticky', relLeft: 260, relTop: 52, width: 220, height: 44,
+      fill: '#fee2e2', stroke: '#dc2626', strokeWeight: 2, text: 'Cons ✗' },
+    // 3 blank sticky fields per column
+    { type: 'sticky', relLeft: 20, relTop: 110, width: 220, height: 90,
+      fill: '#f0fdf4', text: '' },
+    { type: 'sticky', relLeft: 20, relTop: 215, width: 220, height: 90,
+      fill: '#f0fdf4', text: '' },
+    { type: 'sticky', relLeft: 20, relTop: 320, width: 220, height: 90,
+      fill: '#f0fdf4', text: '' },
+    { type: 'sticky', relLeft: 260, relTop: 110, width: 220, height: 90,
+      fill: '#fef2f2', text: '' },
+    { type: 'sticky', relLeft: 260, relTop: 215, width: 220, height: 90,
+      fill: '#fef2f2', text: '' },
+    { type: 'sticky', relLeft: 260, relTop: 320, width: 220, height: 90,
+      fill: '#fef2f2', text: '' },
   ],
 }
 

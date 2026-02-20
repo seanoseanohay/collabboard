@@ -384,7 +384,7 @@ export function setupDocumentSync(
   const emitAdd = (obj: FabricObject) => {
     const id = getObjectId(obj)
     if (!id || isApplyingRemote) return
-    let payload = obj.toObject(['data', 'objects']) as Record<string, unknown>
+    let payload = obj.toObject(['data', 'objects', 'zIndex']) as Record<string, unknown>
     payload = payloadWithSceneCoords(obj, payload)
     const data = payload.data as { subtype?: string; sourceObjectId?: string | null; sourcePort?: string; targetObjectId?: string | null; targetPort?: string; hasArrow?: boolean; arrowMode?: string; strokeDash?: string; waypoints?: unknown[]; sourceFloatPoint?: unknown; targetFloatPoint?: unknown } | undefined
     if (obj.type === 'group' && data?.subtype === 'container') {
@@ -443,7 +443,7 @@ export function setupDocumentSync(
   const emitModify = (obj: FabricObject) => {
     const id = getObjectId(obj)
     if (!id || isApplyingRemote) return
-    let payload = obj.toObject(['data', 'objects']) as Record<string, unknown>
+    let payload = obj.toObject(['data', 'objects', 'zIndex']) as Record<string, unknown>
     payload = payloadWithSceneCoords(obj, payload)
     const data = payload.data as { subtype?: string; sourceObjectId?: string | null; sourcePort?: string; targetObjectId?: string | null; targetPort?: string; hasArrow?: boolean; arrowMode?: string; strokeDash?: string; waypoints?: unknown[]; sourceFloatPoint?: unknown; targetFloatPoint?: unknown } | undefined
     if (obj.type === 'group' && data?.subtype === 'container') {
