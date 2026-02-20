@@ -17,7 +17,7 @@ import { TEMPLATE_REGISTRY } from './templateRegistry'
 import { getDocumentsByIds } from '../api/documentsApi'
 import type { AiCommand } from '../api/aiInterpretApi'
 
-const VALID_CREATE_TYPES: CreateObjectType[] = ['rect', 'circle', 'triangle', 'line', 'text', 'sticky']
+const VALID_CREATE_TYPES: CreateObjectType[] = ['rect', 'circle', 'triangle', 'line', 'text', 'sticky', 'input-field', 'button']
 
 /** Bounds tracked from in-flight createObject commands (using props, no DB round-trip). */
 interface TrackedBounds {
@@ -89,10 +89,18 @@ async function arrangeInGrid(boardId: string, objectIds: string[], cols: number)
   const GAP = 16
   const colW = Math.max(...bounds.map((b) => b.width)) + GAP
   const rowH = Math.max(...bounds.map((b) => b.height)) + GAP
-  const originLeft = bounds[0].left
-  const originTop = bounds[0].top
+  // Use the actual top-left corner of the selection as origin, not DB-order first object.
+  const originLeft = Math.min(...bounds.map((b) => b.left))
+  const originTop = Math.min(...bounds.map((b) => b.top))
+  // Sort spatially (reading order: left-to-right, then top-to-bottom) so grid placement
+  // matches the visual positions the user expects.
+  const sorted = [...bounds].sort((a, b) => {
+    const rowA = Math.round(a.top / rowH)
+    const rowB = Math.round(b.top / rowH)
+    return rowA !== rowB ? rowA - rowB : a.left - b.left
+  })
   await Promise.all(
-    bounds.map((b, i) => {
+    sorted.map((b, i) => {
       const col = i % cols
       const row = Math.floor(i / cols)
       return updateObject(boardId, b.objectId, {
@@ -124,20 +132,36 @@ async function spaceEvenly(
     0
   )
   const gap = (totalSpan - totalSize) / (sorted.length - 1)
+
+  // Align all objects to the average center on the perpendicular axis so they
+  // form an actual straight line (not just evenly spaced at varying heights/lefts).
+  const avgPerp =
+    direction === 'horizontal'
+      ? sorted.reduce((acc, b) => acc + b.top + b.height / 2, 0) / sorted.length
+      : sorted.reduce((acc, b) => acc + b.left + b.width / 2, 0) / sorted.length
+
   let cursor = direction === 'horizontal' ? first.left : first.top
   await Promise.all(
     sorted.map((b, i) => {
+      const perpPos =
+        direction === 'horizontal' ? avgPerp - b.height / 2 : avgPerp - b.width / 2
+
       if (i === 0) {
         cursor += direction === 'horizontal' ? b.width + gap : b.height + gap
-        return Promise.resolve()
+        return updateObject(boardId, b.objectId,
+          direction === 'horizontal' ? { top: perpPos } : { left: perpPos }
+        )
       }
-      const pos = i === sorted.length - 1
-        ? direction === 'horizontal' ? last.left : last.top
-        : cursor
-      const update =
-        direction === 'horizontal' ? { left: pos } : { top: pos }
+      const mainPos =
+        i === sorted.length - 1
+          ? direction === 'horizontal' ? last.left : last.top
+          : cursor
       cursor += (direction === 'horizontal' ? b.width : b.height) + gap
-      return updateObject(boardId, b.objectId, update)
+      return updateObject(boardId, b.objectId,
+        direction === 'horizontal'
+          ? { left: mainPos, top: perpPos }
+          : { top: mainPos, left: perpPos }
+      )
     })
   )
 }

@@ -15,6 +15,8 @@ export type ToolType =
   | 'frame'
   | 'sticker'
   | 'draw'
+  | 'input-field'
+  | 'button'
 
 export const SHAPE_TOOLS: ToolType[] = [
   'rect',

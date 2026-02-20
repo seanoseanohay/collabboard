@@ -9,9 +9,9 @@ import { setObjectId } from '../lib/boardSync'
 import { createShape } from '../lib/shapeFactory'
 import type { ToolType } from '../types/tools'
 
-const SHAPE_TYPE: ToolType[] = ['rect', 'circle', 'triangle', 'line', 'text', 'sticky']
+const SHAPE_TYPE: ToolType[] = ['rect', 'circle', 'triangle', 'line', 'text', 'sticky', 'input-field', 'button']
 
-export type CreateObjectType = 'rect' | 'circle' | 'triangle' | 'line' | 'text' | 'sticky'
+export type CreateObjectType = 'rect' | 'circle' | 'triangle' | 'line' | 'text' | 'sticky' | 'input-field' | 'button'
 
 export interface CreateObjectProps {
   left: number
