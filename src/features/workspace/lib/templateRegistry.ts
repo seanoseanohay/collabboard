@@ -69,12 +69,12 @@ function makeId() { return crypto.randomUUID() }
 const SWOT: TemplateSpec = {
   id: 'swot',
   frameTitle: 'SWOT Analysis',
-  frameWidth: 560,
+  frameWidth: 620,
   frameHeight: 500,
   objects: [
     {
       type: 'table',
-      relLeft: 20, relTop: 52, width: 240, height: 210,
+      relLeft: 20, relTop: 52, width: 280, height: 210,
       text: 'Strengths', showTitle: true, accentColor: '#16a34a',
       formSchema: {
         columns: [{ id: 'col1', name: 'Item', type: 'text' }],
@@ -89,7 +89,7 @@ const SWOT: TemplateSpec = {
     },
     {
       type: 'table',
-      relLeft: 300, relTop: 52, width: 240, height: 210,
+      relLeft: 320, relTop: 52, width: 280, height: 210,
       text: 'Weaknesses', showTitle: true, accentColor: '#dc2626',
       formSchema: {
         columns: [{ id: 'col1', name: 'Item', type: 'text' }],
@@ -104,7 +104,7 @@ const SWOT: TemplateSpec = {
     },
     {
       type: 'table',
-      relLeft: 20, relTop: 278, width: 240, height: 210,
+      relLeft: 20, relTop: 278, width: 280, height: 210,
       text: 'Opportunities', showTitle: true, accentColor: '#2563eb',
       formSchema: {
         columns: [{ id: 'col1', name: 'Item', type: 'text' }],
@@ -119,7 +119,7 @@ const SWOT: TemplateSpec = {
     },
     {
       type: 'table',
-      relLeft: 300, relTop: 278, width: 240, height: 210,
+      relLeft: 320, relTop: 278, width: 280, height: 210,
       text: 'Threats', showTitle: true, accentColor: '#ca8a04',
       formSchema: {
         columns: [{ id: 'col1', name: 'Item', type: 'text' }],
