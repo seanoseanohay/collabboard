@@ -1,16 +1,15 @@
+const CX = 210
+const CY = 180
+const toRad = (deg: number) => (deg * Math.PI) / 180
+const SPOKES = [0, 45, 90, 135, 180, 225, 270, 315]
+const CREW = [
+  { deg: 270, emoji: '🦜', color: '#f97316' }, // top
+  { deg: 135, emoji: '⚓', color: '#0d9488' }, // lower-left
+  { deg: 45,  emoji: '🧭', color: '#3b82f6' }, // lower-right
+]
+const AVATAR_DIST = 160 // px from center to avatar midpoint (beyond ring at 140)
+
 export function HeroIllustration() {
-  const CX = 210
-  const CY = 180
-  const toRad = (deg: number) => (deg * Math.PI) / 180
-
-  const SPOKES = [0, 45, 90, 135, 180, 225, 270, 315]
-
-  const CREW = [
-    { deg: 270, emoji: '🦜', color: '#f97316' }, // top
-    { deg: 135, emoji: '⚓', color: '#0d9488' }, // lower-left
-    { deg: 45,  emoji: '🧭', color: '#3b82f6' }, // lower-right
-  ]
-  const AVATAR_DIST = 160 // px from center to avatar midpoint (beyond ring at 140)
 
   return (
     <svg

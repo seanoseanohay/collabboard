@@ -32,6 +32,7 @@ body {
 
 /* NavBar Log In button (gold text at rest) */
 .btn-nav-gold {
+  background: transparent;
   color: #d4a017;
   transition: background 0.15s, border-color 0.15s;
 }
@@ -42,6 +43,7 @@ body {
 
 /* NavBar Sign out button (white text at rest) */
 .btn-nav-white {
+  background: transparent;
   color: rgba(255, 255, 255, 0.9);
   transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
