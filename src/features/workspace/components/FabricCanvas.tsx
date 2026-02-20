@@ -46,13 +46,21 @@ import {
   floatConnectorEndpoint,
   floatConnectorBothEndpoints,
   updateConnectorEndpoints,
+  syncConnectorMoveLock,
   removeWaypoint as removeConnectorWaypoint,
   setConnectorArrowMode,
   setConnectorStrokeDash,
   type ArrowMode,
   type StrokeDash,
 } from '../lib/connectorFactory'
-import { getPortScenePoint, getNearestPort, type ConnectorPort } from '../lib/connectorPortUtils'
+import {
+  getPortScenePoint,
+  getNearestPort,
+  findConnectorSnap,
+  drawConnectorPortHighlight,
+  type ConnectorPort,
+  type ConnectorSnapResult,
+} from '../lib/connectorPortUtils'
 import { drawConnectorArrows } from '../lib/connectorArrows'
 import { ConnectorDropMenu, type ConnectorDropShapeType } from './ConnectorDropMenu'
 import { bringToFront, sendToBack, bringForward, sendBackward } from '../lib/fabricCanvasZOrder'
@@ -116,6 +124,7 @@ export interface FabricCanvasZoomHandle {
   hasClipboard: () => boolean
   setDrawBrushColor: (color: string) => void
   setDrawBrushWidth: (width: number) => void
+  getViewportCenter: () => { x: number; y: number }
 }
 
 interface ConnectorDropState {
@@ -401,6 +410,16 @@ const FabricCanvasInner = (
       canvas.requestRenderAll()
       onViewportChangeRef.current?.(vpt)
     },
+    getViewportCenter: () => {
+      const canvas = canvasRef.current
+      if (!canvas) return { x: 400, y: 300 }
+      const vpt = canvas.viewportTransform ?? [1, 0, 0, 1, 0, 0]
+      const zoom = canvas.getZoom()
+      return {
+        x: Math.round((width / 2 - vpt[4]) / zoom),
+        y: Math.round((height / 2 - vpt[5]) / zoom),
+      }
+    },
     resetView: () => {
       const canvas = canvasRef.current
       if (!canvas) return
@@ -673,6 +692,7 @@ const FabricCanvasInner = (
     let connectorDrawState: { sourceObj: FabricObject; port: ConnectorPort } | null = null
     let connectorPreviewLine: Polyline | null = null
     let lastConnectorDrawPoint: { x: number; y: number } | null = null
+    let connectorHoverSnap: ConnectorSnapResult | null = null
     let marqueeState: { start: { x: number; y: number }; rect: Rect } | null = null
     let lassoState: { points: { x: number; y: number }[]; preview: Polyline } | null = null
 
@@ -981,9 +1001,13 @@ const FabricCanvasInner = (
 
       if (connectorDrawState && sp) {
         lastConnectorDrawPoint = sp
+        const sourceId = getObjectId(connectorDrawState.sourceObj)
+        // Snap to nearest port if cursor is within snap radius
+        connectorHoverSnap = findConnectorSnap(fabricCanvas, sp, [sourceId])
+        const tip = connectorHoverSnap ? connectorHoverSnap.scenePoint : sp
         const from = getPortScenePoint(connectorDrawState.sourceObj, connectorDrawState.port)
         if (!connectorPreviewLine) {
-          connectorPreviewLine = new Polyline([from, { x: sp.x, y: sp.y }], {
+          connectorPreviewLine = new Polyline([from, { x: tip.x, y: tip.y }], {
             stroke: '#2563eb',
             strokeWidth: 2,
             fill: '',
@@ -992,7 +1016,7 @@ const FabricCanvasInner = (
           })
           fabricCanvas.add(connectorPreviewLine)
         } else {
-          connectorPreviewLine.set('points', [from, { x: sp.x, y: sp.y }])
+          connectorPreviewLine.set('points', [from, { x: tip.x, y: tip.y }])
           connectorPreviewLine.setCoords()
         }
         fabricCanvas.requestRenderAll()
@@ -1017,18 +1041,22 @@ const FabricCanvasInner = (
     const handleMouseUp = (opt?: { target?: unknown }) => {
       // Marquee finalization is handled by DOM-level onMarqueeMouseUp listener (skipping here)
       if (connectorDrawState) {
-        const target = opt?.target as FabricObject | undefined
         const sourceId = getObjectId(connectorDrawState.sourceObj)
         if (connectorPreviewLine) {
           fabricCanvas.remove(connectorPreviewLine)
           connectorPreviewLine = null
         }
+        // Prefer snap result; fall back to Fabric's reported target
+        const snapResult = connectorHoverSnap
+        connectorHoverSnap = null
+        const target = snapResult ? snapResult.obj : (opt?.target as FabricObject | undefined)
         if (target && sourceId && getObjectId(target) && target !== connectorDrawState.sourceObj) {
           const targetRoot = (target.group ?? target) as FabricObject
           const targetId = getObjectId(targetRoot)
           if (targetId && targetRoot !== connectorDrawState.sourceObj) {
-            const dropPoint = lastConnectorDrawPoint ?? { x: 0, y: 0 }
-            const targetPort = getNearestPort(targetRoot, dropPoint)
+            const targetPort = snapResult
+              ? snapResult.port
+              : getNearestPort(targetRoot, lastConnectorDrawPoint ?? { x: 0, y: 0 })
             const connector = createConnector(
               fabricCanvas,
               sourceId,
@@ -1037,6 +1065,7 @@ const FabricCanvasInner = (
               targetPort,
             )
             if (connector) {
+              syncConnectorMoveLock(connector)
               fabricCanvas.add(connector)
               fabricCanvas.setActiveObject(connector)
             }
@@ -1394,6 +1423,7 @@ const FabricCanvasInner = (
           connectorPreviewLine = null
         }
         connectorDrawState = null
+        connectorHoverSnap = null
         // Deselect + exit text editing
         fabricCanvas.discardActiveObject()
         fabricCanvas.isDrawingMode = false
@@ -1608,8 +1638,27 @@ const FabricCanvasInner = (
 
     const drawGrid = () => drawCanvasGrid(fabricCanvas)
     const drawArrows = () => drawConnectorArrows(fabricCanvas)
+    const drawHoverPorts = () => {
+      const ctx = fabricCanvas.getContext()
+      const vpt = fabricCanvas.viewportTransform
+      if (!ctx || !vpt) return
+      // Highlight during connector-draw hover
+      if (connectorHoverSnap) {
+        ctx.save()
+        drawConnectorPortHighlight(ctx, connectorHoverSnap.obj, connectorHoverSnap.port, vpt)
+        ctx.restore()
+      }
+      // Highlight during floating-endpoint drag
+      const epSnap = (fabricCanvas as unknown as { _epDragSnap?: { obj: unknown; port: unknown } | null })._epDragSnap
+      if (epSnap?.obj) {
+        ctx.save()
+        drawConnectorPortHighlight(ctx, epSnap.obj as Parameters<typeof drawConnectorPortHighlight>[1], epSnap.port as Parameters<typeof drawConnectorPortHighlight>[2], vpt)
+        ctx.restore()
+      }
+    }
     fabricCanvas.on('before:render', drawGrid)
     fabricCanvas.on('after:render', drawArrows)
+    fabricCanvas.on('after:render', drawHoverPorts)
 
     const handleConnectorDrawStart = (opt: { sourceObj?: FabricObject; port?: ConnectorPort }) => {
       if (opt.sourceObj && opt.port) {
@@ -1679,6 +1728,7 @@ const FabricCanvasInner = (
       cleanupDocSync()
       fabricCanvas.off('before:render', drawGrid)
       fabricCanvas.off('after:render', drawArrows)
+      fabricCanvas.off('after:render', drawHoverPorts)
       fabricCanvas.off('connector:draw:start' as never, handleConnectorDrawStart)
       fabricCanvas.off('object:modified', handleObjectModified)
       fabricCanvas.off('object:added', notifyObjectCount)
