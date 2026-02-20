@@ -1,7 +1,22 @@
 # Active Context
 
 ## Current Focus (for next agent)
-**Escape key released everything (2026-02-19).** Pressing Esc now cancels any in-progress operation (marquee, shape draw, connector draw, free draw) and returns the toolbar to Select. `onToolChange` prop added to `FabricCanvas`; `WorkspacePage` passes `setSelectedTool`.
+**Ungroup bug fully fixed (2026-02-19).** Two-part root cause in Fabric.js v7:
+1. **Position jump** — `canvas.remove(group)` does not call `group.remove(child)`, so `child.group` still pointed to the removed Group. `emitAdd` → `payloadWithSceneCoords` detected `child.group` and applied the group matrix a second time onto already-scene-space coords → wrong DB write → `applyRemote` snapped objects to wrong positions.
+2. **Objects unselectable after deselect** — `child.parent` also still pointed to the removed Group. Fabric v7's `ActiveSelection.exitGroup` calls `object.parent._enterGroup(object, true)` when the initial post-ungroup ActiveSelection is discarded → child was shoved back into the removed Group, coordinates scrambled back to group-relative, `child.group` reset to removed Group → unselectable on next click.
+- **Fix:** Clear both `childRaw.group = undefined` and `childRaw.parent = undefined` before `addTransformToObject` + `canvas.add` in both `ungroupSelected()` and the Cmd+Shift+G keyboard handler. `FabricCanvas.tsx` only.
+
+**Previous:** Zoom-aware creation + font size control (2026-02-19). Three fixes:
+1. **Font size control** — `FontControl` now shows a Size input (8–10 000) alongside font family. `getFontSizeFromObject`/`setFontSizeOnObject` in `fontUtils.ts`; `fontSize` field in `SelectionStrokeInfo`; `setActiveObjectFontSize` on `FabricCanvasZoomHandle`. Visible whenever text or sticky is selected.
+2. **Sticker zoom scaling** — Stickers now use `fontSize: 96` (fixed) + `scaleX/scaleY = 1/zoom` instead of inflating `fontSize`. Emoji font metrics at huge sizes (96 000+) were producing oversized, offset selection boxes. Fixed: bounding box is always computed at `fontSize 96` (reliable), then scaled. `MAX_STICKER_SCALE = 100_000` covers full zoom range down to 0.001%.
+3. **Text/sticky zoom creation** — Already compensated via `BASE_TEXT_FONT_SIZE / zoom` and `minSceneW = 120/zoom`. No code change needed; confirmed working.
+
+**Previous:** Free draw + marquee fully fixed (2026-02-19). Three bugs resolved:
+1. `perPixelTargetFind: true` on free draw paths — click-select now falls through to objects under a path's bounding box.
+2. Marquee `intersectsWithRect` only triggers on edge-crossing (not full containment) — fixed with `|| isContainedWithinRect`.
+3. Free draw path large bounding box hijacking small marquees — paths use `isContainedWithinRect` only.
+
+**Previous:** Escape key released everything (2026-02-19). Pressing Esc now cancels any in-progress operation (marquee, shape draw, connector draw, free draw) and returns the toolbar to Select. `onToolChange` prop added to `FabricCanvas`; `WorkspacePage` passes `setSelectedTool`.
 
 **Previous:** Duplicate + Copy & Paste implemented (2026-02-19). Cmd+D duplicates selected object(s) with +20 offset; connectors are floated. Cmd+C copies selection to in-memory clipboard; Cmd+V pastes at cursor (or viewport center). Toolbar buttons in contextual row.
 
@@ -13,7 +28,7 @@
 3. ~~**Presence icon avatars in workspace header**~~ ✅
 4. ~~**Viewport persistence**~~ ✅
 5. ~~**Frames**~~ ✅ — See Recent Changes below.
-6. **Canvas features** — ~~Free draw~~ ✅, Lasso selection. See docs/PLANNED_CANVAS_FEATURES.md.
+6. **Canvas features** — ~~Free draw~~ ✅, ~~Ungroup bug~~ ✅, ~~Lasso selection~~ ✅. See docs/PLANNED_CANVAS_FEATURES.md.
 7. **Connector Phase 2** — port hover glow, double-click segment for waypoint, right-click context menu (Reset route, Reverse direction), auto-route.
 8. **Frame Phase 2** — "drop into frame" auto-capture works; next: per-frame add-row button, schema-driven form slots.
 
@@ -25,7 +40,14 @@
 
 **MeBoard branding** ✅ — Phase 1 + Phase 2 + Parrot mascot done. Login, nav, footer, index.html, App loading, pirate cursor icons, map border overlay + toggle, Pirate Plunder stickers, Parrot mascot. Spec: docs/MeBoard_BRANDING_SPEC.md.
 
-**Planned canvas features** — See docs/PLANNED_CANVAS_FEATURES.md: Object grouping (Group ✅, Ungroup ⚠️ bug), ~~Free draw~~ ✅, Lasso selection, Multi-scale map vision. **Finished-product:** Connectors ✅, Frames ✅, Duplicate ✅, Copy & Paste ✅, ~~Marquee mode~~ ✅ (Alt+drag).
+**Planned canvas features** — See docs/PLANNED_CANVAS_FEATURES.md: Object grouping (Group ✅, Ungroup ✅), ~~Free draw~~ ✅, ~~Lasso selection~~ ✅, Multi-scale map vision. **Finished-product:** Connectors ✅, Frames ✅, Duplicate ✅, Copy & Paste ✅, ~~Marquee mode~~ ✅ (Alt+drag).
+
+## Recent Changes (2026-02-19 — Lasso Selection)
+
+### Lasso Selection
+- **Tool:** Lasso button in toolbar (next to Hand). Draw freeform path to select objects inside the path.
+- DOM capture (like marquee) so lasso works when starting on objects. mousedown → transient Polyline preview; mousemove → append points; mouseup → Fabric `Intersection.isPointInPolygon` on object centers, set ActiveSelection. Requires 3+ points. Escape cancels.
+- Files: FabricCanvas.tsx (lassoState, onLassoMouseMove/Up, onCaptureMouseDown), tools.ts, WorkspaceToolbar.tsx.
 
 ## Recent Changes (2026-02-19 — Duplicate, Copy & Paste)
 

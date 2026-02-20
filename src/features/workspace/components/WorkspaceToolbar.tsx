@@ -33,6 +33,7 @@ interface WorkspaceToolbarProps {
 const TOOLS: { id: ToolType; label: string }[] = [
   { id: 'select', label: 'Select' },
   { id: 'hand', label: 'Hand' },
+  { id: 'lasso', label: 'Lasso' },
   { id: 'rect', label: 'Rectangle' },
   { id: 'circle', label: 'Circle' },
   { id: 'triangle', label: 'Triangle' },
@@ -79,6 +80,12 @@ const ToolIcons: Record<ToolType, React.ReactNode> = {
   hand: (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8" />
+    </svg>
+  ),
+  lasso: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 4c-2 0-4 1.5-5 3.5s0 4.5 1 6c1.5 2.5 4 4 7 4s5.5-1.5 7-4c1.5-2.5 1.5-5 0.5-6.5S16 6 14 6" />
+      <path d="M7 10c-1.5 0-3 .5-4 2s-.5 3 0 4c1 1.5 3 2.5 5 2.5" />
     </svg>
   ),
   rect: (
@@ -242,6 +249,14 @@ export function WorkspaceToolbar({
               title="Hand"
             >
               {ToolIcons.hand}
+            </button>
+            <button
+              type="button"
+              onClick={() => onToolChange('lasso')}
+              style={{ ...styles.toolBtn, ...(selectedTool === 'lasso' ? styles.toolBtnActive : {}) }}
+              title="Lasso — draw freeform selection"
+            >
+              {ToolIcons.lasso}
             </button>
           </div>
           <div style={styles.divider} />

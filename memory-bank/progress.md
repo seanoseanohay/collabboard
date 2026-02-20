@@ -67,7 +67,7 @@
   - ✅ **AI pirate jokes** — `pirate-jokes` Edge Function (OpenAI gpt-4o-mini, temperature 0.95, 5 jokes/call, no auth required). `usePirateJokes` hook: checks `localStorage` for `meboard:jokes:YYYY-MM-DD` cache first; fetches Edge Function on miss; falls back to 8 hardcoded jokes on error; exposes stable `pickJoke()`. First-time welcome message (onboarding) shown when no boards + `meboard:welcomed:${userId}` key absent; key set on show so subsequent visits get jokes.
   - **Remaining branding items** — hero illustration, Google hover state, captain cursor icon. Done: WelcomeToast, NavBar/Footer on BoardListPage, EmptyCanvasX easter egg.
   - **Features/Pricing pages** — TODO very much later. Placeholder routes for marketing; deferred.
-- **Planned canvas features** — docs/PLANNED_CANVAS_FEATURES.md: Object grouping, Free draw, Lasso selection, Multi-scale map vision. **Finished-product:** Connectors (Miro-style, required) ✅, Frames ✅, Duplicate ✅, Copy & Paste ✅, Marquee mode (box-select when starting on large objects). See doc for implementation notes and effort estimates.
+- **Planned canvas features** — docs/PLANNED_CANVAS_FEATURES.md: Object grouping, Free draw, ~~Lasso selection~~ ✅, Multi-scale map vision. **Finished-product:** Connectors (Miro-style, required) ✅, Frames ✅, Duplicate ✅, Copy & Paste ✅, Marquee mode (box-select when starting on large objects). See doc for implementation notes and effort estimates.
 - ~~Rotation (Task G)~~ ✅ — object:rotating hooked to emitModifyThrottled in boardSync.ts; rotation syncs live
 - ~~**Per-object stroke width (border thickness)**~~ ✅ — StrokeControl in toolbar when selection has stroke (1/2/4/8px); strokeUtils + FabricCanvas ref; sync via existing object:modified.
 - ~~Touch handling~~ ✅ — Two-finger pan + pinch zoom via native touch events on canvas element; touch-action:none on container; single-touch via Fabric pointer-event mapping.
@@ -82,6 +82,7 @@
 - ~~**Duplicate**~~ ✅ — Cmd+D or toolbar button. Fabric clone(); new UUIDs; +20,+20 offset; connectors floated via `floatConnectorBothEndpoints`. History compound add. 2026-02-19.
 - ~~**Copy & Paste**~~ ✅ — Cmd+C / Cmd+V. In-memory clipboard (clipboardStore.ts); serialize via toObject(['data','objects']); paste at cursor or viewport center; enlivenObjects revive; connectors floated. History compound add. 2026-02-19.
 - ~~**Marquee mode**~~ ✅ — Alt+drag (Select tool) draws selection box even when starting on large objects. FabricCanvas.tsx.
+- ~~**Lasso selection**~~ ✅ — Lasso tool in toolbar. Draw freeform path; objects whose center is inside path are selected. Fabric `Intersection.isPointInPolygon`. DOM capture like marquee. 2026-02-19.
 
 ### Planned (sync + UX polish)
 - ~~**Multi-selection move sync v2**~~ ✅ — Fixed. During drag: broadcast selection-move delta (objectIds + dx, dy) on Realtime channel; other clients apply delta. On drop: write absolute positions to documents. Origin-vs-center bug resolved (see Recently Fixed).
@@ -89,14 +90,14 @@
 - ~~**Boards page cleanup**~~ ✅ — Done. Then redesigned as **grid of cards** (not list): ordered by last_accessed_at; user_boards.last_accessed_at migration (20260218100000); joinBoard upserts it; formatLastAccessed "Opened X ago". Grid: gridAutoRows 130, columnGap 16, rowGap 20. Alignment fixes. Kebab menu: copy link, rename, delete.
 
 ## Current Status
-**Phase:** MVP + post-MVP complete. Frames ✅ (2026-02-19). Duplicate, Copy & Paste ✅ (2026-02-19). Board list page fully featured. Viewport persistence + branding polish done.
-**Next:** Lasso selection, Connector Phase 2, Frame Phase 2 (form slots), remaining branding (hero illustration). **Recently added (2026-02-19):** Marquee mode (Alt/Cmd/Ctrl+drag), Free draw tool (fixed PencilBrush init + DOM-level marquee events).
+**Phase:** MVP + post-MVP complete. Frames ✅. Duplicate, Copy & Paste ✅. Lasso selection ✅ (2026-02-19). Board list page fully featured. Viewport persistence + branding polish done. Font size control + sticker zoom scaling ✅. Ungroup bug ✅ (2026-02-19).
+**Next:** Connector Phase 2, Frame Phase 2 (form slots), remaining branding (hero illustration).
 
 ## ~~🔴 Blocking Issue: AI Agent OpenAI Key Permissions~~ ✅ RESOLVED
 OpenAI key permissions confirmed fixed. AI agent and parrot joke generation (usePirateJokes) are now unblocked.
 
 ## Known Issues
-- **Ungroup bug (being fixed)** — When ungrouping a container group, ungrouped objects (1) move from their correct position and (2) become unselectable. Root cause under investigation (Fabric.js group→canvas coordinate conversion, and/or selectable/evented state not persisting after ungroup). Partial mitigations tried: `calcTransformMatrix()` instead of `calcOwnMatrix()`, explicit `child.set({ selectable: true, evented: true })` before adding to canvas; issue persists. See docs/PLANNED_CANVAS_FEATURES.md §1.
+- ~~**Ungroup bug**~~ ✅ FIXED — Root cause: Fabric.js v7 tracks `parent` (permanent group ref) and `group` (transient ActiveSelection ref) separately. `canvas.remove(group)` leaves both set on children. (1) `child.group` caused `payloadWithSceneCoords` to double-apply the group transform → wrong DB position → `applyRemote` snap. (2) `child.parent` caused `ActiveSelection.exitGroup` to call `parent._enterGroup(child)` on deselect → child re-entered removed group → scrambled coords + unselectable. Fix: clear both `childRaw.group = undefined` and `childRaw.parent = undefined` before processing children in `ungroupSelected()` and Cmd+Shift+G handler. `FabricCanvas.tsx`.
 - ~~**Box-select over large objects**~~ ✅ FIXED — Marquee mode: Alt+drag draws selection box even when starting on large objects.
 - ~~**Zoom slider misaligned at max**~~ ✅ FIXED — `ZOOM_SLIDER_MAX` was `100` (10000%) but `MAX_ZOOM` is `10` (1000%). Slider was only ~86% right at max zoom. Fixed: `ZOOM_SLIDER_MAX = 10` in WorkspaceToolbar.tsx to match `MAX_ZOOM` in fabricCanvasZoom.ts.
 - ~~**Multi-selection move drift**~~ ✅ FIXED — See Recently Fixed below.
@@ -120,8 +121,17 @@ OpenAI key permissions confirmed fixed. AI agent and parrot joke generation (use
 ### Drawing Tool Fix
 - ✅ **Universal handle detection** — All drawing tools (sticker, text, sticky, shapes) use same rule: `_currentTransform?.corner` set → resize/rotate; otherwise → create new object. Previously `if (target) return` blocked drawing on top of existing objects entirely.
 
-## Recently Added (2026-02-19 — Escape key + tool UX)
+## Recently Added (2026-02-19 — Font size control + sticker zoom fix)
+- ✅ **Font size control** — `FontControl` now includes a Size number input (8–10 000) alongside the font family dropdown. `fontUtils.ts`: `getFontSizeFromObject`, `setFontSizeOnObject`. `SelectionStrokeInfo`: `fontSize: number | null`. `FabricCanvasZoomHandle`: `setActiveObjectFontSize`. Input syncs when selection changes; clamps on blur; Enter applies.
+- ✅ **Sticker zoom-scaling fix** — Stickers switched from `fontSize = 96/zoom` to `fontSize: 96` + `scaleX/scaleY = 1/zoom`. Emoji font metrics at huge fontSize values (96 000+) produced oversized, offset selection boxes (emoji visually much smaller than its nominal fontSize). Fixed: bounding-box is always measured at `fontSize 96` (reliable), then uniform scale makes it appear ~96 px on screen at any zoom. `MAX_STICKER_SCALE = 100_000` covers the full range down to 0.001% zoom.
+
+## Recently Added (2026-02-19 — Lasso selection)
+- ✅ **Lasso selection** — New Lasso tool in toolbar (next to Hand). Draw freeform path; on mouseup, objects whose center falls inside the path are selected via Fabric `Intersection.isPointInPolygon`. DOM capture so lasso works when starting on objects. Transient Polyline preview during drag. Requires 3+ points. Escape cancels in-progress lasso. FabricCanvas.tsx, tools.ts, WorkspaceToolbar.tsx.
+
+## Recently Added (2026-02-19 — Escape key + tool UX + free draw + marquee fixes)
 - ✅ **Escape key releases everything** — `handleKeyDown` now handles `Escape`: cancels active marquee drag (removes rect, removes DOM listeners), cancels in-progress shape/frame draw (removes preview object), cancels connector draw (removes preview line), calls `fabricCanvas.discardActiveObject()`, sets `isDrawingMode = false`, and calls `onToolChangeRef.current?.('select')` to return the toolbar to Select. New `onToolChange` prop on `FabricCanvas`; `WorkspacePage` passes `setSelectedTool`.
+- ✅ **Free draw path hit detection** — Free draw paths now have `perPixelTargetFind: true` set in `handleObjectAdded`. Previously, clicking anywhere inside the path's bounding box selected the path (blocking objects underneath). Now only clicking on the actual stroke pixels selects the path, so objects under the path are click-selectable normally.
+- ✅ **Marquee selection fully fixed** — Two separate bugs: (1) `intersectsWithRect` in Fabric v7 uses polygon edge-crossing logic — returns `false` when an object is **fully contained** inside the marquee (no edges cross). Fixed by checking `intersectsWithRect(tl, br) || isContainedWithinRect(tl, br)`. (2) Free draw paths with large bounding boxes were hijacking small marquees; fixed by using `isContainedWithinRect` only for `path` objects so the path must be fully inside the marquee to be included.
 
 ## Recently Added (2026-02-19)
 - ✅ **Presence icon avatars** — Header presence replaced: circular emoji icon buttons (up to 4, "+N" overflow), hover tooltip, click jumps to that user's cursor via `panToScene`. `getPirateIcon` exported. `panToScene` added to `FabricCanvasZoomHandle`.

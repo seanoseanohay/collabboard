@@ -1,6 +1,6 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { Z_INDEX } from '@/shared/constants/zIndex'
-import { Canvas, Group, ActiveSelection, Point, Polyline, Rect, util, PencilBrush, type FabricObject } from 'fabric'
+import { Canvas, Group, ActiveSelection, Intersection, Point, Polyline, Rect, util, PencilBrush, type FabricObject } from 'fabric'
 import { createHistoryManager, type HistoryManager } from '../lib/historyManager'
 
 /** IText has enterEditing; FabricText does not. Check by method presence. */
@@ -443,6 +443,25 @@ const FabricCanvasInner = (
       const addActions: Array<{ type: 'add'; objectId: string; snapshot: Record<string, unknown> }> = []
       const restoredObjects: FabricObject[] = []
       children.forEach((child) => {
+        // Clear BOTH group and parent references before adding children back to canvas.
+        //
+        // canvas.remove(group) does not call group.remove(child) for each child, so both
+        // child.group and child.parent still point to the removed Group.
+        //
+        // child.group being set causes:
+        //   1. emitAdd → payloadWithSceneCoords applies the group matrix a second time onto
+        //      already-scene-space coords → wrong DB write → applyRemote snaps to wrong position.
+        //   2. handleSelectionCreated calls setActiveObject(child.group) → removed group → no selection.
+        //
+        // child.parent being set causes:
+        //   When the initial ActiveSelection (created below) is later discarded, Fabric v7's
+        //   ActiveSelection.exitGroup calls object.parent._enterGroup(object) — which shoves the
+        //   child back into the removed Group, scrambles its transform back to group-relative space,
+        //   and resets child.group to the removed Group. Objects then have wrong position and are
+        //   unselectable on the next click.
+        const childRaw = child as unknown as Record<string, unknown>
+        childRaw.group = undefined
+        childRaw.parent = undefined
         // Apply the group's world transform so left/top become scene coordinates
         util.addTransformToObject(child, groupMatrix)
         child.set({ selectable: true, evented: true })
@@ -655,6 +674,7 @@ const FabricCanvasInner = (
     let connectorPreviewLine: Polyline | null = null
     let lastConnectorDrawPoint: { x: number; y: number } | null = null
     let marqueeState: { start: { x: number; y: number }; rect: Rect } | null = null
+    let lassoState: { points: { x: number; y: number }[]; preview: Polyline } | null = null
 
     const getScenePoint = (opt: {
       scenePoint?: { x: number; y: number }
@@ -728,7 +748,12 @@ const FabricCanvasInner = (
       const objects = fabricCanvas.getObjects().filter((o) => {
         const id = getObjectId(o)
         if (!id) return false
-        return o.intersectsWithRect(tl, br)
+        // Free-draw paths have large bounding boxes; only include when fully
+        // contained so they don't hijack small selections.
+        if (o.type === 'path') return o.isContainedWithinRect(tl, br)
+        // intersectsWithRect only returns true for edge-crossing (partial overlap),
+        // NOT when an object is fully contained inside the rect. Check both.
+        return o.intersectsWithRect(tl, br) || o.isContainedWithinRect(tl, br)
       })
       if (objects.length > 0) {
         const sel = new ActiveSelection(objects, { canvas: fabricCanvas })
@@ -738,33 +763,96 @@ const FabricCanvasInner = (
       fabricCanvas.requestRenderAll()
     }
 
-    const onCaptureMouseDown = (ev: MouseEvent) => {
-      if (toolRef.current !== 'select' || ev.button !== 0) return
-      const mod = ev.altKey || ev.metaKey || ev.ctrlKey
-      if (!mod) return
-      ev.preventDefault()
-      ev.stopImmediatePropagation()
+    const onLassoMouseMove = (ev: MouseEvent) => {
+      if (!lassoState) return
       const sp = fabricCanvas.getScenePoint(ev)
-      fabricCanvas.discardActiveObject()
-      const rect = new Rect({
-        left: sp.x,
-        top: sp.y,
-        width: 0,
-        height: 0,
-        originX: 'left',
-        originY: 'top',
-        fill: 'rgba(59, 130, 246, 0.1)',
-        stroke: '#2563eb',
-        strokeWidth: 1,
-        selectable: false,
-        evented: false,
-      })
-      rect.set('data', {})
-      fabricCanvas.add(rect)
-      marqueeState = { start: sp, rect }
-      // Use DOM-level listeners so we get move/up even if Fabric didn't process the mousedown
-      document.addEventListener('mousemove', onMarqueeMouseMove)
-      document.addEventListener('mouseup', onMarqueeMouseUp)
+      lassoState.points.push(sp)
+      const pts = lassoState.points.map((p) => ({ x: p.x, y: p.y }))
+      if (pts.length >= 2) {
+        const poly = lassoState.preview as { points: { x: number; y: number }[]; setBoundingBox: (v?: boolean) => void }
+        poly.points = pts
+        poly.setBoundingBox(true)
+      }
+      fabricCanvas.requestRenderAll()
+    }
+
+    const onLassoMouseUp = () => {
+      if (!lassoState) return
+      const { points, preview } = lassoState
+      fabricCanvas.remove(preview)
+      lassoState = null
+      document.removeEventListener('mousemove', onLassoMouseMove)
+      document.removeEventListener('mouseup', onLassoMouseUp)
+      if (points.length >= 3) {
+        const polygonPoints = points.map((p) => new Point(p.x, p.y))
+        const objects = fabricCanvas.getObjects().filter((o) => {
+          const id = getObjectId(o)
+          if (!id) return false
+          const coords = o.getCoords()
+          const cx = (coords[0].x + coords[1].x + coords[2].x + coords[3].x) / 4
+          const cy = (coords[0].y + coords[1].y + coords[2].y + coords[3].y) / 4
+          const center = new Point(cx, cy)
+          return Intersection.isPointInPolygon(center, polygonPoints)
+        })
+        if (objects.length > 0) {
+          const sel = new ActiveSelection(objects, { canvas: fabricCanvas })
+          fabricCanvas.setActiveObject(sel)
+          sel.setCoords()
+        }
+      }
+      fabricCanvas.requestRenderAll()
+    }
+
+    const onCaptureMouseDown = (ev: MouseEvent) => {
+      if (ev.button !== 0) return
+      const tool = toolRef.current
+
+      if (tool === 'select') {
+        const mod = ev.altKey || ev.metaKey || ev.ctrlKey
+        if (!mod) return
+        ev.preventDefault()
+        ev.stopImmediatePropagation()
+        const sp = fabricCanvas.getScenePoint(ev)
+        fabricCanvas.discardActiveObject()
+        const rect = new Rect({
+          left: sp.x,
+          top: sp.y,
+          width: 0,
+          height: 0,
+          originX: 'left',
+          originY: 'top',
+          fill: 'rgba(59, 130, 246, 0.1)',
+          stroke: '#2563eb',
+          strokeWidth: 1,
+          selectable: false,
+          evented: false,
+        })
+        rect.set('data', {})
+        fabricCanvas.add(rect)
+        marqueeState = { start: sp, rect }
+        document.addEventListener('mousemove', onMarqueeMouseMove)
+        document.addEventListener('mouseup', onMarqueeMouseUp)
+        return
+      }
+
+      if (tool === 'lasso') {
+        ev.preventDefault()
+        ev.stopImmediatePropagation()
+        const sp = fabricCanvas.getScenePoint(ev)
+        fabricCanvas.discardActiveObject()
+        const preview = new Polyline([sp, sp], {
+          fill: 'rgba(59, 130, 246, 0.1)',
+          stroke: '#2563eb',
+          strokeWidth: 1,
+          selectable: false,
+          evented: false,
+        })
+        preview.set('data', {})
+        fabricCanvas.add(preview)
+        lassoState = { points: [sp], preview }
+        document.addEventListener('mousemove', onLassoMouseMove)
+        document.addEventListener('mouseup', onLassoMouseUp)
+      }
     }
     upperEl.addEventListener('mousedown', onCaptureMouseDown, { capture: true })
 
@@ -1247,6 +1335,9 @@ const FabricCanvasInner = (
             const addActions: Array<{ type: 'add'; objectId: string; snapshot: Record<string, unknown> }> = []
             const restoredObjects: FabricObject[] = []
             children.forEach((child) => {
+              const childRaw = child as unknown as Record<string, unknown>
+              childRaw.group = undefined
+              childRaw.parent = undefined
               util.addTransformToObject(child, groupMatrix)
               child.set({ selectable: true, evented: true })
               child.set('data', { id: crypto.randomUUID() })
@@ -1283,6 +1374,13 @@ const FabricCanvasInner = (
           marqueeState = null
           document.removeEventListener('mousemove', onMarqueeMouseMove)
           document.removeEventListener('mouseup', onMarqueeMouseUp)
+        }
+        // Cancel lasso drag
+        if (lassoState) {
+          fabricCanvas.remove(lassoState.preview)
+          lassoState = null
+          document.removeEventListener('mousemove', onLassoMouseMove)
+          document.removeEventListener('mouseup', onLassoMouseUp)
         }
         // Cancel shape/frame draw in progress
         if (isDrawing && previewObj) {
@@ -1573,6 +1671,8 @@ const FabricCanvasInner = (
       upperEl.removeEventListener('mousedown', onCaptureMouseDown, { capture: true })
       document.removeEventListener('mousemove', onMarqueeMouseMove)
       document.removeEventListener('mouseup', onMarqueeMouseUp)
+      document.removeEventListener('mousemove', onLassoMouseMove)
+      document.removeEventListener('mouseup', onLassoMouseUp)
       zoomApiRef.current = null
       historyRef.current = null
       history.clear()
@@ -1658,7 +1758,7 @@ const FabricCanvasInner = (
         className={className}
         style={{
           ...styles.container,
-          cursor: selectedTool === 'hand' ? 'grab' : selectedTool === 'draw' ? 'crosshair' : undefined,
+          cursor: selectedTool === 'hand' ? 'grab' : selectedTool === 'draw' || selectedTool === 'lasso' ? 'crosshair' : undefined,
         }}
       />
       {connectorDropMenuState && (

@@ -1,7 +1,9 @@
 /**
  * Pirate Plunder sticker factory.
- * Uses emoji IText for crisp, native rendering — no image assets required.
- * Stickers are 96×96 scene units, centered at click point.
+ * Uses emoji Text for crisp, native rendering — no image assets required.
+ * Size is controlled via scaleX/scaleY (not fontSize) so Fabric always measures
+ * bounding-box metrics at a fixed fontSize 96, avoiding the inflated/misaligned
+ * bounds that occur when emoji are rendered at huge font sizes (e.g. 96 000+).
  */
 
 import { Text, type FabricObject } from 'fabric'
@@ -36,10 +38,11 @@ export const STICKER_DEFS: Record<StickerKind, StickerDef> = {
 
 export const STICKER_KINDS = Object.keys(STICKER_DEFS) as StickerKind[]
 
-const STICKER_SIZE = 96
-
-/** Max scene fontSize to avoid huge objects at extreme zoom-out */
-const MAX_STICKER_SCENE_SIZE = 2000
+/** Base font size — always fixed so Fabric measures metrics at a consistent size. */
+const STICKER_FONT_SIZE = 96
+/** Maximum scale factor — covers full zoom range down to 0.001% (zoom=0.00001).
+ * At 0.001%: 1/0.00001 = 100 000. */
+const MAX_STICKER_SCALE = 100_000
 
 export function createSticker(
   kind: StickerKind,
@@ -53,14 +56,18 @@ export function createSticker(
   const assignId = options?.assignId !== false
   const id = assignId ? crypto.randomUUID() : ''
   const zoom = options?.zoom ?? 1
-  const effectiveSize = Math.min(MAX_STICKER_SCENE_SIZE, STICKER_SIZE / zoom)
+  // Scale instead of fontSize so Fabric's bounding-box measurements stay
+  // based on fontSize 96 (reliable) rather than huge values (broken metrics).
+  const scale = Math.min(MAX_STICKER_SCALE, 1 / zoom)
 
   const text = new Text(def.icon, {
     originX: 'center',
     originY: 'center',
     left: centerX,
     top: centerY,
-    fontSize: effectiveSize,
+    fontSize: STICKER_FONT_SIZE,
+    scaleX: scale,
+    scaleY: scale,
     fontFamily: 'Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif',
     selectable: true,
     evented: true,

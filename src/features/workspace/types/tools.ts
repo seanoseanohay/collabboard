@@ -5,6 +5,7 @@
 export type ToolType =
   | 'select'
   | 'hand'
+  | 'lasso'
   | 'rect'
   | 'circle'
   | 'triangle'

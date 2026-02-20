@@ -21,7 +21,7 @@ On reload or navigating back to a board, the user should return to the same zoom
 
 ## 1. Object Grouping (Containing Objects) & Organize Content Areas
 
-**Status:** Implemented with known bug. Group works correctly. Ungroup partially broken.
+**Status:** Fully implemented. Group ✅. Ungroup ✅ (bug fixed 2026-02-19).
 
 ### Goal
 Select multiple objects and group them into a persistent unit. Moving one object moves all. Like Figma/tldraw grouping. Supports organizing content areas on the board.
@@ -32,17 +32,16 @@ Select multiple objects and group them into a persistent unit. Moving one object
 - **Sync:** Group = 1 document row (serialized with `toObject(['data','objects'])`); children embedded, not separate rows ✅
 - **Locking:** Lock the group, not individual children ✅
 
-### Known Bug: Ungroup
-When ungrouping a container group:
-1. **Objects move** — Children end up in wrong positions (coordinate conversion from group-relative to scene-space incorrect or overwritten).
-2. **Objects become unselectable** — After adding back to canvas, children remain `selectable: false`, `evented: false` (inherited from group-child state) despite explicit `child.set({ selectable: true, evented: true })` before `canvas.add()`.
+### Fix (2026-02-19)
+Root cause was Fabric.js v7's dual reference system:
+- `parent` — permanent group membership (only cleared by `group.remove(child)`)
+- `group` — transient ActiveSelection membership
 
-**Mitigations tried:**
-- `calcTransformMatrix()` instead of `calcOwnMatrix()` for group→canvas coordinate conversion
-- Explicit `child.set({ selectable: true, evented: true })` before adding each child to canvas
-- Issue persists; root cause under investigation (Fabric.js v6 Group internals, `applyLockStateCallback` timing, or postgres_changes echo overwriting state).
+`canvas.remove(group)` leaves both set. Two bugs resulted:
+1. **Position jump** — `child.group` set → `payloadWithSceneCoords` in boardSync applied the group transform a second time → wrong DB write → `applyRemote` snapped objects to wrong positions.
+2. **Unselectable after deselect** — `child.parent` set → Fabric v7's `ActiveSelection.exitGroup` calls `object.parent._enterGroup(object)` on deselect → child re-entered the removed Group, coordinates scrambled back to group-relative, objects unselectable.
 
-**Code locations:** `FabricCanvas.tsx` — `ungroupSelected()`, Cmd+Shift+G keyboard handler.
+**Fix:** Clear `childRaw.group = undefined` and `childRaw.parent = undefined` before `addTransformToObject` + `canvas.add` in `ungroupSelected()` and the Cmd+Shift+G keyboard handler in `FabricCanvas.tsx`.
 
 ### Implementation Notes
 - Fabric.js manual `new Group(selectedObjects)` (not `toGroup()` — need control over ID/subtype and event sequencing)
@@ -72,21 +71,17 @@ tldraw-style freehand drawing — not straight lines, but pen/pencil strokes.
 
 ---
 
-## 3. Lasso Selection (Optional)
+## 3. Lasso Selection — ✅ IMPLEMENTED (2026-02-19)
 
 ### Goal
 Draw a freeform path to select objects inside/intersecting the path. Alternative to box-select for irregular selections.
 
-### Behavior
-- Add "Lasso" tool
-- Pointer down → draw path as user moves
-- Pointer up → find objects inside path (point-in-polygon) → set as active selection
-- Works with Group button: lasso → Group
-
-### Implementation Notes
-- Fabric does NOT have built-in lasso; custom implementation required
-- Draw Path during drag; on mouseup: hit-test objects, `setActiveObject(new ActiveSelection(selected))`
-- Effort: ~3–6 hours with AI assist
+### Implementation (2026-02-19)
+- **Tool:** "Lasso" in toolbar (next to Hand)
+- **Canvas:** mousedown with lasso tool → discard selection, add transient Polyline preview; mousemove → append points to path; mouseup → remove preview, run point-in-polygon via Fabric `Intersection.isPointInPolygon`, set ActiveSelection. DOM capture (like marquee) so lasso works when starting on objects.
+- **Point-in-polygon:** Object center (bbox centroid from `getCoords()`) tested against closed polygon. Requires 3+ points for selection.
+- **Escape:** Cancels in-progress lasso (removes preview, clears listeners)
+- **Files:** FabricCanvas.tsx (lassoState, onLassoMouseMove/Up, onCaptureMouseDown), tools.ts, WorkspaceToolbar.tsx
 
 ---
 
