@@ -753,7 +753,7 @@ export function setupDocumentSync(
   const checkAndUpdateFrameMembership = (obj: FabricObject) => {
     if (isApplyingRemote) return
     const objId = getObjectId(obj)
-    if (!objId || isFrame(obj) || isDataTable(obj)) return
+    if (!objId || isFrame(obj)) return
 
     const allFrames = canvas.getObjects().filter((o) => isFrame(o))
     const targetFrame = allFrames.find((f) => isObjectInsideFrame(obj, f)) ?? null
@@ -934,7 +934,7 @@ export function setupDocumentSync(
         toSync.forEach((o) => emitModify(o))
       }
       if (!isApplyingRemote) {
-        toSync.filter((o) => !isFrame(o) && !isDataTable(o)).forEach((o) => checkAndUpdateFrameMembership(o))
+        toSync.filter((o) => !isFrame(o)).forEach((o) => checkAndUpdateFrameMembership(o))
       }
     }
   })
