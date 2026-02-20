@@ -798,15 +798,15 @@ const FabricCanvasInner = (
 
     const { applyZoom, zoomToFit, handleWheel } = createZoomHandlers(fabricCanvas, width, height, notifyViewport)
 
-    // Restore saved viewport for this board
+    // Restore saved viewport for this board, then always notify so overlays have a transform from the start
     if (boardId) {
       const saved = loadViewport(boardId)
       if (saved && saved.length === 6) {
         fabricCanvas.viewportTransform = [saved[0], saved[1], saved[2], saved[3], saved[4], saved[5]]
         fabricCanvas.requestRenderAll()
-        notifyViewport()
       }
     }
+    notifyViewport()
 
     const notifyObjectCount = () => {
       onObjectCountChangeRef.current?.(fabricCanvas.getObjects().length)

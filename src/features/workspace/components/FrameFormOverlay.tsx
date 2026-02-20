@@ -7,6 +7,9 @@ import { useState, useRef, useCallback } from 'react'
 import { FRAME_HEADER_HEIGHT } from '../lib/frameFactory'
 import type { FormFrameSceneInfo, FormSchema, FormColumn, FormRow, FormFieldType } from '../lib/frameFormTypes'
 
+/** Sits above the canvas (zIndex=1) but below cursor readout (10). */
+const FORM_Z_INDEX = 5
+
 const FIELD_TYPE_LABELS: Record<FormFieldType, string> = {
   text: 'Text',
   number: 'Number',
@@ -58,11 +61,11 @@ export function FrameFormOverlay({ frames, viewportTransform, onSchemaChange }: 
     [onSchemaChange]
   )
 
-  if (!viewportTransform) return null
-
-  const zoom = viewportTransform[0] ?? 1
-  const panX = viewportTransform[4] ?? 0
-  const panY = viewportTransform[5] ?? 0
+  // Fall back to identity transform if viewport hasn't been reported yet
+  const vpt = viewportTransform ?? [1, 0, 0, 1, 0, 0]
+  const zoom = vpt[0] ?? 1
+  const panX = vpt[4] ?? 0
+  const panY = vpt[5] ?? 0
 
   return (
     <>
@@ -273,7 +276,7 @@ function FrameFormPanel({
 
   if (columns.length === 0) {
     return (
-      <div key={frameId} style={overlayStyle} onMouseDown={(e) => e.stopPropagation()}>
+      <div key={frameId} style={{ ...overlayStyle, zIndex: FORM_Z_INDEX }} onMouseDown={(e) => e.stopPropagation()}>
         <div style={emptyStyle}>
           <span style={{ fontSize: 24 }}>📋</span>
           <span>No columns yet</span>
@@ -312,7 +315,7 @@ function FrameFormPanel({
   }
 
   return (
-    <div style={overlayStyle} onMouseDown={(e) => e.stopPropagation()}>
+    <div style={{ ...overlayStyle, zIndex: FORM_Z_INDEX }} onMouseDown={(e) => e.stopPropagation()}>
       <div style={scrollAreaStyle}>
         <table style={{ borderCollapse: 'collapse', width: '100%', tableLayout: 'fixed' }}>
           <thead>
