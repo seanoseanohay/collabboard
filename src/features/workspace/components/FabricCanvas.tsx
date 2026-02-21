@@ -1,6 +1,6 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { Z_INDEX } from '@/shared/constants/zIndex'
-import { Canvas, Group, ActiveSelection, Intersection, Point, Polygon, Polyline, Rect, util, PencilBrush, CircleBrush, SprayBrush, PatternBrush, type FabricObject } from 'fabric'
+import { Canvas, Ellipse, Group, ActiveSelection, Intersection, IText, Point, Polygon, Polyline, Rect, util, PencilBrush, CircleBrush, SprayBrush, PatternBrush, type FabricObject } from 'fabric'
 import { createHistoryManager, type HistoryManager } from '../lib/historyManager'
 
 /** Shared with MiniMapNavigator.MINI_MAP_PADDING; keep in sync. */
@@ -77,6 +77,7 @@ import { normalizeScaleFlips } from '../lib/fabricCanvasScaleFlips'
 import { loadViewport } from '../lib/viewportPersistence'
 import { isVisibleAtZoom, SCALE_BANDS, ALL_SCALES_ID } from '../lib/scaleBands'
 import { getClipboard, setClipboard, hasClipboard } from '../lib/clipboardStore'
+import type { GeneratedMap } from '../lib/expeditionMapGenerator'
 
 export interface SelectionStrokeInfo {
   strokeWidth: number
@@ -153,6 +154,7 @@ export interface FabricCanvasZoomHandle {
   createZoomSpiral: (options?: { count?: number }) => void
   setActiveObjectScaleBand: (bandId: string) => void
   getActiveObjectData: () => Record<string, unknown> | null
+  populateExpeditionMap: (map: GeneratedMap) => void
 }
 
 interface ConnectorDropState {
@@ -902,6 +904,80 @@ const FabricCanvasInner = (
       const active = canvasRef.current?.getActiveObject()
       if (!active) return null
       return (active.get('data') as Record<string, unknown>) ?? null
+    },
+    populateExpeditionMap: (map: GeneratedMap) => {
+      const canvas = canvasRef.current
+      if (!canvas) return
+
+      const baseZ = Date.now()
+      for (let i = 0; i < map.objects.length; i++) {
+        const spec = map.objects[i]
+        let obj: FabricObject | null = null
+
+        if (spec.type === 'ellipse') {
+          obj = new Ellipse({
+            left: spec.left,
+            top: spec.top,
+            rx: spec.width / 2,
+            ry: spec.height / 2,
+            fill: spec.fill ?? '#e5e7eb',
+            stroke: spec.stroke ?? '#374151',
+            strokeWidth: spec.strokeWidth ?? 1,
+            originX: 'left',
+            originY: 'top',
+          })
+        } else if (spec.type === 'rect') {
+          obj = new Rect({
+            left: spec.left,
+            top: spec.top,
+            width: spec.width,
+            height: spec.height,
+            fill: spec.fill ?? '#e5e7eb',
+            stroke: spec.stroke ?? '#374151',
+            strokeWidth: spec.strokeWidth ?? 1,
+            originX: 'left',
+            originY: 'top',
+          })
+        } else if (spec.type === 'text') {
+          obj = new IText(spec.text ?? '', {
+            left: spec.left,
+            top: spec.top,
+            fontSize: spec.fontSize ?? 14,
+            fill: spec.fill ?? '#374151',
+            editable: false,
+            originX: 'left',
+            originY: 'top',
+          })
+        }
+
+        if (!obj) continue
+
+        setObjectId(obj, crypto.randomUUID())
+        setObjectZIndex(obj, baseZ + i)
+
+        const lodData: Record<string, unknown> = {}
+        if (spec.minZoom != null) lodData.minZoom = spec.minZoom
+        if (spec.maxZoom != null && isFinite(spec.maxZoom)) lodData.maxZoom = spec.maxZoom
+        if (Object.keys(lodData).length > 0) obj.set('data', { ...(obj.get('data') as Record<string, unknown> ?? {}), ...lodData })
+
+        canvas.add(obj)
+      }
+
+      canvas.requestRenderAll()
+
+      // Set initial viewport to show the full map at initialZoom
+      const zoom = map.initialZoom
+      const cx = map.viewportCenter.x
+      const cy = map.viewportCenter.y
+      const w = canvas.width ?? 800
+      const h = canvas.height ?? 600
+      const vpt = canvas.viewportTransform!
+      vpt[0] = zoom
+      vpt[3] = zoom
+      vpt[4] = w / 2 - cx * zoom
+      vpt[5] = h / 2 - cy * zoom
+      canvas.requestRenderAll()
+      onViewportChangeRef.current?.(canvas.viewportTransform!)
     },
     }
     fabricImperativeRef.current = api

@@ -1,4 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
+import { EXPEDITION_THEMES } from '../lib/expeditionThemes'
+import { generateExpeditionMap } from '../lib/expeditionMapGenerator'
 import { useIsMobile } from '@/shared/hooks/useIsMobile'
 import { saveViewport } from '../lib/viewportPersistence'
 
@@ -65,6 +67,7 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
   const canvasContainerRef = useRef<HTMLDivElement>(null)
   const canvasZoomRef = useRef<FabricCanvasZoomHandle>(null)
   const gridRef = useRef<HTMLDivElement>(null)
+  const mapGeneratedRef = useRef(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [portsOpen, setPortsOpen] = useState(false)
 
@@ -140,6 +143,18 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
   const handleFpsChange = useCallback((fps: number) => {
     setCanvasFps(fps)
   }, [])
+
+  useEffect(() => {
+    if (!isExplorer) return
+    if (!boardReady) return
+    if (objectCount !== 0) return
+    if (mapGeneratedRef.current) return
+    if (!canvasZoomRef.current) return
+    mapGeneratedRef.current = true
+    const theme = EXPEDITION_THEMES[0]
+    const map = generateExpeditionMap(theme)
+    canvasZoomRef.current.populateExpeditionMap(map)
+  }, [isExplorer, boardReady, objectCount])
 
   const handleSyncLatency = useCallback((ms: number) => {
     setSyncLatency(ms)
