@@ -210,7 +210,7 @@ Frames are **visual containers** (Fabric Group: bg Rect + title IText) whose ass
 4. ~~**Shape tool vs selection**~~ ✅ — With shape tool active, pointer-down always starts drawing (discardActiveObject + draw); never selects.
 5. ~~**Board loading performance**~~ ✅ — Paginated fetch in documentsApi (50 per batch, order by object_id).
 6. ~~**Stroke width (border thickness)**~~ ✅ — PRD §4. strokeUtils (getStrokeWidthFromObject, setStrokeWidthOnObject), StrokeControl in toolbar when selection has stroke (1/2/4/8px). Sync uses Fabric strokeWidth in payload. FabricCanvas: onSelectionChange, setActiveObjectStrokeWidth on ref.
-17. **Explorer Canvas (MeBoard 2.0)** — Tasks 1-4 done (board mode, brushes, shapes, freeform polygon). Group B complete. Next: Group C Tasks 5-7 in parallel (LOD visibility + scale band HUD, Ports of Call, hex grid + snap), then Group D Tasks 8-9 (mini-map, procedural map gen). See `docs/plans/2026-02-21-explorer-canvas.md`.
+17. **Explorer Canvas (MeBoard 2.0)** — Tasks 1-7 done. Group C complete. Next: Group D Tasks 8-9 (mini-map, hex grid + snap), then Task 10 (procedural map gen). See `docs/plans/2026-02-21-explorer-canvas.md`.
 
 ## Recent Changes (2026-02-19 — Board list features + drawing fixes)
 

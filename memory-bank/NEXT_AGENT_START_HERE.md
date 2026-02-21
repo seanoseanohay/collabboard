@@ -109,11 +109,11 @@ Connector endpoints now update in real-time when connected objects are **rotated
 ## Next Items (suggested)
 
 **Next up (MeBoard 2.0 — Explorer Canvas):**
-- Tasks 1-4 DONE (board mode, brushes, shapes, freeform polygon). **Group B complete.**
-- **Start with Tasks 5-7 in parallel (Group C):** LOD visibility + scale band HUD, Ports of Call bookmarks, hex grid + snap.
-- **Then Tasks 8-9 (Group D):** Mini-map, procedural + AI map generation.
-- **Then Tasks 10-12 (Group E/F):** Fog of War, laser pointer, follow mode.
-- **Last:** Task 13 (animated zoom transitions) + Task 14 (polish).
+- Tasks 1-7 DONE (board mode, brushes, shapes, freeform polygon, LOD visibility, scale band HUD, Ports of Call). **Groups B + C complete.**
+- **Start with Tasks 8-9 in parallel (Group D):** Mini-map navigator + Hex grid + snap.
+- **Then Task 10:** Procedural + AI map generation (`expeditionMapGenerator.ts`).
+- **Then Tasks 11-12 (Group E/F):** Fog of War, laser pointer + follow mode.
+- **Last:** Animated zoom transitions + polish.
 - See `docs/plans/2026-02-21-explorer-canvas.md` for full details.
 
 **Done this session:**

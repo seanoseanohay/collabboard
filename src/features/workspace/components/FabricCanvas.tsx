@@ -72,6 +72,7 @@ import { createHistoryEventHandlers } from '../lib/fabricCanvasHistoryHandlers'
 import { createZoomHandlers, ZOOM_STEP, MIN_ZOOM, MAX_ZOOM } from '../lib/fabricCanvasZoom'
 import { normalizeScaleFlips } from '../lib/fabricCanvasScaleFlips'
 import { loadViewport } from '../lib/viewportPersistence'
+import { isVisibleAtZoom, SCALE_BANDS, ALL_SCALES_ID } from '../lib/scaleBands'
 import { getClipboard, setClipboard, hasClipboard } from '../lib/clipboardStore'
 
 export interface SelectionStrokeInfo {
@@ -146,6 +147,8 @@ export interface FabricCanvasZoomHandle {
     formSchema: FormSchema | null
   }) => string
   createZoomSpiral: (options?: { count?: number }) => void
+  setActiveObjectScaleBand: (bandId: string) => void
+  getActiveObjectData: () => Record<string, unknown> | null
 }
 
 interface ConnectorDropState {
@@ -826,6 +829,28 @@ const FabricCanvasInner = (
     setDrawEraserMode: (active: boolean) => {
       eraserActiveRef.current = active
     },
+    setActiveObjectScaleBand: (bandId: string) => {
+      const canvas = canvasRef.current
+      if (!canvas) return
+      const active = canvas.getActiveObject()
+      if (!active) return
+      const data = (active.get('data') as Record<string, unknown>) ?? {}
+      if (bandId === ALL_SCALES_ID) {
+        const { minZoom: _min, maxZoom: _max, ...rest } = data
+        active.set('data', rest)
+      } else {
+        const band = SCALE_BANDS.find((b) => b.id === bandId)
+        if (band) {
+          active.set('data', { ...data, minZoom: band.minZoom, maxZoom: band.maxZoom })
+        }
+      }
+      canvas.fire('object:modified', { target: active })
+    },
+    getActiveObjectData: () => {
+      const active = canvasRef.current?.getActiveObject()
+      if (!active) return null
+      return (active.get('data') as Record<string, unknown>) ?? null
+    },
     }
     fabricImperativeRef.current = api
     return api
@@ -955,6 +980,20 @@ const FabricCanvasInner = (
       // Recompute brush width with sqrt zoom compensation so strokes stay visible at any zoom level
       if (fabricCanvas.isDrawingMode && fabricCanvas.freeDrawingBrush) {
         fabricCanvas.freeDrawingBrush.width = brushWidthRef.current / Math.sqrt(fabricCanvas.getZoom())
+      }
+      // LOD visibility: hide/show objects based on their minZoom/maxZoom (explorer mode only)
+      if (boardModeRef.current === 'explorer') {
+        const zoom = fabricCanvas.getZoom()
+        for (const obj of fabricCanvas.getObjects()) {
+          const data = obj.get('data') as { minZoom?: number; maxZoom?: number } | undefined
+          if (data?.minZoom != null || data?.maxZoom != null) {
+            const shouldShow = isVisibleAtZoom(data, zoom)
+            if (obj.visible !== shouldShow) {
+              obj.visible = shouldShow
+              obj.evented = shouldShow
+            }
+          }
+        }
       }
     }
 

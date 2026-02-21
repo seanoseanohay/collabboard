@@ -1,0 +1,33 @@
+export interface ScaleBand {
+  id: string
+  name: string
+  emoji: string
+  minZoom: number
+  maxZoom: number
+}
+
+export const SCALE_BANDS: ScaleBand[] = [
+  { id: 'ocean',    name: 'Ocean',    emoji: '🌊', minZoom: 0,    maxZoom: 0.05 },
+  { id: 'voyage',   name: 'Voyage',   emoji: '⛵', minZoom: 0.05, maxZoom: 0.25 },
+  { id: 'harbor',   name: 'Harbor',   emoji: '⚓', minZoom: 0.25, maxZoom: 1.0  },
+  { id: 'deck',     name: 'Deck',     emoji: '🏴‍☠️', minZoom: 1.0,  maxZoom: 4.0  },
+  { id: 'spyglass', name: 'Spyglass', emoji: '🔭', minZoom: 4.0,  maxZoom: Infinity },
+]
+
+export const ALL_SCALES_ID = 'all'
+
+export function getScaleBandForZoom(zoom: number): ScaleBand {
+  return SCALE_BANDS.find((b) => zoom >= b.minZoom && zoom < b.maxZoom) ?? SCALE_BANDS[2]!
+}
+
+export function isVisibleAtZoom(
+  data: { minZoom?: number; maxZoom?: number } | undefined,
+  zoom: number,
+): boolean {
+  if (!data) return true
+  const { minZoom: min, maxZoom: max } = data
+  if (min == null && max == null) return true
+  if (min != null && zoom < min) return false
+  if (max != null && max !== Infinity && zoom >= max) return false
+  return true
+}

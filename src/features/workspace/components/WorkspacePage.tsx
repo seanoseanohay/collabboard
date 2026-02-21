@@ -18,6 +18,9 @@ import { GridOverlay } from './GridOverlay'
 import { MapBorderOverlay } from './MapBorderOverlay'
 import { TreasureMapFrame } from './TreasureMapFrame'
 import { EmptyCanvasX } from './EmptyCanvasX'
+import { ScaleBandIndicator } from './ScaleBandIndicator'
+import { PortsOfCallPanel } from './PortsOfCallPanel'
+import type { PortOfCall } from '../lib/portsOfCall'
 import { DebugConsole } from './DebugConsole'
 import { FrameFormOverlay } from './FrameFormOverlay'
 import { MobileHamburgerDrawer } from './MobileHamburgerDrawer'
@@ -60,6 +63,7 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
   const canvasZoomRef = useRef<FabricCanvasZoomHandle>(null)
   const gridRef = useRef<HTMLDivElement>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [portsOpen, setPortsOpen] = useState(false)
 
   const isMobile = useIsMobile()
   const { user } = useAuth()
@@ -361,6 +365,7 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
         starMode={starMode}
         onPolygonSidesChange={setPolygonSides}
         onStarModeChange={setStarMode}
+        onPortsToggle={() => setPortsOpen((v) => !v)}
       />
       <div style={styles.drawerSection}>
         <button
@@ -482,6 +487,7 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
           starMode={starMode}
           onPolygonSidesChange={setPolygonSides}
           onStarModeChange={setStarMode}
+          onPortsToggle={() => setPortsOpen((v) => !v)}
         />
       )}
       <div ref={canvasContainerRef} style={styles.canvas}>
@@ -539,6 +545,23 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
           objectSyncLatency={syncLatency}
           boardId={board.id}
         />
+        {isExplorer && viewportTransform && (
+          <ScaleBandIndicator zoom={viewportTransform[0]} />
+        )}
+        {isExplorer && portsOpen && (
+          <PortsOfCallPanel
+            boardId={board.id}
+            currentX={canvasZoomRef.current?.getViewportCenter?.()?.x ?? 0}
+            currentY={canvasZoomRef.current?.getViewportCenter?.()?.y ?? 0}
+            currentZoom={viewportTransform?.[0] ?? 1}
+            onNavigate={(port: PortOfCall) => {
+              canvasZoomRef.current?.panToScene(port.x, port.y)
+              canvasZoomRef.current?.setZoom(port.zoom)
+              setPortsOpen(false)
+            }}
+            onClose={() => setPortsOpen(false)}
+          />
+        )}
         {!boardReady && (
           <div style={styles.loadingOverlay}>
             <div style={styles.loadingContent}>

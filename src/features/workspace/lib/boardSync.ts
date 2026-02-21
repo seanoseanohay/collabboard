@@ -288,7 +288,11 @@ export function setupDocumentSync(
               const d = obj.get('data') as { subtype?: string } | undefined
               return d?.subtype === 'table'
             }
-            const objData = { ...clean, data: { id: objectId } }
+            const objData = { ...clean, data: {
+              id: objectId,
+              ...(clean.minZoom != null ? { minZoom: clean.minZoom as number } : {}),
+              ...(clean.maxZoom != null ? { maxZoom: clean.maxZoom as number } : {}),
+            } }
             const [revived] = await util.enlivenObjects<FabricObject>([objData])
             if (revived) {
               existing.set({
@@ -308,6 +312,8 @@ export function setupDocumentSync(
                   ...existingData,
                   title: (clean.frameTitle as string) ?? existingData['title'],
                   childIds: (clean.childIds as string[]) ?? existingData['childIds'] ?? [],
+                  ...(clean.minZoom != null ? { minZoom: clean.minZoom as number } : { minZoom: undefined }),
+                  ...(clean.maxZoom != null ? { maxZoom: clean.maxZoom as number } : { maxZoom: undefined }),
                 })
                 syncFrameOrTableTitleFromRevived(existing, revived)
                 fireCanvasCustom(canvas, 'frame:data:changed', { frameId: objectId })
@@ -327,6 +333,8 @@ export function setupDocumentSync(
                   showTitle: Object.prototype.hasOwnProperty.call(clean, 'showTitle')
                     ? (clean.showTitle ?? existingData['showTitle'])
                     : existingData['showTitle'],
+                  ...(clean.minZoom != null ? { minZoom: clean.minZoom as number } : { minZoom: undefined }),
+                  ...(clean.maxZoom != null ? { maxZoom: clean.maxZoom as number } : { maxZoom: undefined }),
                 })
                 syncFrameOrTableTitleFromRevived(existing, revived)
                 fireCanvasCustom(canvas, 'table:data:changed', { tableId: objectId })
@@ -422,9 +430,13 @@ export function setupDocumentSync(
                 ...(clean.targetFloatPoint ? { targetFloatPoint: clean.targetFloatPoint } : {}),
               }
             : {}
+        const scaleBandData = {
+          ...(clean.minZoom != null ? { minZoom: clean.minZoom as number } : {}),
+          ...(clean.maxZoom != null ? { maxZoom: clean.maxZoom as number } : {}),
+        }
         const objData = {
           ...clean,
-          data: { id: objectId, ...(subtype && { subtype }), ...frameData, ...tableData, ...connectorData },
+          data: { id: objectId, ...(subtype && { subtype }), ...frameData, ...tableData, ...connectorData, ...scaleBandData },
         }
         const [revived] = await util.enlivenObjects<FabricObject>([objData])
         if (revived) {
@@ -519,6 +531,10 @@ export function setupDocumentSync(
     if (obj.type === 'group' && data?.subtype === 'button') {
       payload.subtype = 'button'
     }
+    // LOD scale band: always include (null = no restriction = visible at all zooms)
+    const anyData = data as unknown as { minZoom?: number; maxZoom?: number } | undefined
+    payload.minZoom = anyData?.minZoom ?? null
+    payload.maxZoom = anyData?.maxZoom ?? null
     delete payload.data
     delete (payload as { layoutManager?: unknown }).layoutManager
     const z = (payload.zIndex as number) ?? Date.now()
@@ -591,6 +607,10 @@ export function setupDocumentSync(
     if (obj.type === 'group' && data?.subtype === 'button') {
       payload.subtype = 'button'
     }
+    // LOD scale band: always include (null = no restriction)
+    const anyData2 = data as unknown as { minZoom?: number; maxZoom?: number } | undefined
+    payload.minZoom = anyData2?.minZoom ?? null
+    payload.maxZoom = anyData2?.maxZoom ?? null
     delete payload.data
     delete (payload as { layoutManager?: unknown }).layoutManager
     if (payload.zIndex === undefined) payload.zIndex = getObjectZIndex(obj)

@@ -10,6 +10,7 @@ import { FontControl } from './FontControl'
 import { DrawBrushControl } from './DrawBrushControl'
 import { STICKER_DEFS, STICKER_KINDS, type StickerKind } from '../lib/pirateStickerFactory'
 import type { ArrowMode, StrokeDash } from '../lib/connectorFactory'
+import { SCALE_BANDS, ALL_SCALES_ID } from '../lib/scaleBands'
 
 interface WorkspaceToolbarProps {
   selectedTool: ToolType
@@ -34,6 +35,7 @@ interface WorkspaceToolbarProps {
   starMode?: boolean
   onPolygonSidesChange?: (sides: number) => void
   onStarModeChange?: (star: boolean) => void
+  onPortsToggle?: () => void
   /** When true, layout stacks vertically for mobile drawer (Figma-like) */
   inDrawer?: boolean
 }
@@ -226,6 +228,7 @@ export function WorkspaceToolbar({
   starMode = false,
   onPolygonSidesChange,
   onStarModeChange,
+  onPortsToggle,
   inDrawer = false,
 }: WorkspaceToolbarProps) {
   const [zoomOpen, setZoomOpen] = useState(false)
@@ -502,6 +505,46 @@ export function WorkspaceToolbar({
           >
             🗺️
           </button>
+          {_boardMode === 'explorer' && (
+            <button
+              type="button"
+              style={{ ...styles.toolBtn, fontSize: 14 }}
+              onClick={onPortsToggle}
+              title="Ports of Call"
+            >
+              🧭
+            </button>
+          )}
+          {_boardMode === 'explorer' && selectionStroke && (
+            <select
+              value={
+                selectionStroke
+                  ? (() => {
+                      const d = (canvasRef?.current?.getActiveObjectData?.() ?? {}) as { minZoom?: number; maxZoom?: number }
+                      const band = SCALE_BANDS.find((b) => b.minZoom === d.minZoom && b.maxZoom === d.maxZoom)
+                      return band ? band.id : ALL_SCALES_ID
+                    })()
+                  : ALL_SCALES_ID
+              }
+              onChange={(e) => canvasRef?.current?.setActiveObjectScaleBand?.(e.target.value)}
+              style={{
+                fontSize: 11,
+                padding: '2px 4px',
+                border: '1px solid #e5e7eb',
+                borderRadius: 4,
+                background: '#fff',
+                cursor: 'pointer',
+              }}
+              title="Visibility scale band"
+            >
+              <option value={ALL_SCALES_ID}>👁 All Scales</option>
+              {SCALE_BANDS.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.emoji} {b.name}
+                </option>
+              ))}
+            </select>
+          )}
           <div style={styles.divider} />
           <div style={styles.zoomControls}>
             <input
