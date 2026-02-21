@@ -15,7 +15,7 @@ const corsHeaders = {
 }
 
 /**
- * Core system prompt (~750 tokens). Sent for all requests.
+ * Core system prompt. Sent for all requests.
  * Form-specific layout rules are appended separately only when the prompt mentions a form.
  */
 const SYSTEM_PROMPT_CORE = `You are a canvas assistant for MeBoard. Respond with JSON: { "commands": [...] }.
@@ -37,6 +37,13 @@ LAYOUT (rearrange existing objects):
 { "action": "spaceEvenly", "objectIds": string[], "direction": "horizontal"|"vertical" }
 - "2 columns"→cols:2, "2 rows"→cols:ceil(N/2), "in a row"→spaceEvenly horizontal, "in a column"→spaceEvenly vertical
 
+DIAGRAMS — flowchart, mind map, process flow, diagram, chart, timeline, kanban:
+- Nodes: rect (process/step, 160×60), circle (start/end, 80×80), text (label only).
+- Connections: line objects spanning between node positions.
+- Layout: space nodes 120px apart vertically, 200px apart horizontally.
+- Keep to MAX 7 createObject commands. End complex diagrams with createFrame.
+- Example flowchart (3 nodes + 2 lines + frame = 6 commands total).
+
 SELECTION: "these"/"them"/"selected" = selectedObjectIds provided in request.
 
 TEMPLATES — return ONE command; client handles layout:
@@ -45,6 +52,17 @@ TEMPLATES — return ONE command; client handles layout:
 - retrospective/retro/what went well → retrospective
 - login/sign-in form → login-form | signup/register form → signup-form | contact form → contact-form
 
+GRID: { "action": "createGrid", "rows": number, "cols": number, "fill"?: string }
+
+CREATIVE REQUESTS — animals, art, icons, scenes, anything unusual not covered above:
+- ALWAYS attempt something. Never return an empty commands array for any request.
+- Approximate with available types: sticky=cloud/organic blob, circle=head/sun/ball, rect=body/block, triangle=beak/mountain/arrow, line=limb/ray/connector, text=emoji label.
+- "rabbit made of sticky notes": ~8 type="sticky" objects: 2 tall narrow stickies above center (ears), 1 wide sticky (head), 1 wider sticky below (body), 2 small stickies at sides (forepaws), 2 small stickies at bottom (feet). Use fill="#fffde7". Wrap in createFrame.
+- "sun with rays": 1 yellow circle (center) + 8 short yellow lines radiating outward at 45° increments.
+- "smiley face": 1 yellow circle, 2 small dark circles (eyes), 1 curved line or small rect (mouth).
+- Max 10 objects per scene. Wrap multi-object scenes in createFrame.
+
+CRITICAL: Use ONLY the exact action names listed above. Never invent new action names.
 Return only valid JSON. No markdown.`
 
 /**
@@ -139,7 +157,7 @@ Deno.serve(async (req: Request) => {
     const completion = await openai.chat.completions.create(
       {
         model: 'gpt-4o-mini',
-        max_tokens: 300,
+        max_tokens: 800,
         messages: [
           { role: 'system', content: systemPrompt },
           {
@@ -178,9 +196,18 @@ Deno.serve(async (req: Request) => {
       })
     }
 
-    const parsed = JSON.parse(content) as { commands?: unknown[] }
+    let parsed: { commands?: unknown[] }
+    try {
+      parsed = JSON.parse(content) as { commands?: unknown[] }
+    } catch {
+      console.error('[ai-interpret] JSON parse failed — response may be truncated', { contentLength: content.length })
+      return new Response(
+        JSON.stringify({ error: 'AI response was too long and was cut off. Try a simpler request with fewer objects.' }),
+        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
     if (!Array.isArray(parsed.commands)) {
-      return new Response(JSON.stringify({ error: 'Invalid AI response format.' }), {
+      return new Response(JSON.stringify({ error: 'Invalid AI response format — missing commands array.' }), {
         status: 502,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })

@@ -19,6 +19,29 @@ import type { AiCommand } from '../api/aiInterpretApi'
 
 const VALID_CREATE_TYPES: CreateObjectType[] = ['rect', 'circle', 'triangle', 'line', 'text', 'sticky', 'input-field', 'button']
 
+/**
+ * Maps common AI-returned type aliases to valid canvas types.
+ * Allows the AI to describe shapes naturally (e.g. "diamond", "hexagon", "note")
+ * without the client silently coercing everything unknown to "rect".
+ */
+const TYPE_ALIASES: Record<string, CreateObjectType> = {
+  // rect variants
+  square: 'rect', rectangle: 'rect', box: 'rect', block: 'rect', diamond: 'rect',
+  card: 'rect', banner: 'rect', badge: 'rect', shape: 'rect',
+  // circle variants
+  oval: 'circle', ellipse: 'circle', hexagon: 'circle', pentagon: 'circle',
+  octagon: 'circle', sphere: 'circle', dot: 'circle', ball: 'circle', sun: 'circle',
+  // triangle variants
+  star: 'triangle', arrow: 'triangle', chevron: 'triangle', mountain: 'triangle',
+  // line variants
+  connector: 'line', edge: 'line', link: 'line', ray: 'line', path: 'line',
+  // sticky variants
+  'sticky note': 'sticky', 'sticky-note': 'sticky', note: 'sticky', post: 'sticky',
+  'post-it': 'sticky', 'post it': 'sticky', memo: 'sticky', cloud: 'sticky',
+  // text variants
+  label: 'text', heading: 'text', paragraph: 'text', caption: 'text', emoji: 'text',
+}
+
 /** Bounds tracked from in-flight createObject commands (using props, no DB round-trip). */
 interface TrackedBounds {
   objectId: string
@@ -29,10 +52,11 @@ interface TrackedBounds {
 }
 
 function normalizeCreateType(type: string): CreateObjectType {
-  const lower = type?.toLowerCase() ?? 'rect'
-  if (VALID_CREATE_TYPES.includes(lower as CreateObjectType)) {
-    return lower as CreateObjectType
-  }
+  const lower = (type ?? '').toLowerCase().trim()
+  if (VALID_CREATE_TYPES.includes(lower as CreateObjectType)) return lower as CreateObjectType
+  if (TYPE_ALIASES[lower]) return TYPE_ALIASES[lower]
+  // Log so developers notice when a new alias is needed.
+  console.warn('[executeAiCommands] unknown createObject type — defaulting to rect:', type)
   return 'rect'
 }
 
@@ -374,6 +398,9 @@ export async function executeAiCommands(
         }
       } else if (cmd.action === 'groupCreated') {
         shouldGroup = true
+      } else {
+        // Log unrecognised actions instead of silently no-op'ing so developers notice.
+        console.warn('[executeAiCommands] unrecognised action — skipping:', (cmd as { action: string }).action)
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
