@@ -28,6 +28,8 @@ interface WorkspaceToolbarProps {
   onRedo?: () => void
   showMapBorder?: boolean
   onToggleMapBorder?: () => void
+  /** When true, layout stacks vertically for mobile drawer (Figma-like) */
+  inDrawer?: boolean
 }
 
 const TOOLS: { id: ToolType; label: string }[] = [
@@ -181,6 +183,7 @@ export function WorkspaceToolbar({
   onRedo,
   showMapBorder = true,
   onToggleMapBorder,
+  inDrawer = false,
 }: WorkspaceToolbarProps) {
   const [zoomOpen, setZoomOpen] = useState(false)
   const [insertOpen, setInsertOpen] = useState(false)
@@ -254,8 +257,8 @@ export function WorkspaceToolbar({
   return (
     <div style={styles.wrapper}>
       {/* Main toolbar row */}
-      <div style={styles.mainRow}>
-        <div style={styles.toolGroups}>
+      <div style={{ ...styles.mainRow, ...(inDrawer ? styles.mainRowDrawer : {}) }}>
+        <div style={{ ...styles.toolGroups, ...(inDrawer ? styles.toolGroupsDrawer : {}) }}>
           <div style={styles.toolGroup}>
             <button
               type="button"
@@ -434,7 +437,7 @@ export function WorkspaceToolbar({
             </button>
           </div>
         </div>
-        <div style={styles.right}>
+        <div style={{ ...styles.right, ...(inDrawer ? styles.rightDrawer : {}) }}>
           <button
             type="button"
             style={{
@@ -456,7 +459,7 @@ export function WorkspaceToolbar({
               max={100}
               value={zoomToSliderValue(zoom)}
               onChange={(e) => onZoomSet?.(sliderValueToZoom(Number(e.target.value)))}
-              style={styles.zoomSlider}
+              style={{ ...styles.zoomSlider, ...(inDrawer ? styles.zoomSliderDrawer : {}) }}
               title="Zoom"
               aria-label="Zoom level"
             />
@@ -731,10 +734,19 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 12,
     padding: '6px 12px',
   },
+  mainRowDrawer: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    justifyContent: 'flex-start',
+  },
   toolGroups: {
     display: 'flex',
     alignItems: 'center',
     gap: 0,
+  },
+  toolGroupsDrawer: {
+    flexWrap: 'wrap',
+    gap: 4,
   },
   toolGroup: {
     display: 'flex',
@@ -792,6 +804,10 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     gap: 8,
   },
+  rightDrawer: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+  },
   zoomControls: {
     display: 'flex',
     alignItems: 'center',
@@ -801,6 +817,10 @@ const styles: Record<string, React.CSSProperties> = {
     width: 80,
     height: 6,
     accentColor: '#6366f1',
+  },
+  zoomSliderDrawer: {
+    width: '100%',
+    minWidth: 120,
   },
   zoomWrap: {
     position: 'relative',

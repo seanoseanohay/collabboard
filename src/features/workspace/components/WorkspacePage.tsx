@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
+import { useIsMobile } from '@/shared/hooks/useIsMobile'
 import { saveViewport } from '../lib/viewportPersistence'
 
 const MAX_PRESENCE_ICONS = 4
@@ -19,6 +20,7 @@ import { TreasureMapFrame } from './TreasureMapFrame'
 import { EmptyCanvasX } from './EmptyCanvasX'
 import { DebugConsole } from './DebugConsole'
 import { FrameFormOverlay } from './FrameFormOverlay'
+import { MobileHamburgerDrawer } from './MobileHamburgerDrawer'
 import type { FormFrameSceneInfo, FormSchema } from '../lib/frameFormTypes'
 import { usePresence } from '../hooks/usePresence'
 import type { ToolType } from '../types/tools'
@@ -54,7 +56,9 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
   const canvasContainerRef = useRef<HTMLDivElement>(null)
   const canvasZoomRef = useRef<FabricCanvasZoomHandle>(null)
   const gridRef = useRef<HTMLDivElement>(null)
+  const [drawerOpen, setDrawerOpen] = useState(false)
 
+  const isMobile = useIsMobile()
   const { user } = useAuth()
   const userName = user?.displayName ?? user?.email ?? 'Anonymous'
   const { others, updatePresence } = usePresence({
@@ -220,35 +224,106 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
     return () => ro.disconnect()
   }, [])
 
-  return (
-    <div style={styles.container}>
-      <header style={styles.header}>
-        <button type="button" onClick={handleBack} style={styles.backBtn}>
-          ← Boards
+  const headerContent = (
+    <>
+      <button type="button" onClick={handleBack} style={styles.backBtn}>
+        ← Boards
+      </button>
+      {titleEditing ? (
+        <input
+          type="text"
+          value={titleValue}
+          onChange={(e) => setTitleValue(e.target.value)}
+          onBlur={handleTitleSave}
+          onKeyDown={handleTitleKeyDown}
+          autoFocus
+          style={styles.titleInput}
+          aria-label="Board name"
+        />
+      ) : (
+        <h1
+          style={styles.title}
+          onClick={handleTitleClick}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => e.key === 'Enter' && handleTitleClick()}
+          aria-label={`Board name: ${board.title}. Click to rename.`}
+        >
+          {board.title}
+        </h1>
+      )}
+      <AiPromptBar
+        boardId={board.id}
+        getSelectedObjectIds={() => canvasZoomRef.current?.getSelectedObjectIds() ?? []}
+        createFrame={(params) => canvasZoomRef.current?.createFrame(params) ?? ''}
+        setFrameChildren={(frameId, childIds) => canvasZoomRef.current?.setFrameChildren(frameId, childIds)}
+        createTable={(params) => canvasZoomRef.current?.createTable(params) ?? ''}
+        createZoomSpiral={() => canvasZoomRef.current?.createZoomSpiral()}
+        getViewportCenter={() => canvasZoomRef.current?.getViewportCenter() ?? { x: 400, y: 300 }}
+      />
+      <button
+        type="button"
+        onClick={() => setShareOpen(true)}
+        style={styles.shareBtn}
+        title="Share board"
+      >
+        Share
+      </button>
+      {shareOpen && (
+        <ShareModal
+          board={board}
+          onClose={() => setShareOpen(false)}
+        />
+      )}
+      {others.length > 0 && (
+        <div
+          style={styles.presenceCluster}
+          onMouseEnter={() => setPresenceHovered(true)}
+          onMouseLeave={() => setPresenceHovered(false)}
+        >
+          {presenceHovered && (
+            <span style={styles.presenceCount}>
+              {others.length} {others.length === 1 ? 'other' : 'others'}
+            </span>
+          )}
+          {others.slice(0, MAX_PRESENCE_ICONS).map((o) => (
+            <button
+              key={o.userId}
+              type="button"
+              title={o.name}
+              style={styles.presenceIconBtn}
+              onClick={() => {
+                canvasZoomRef.current?.panToScene(o.x, o.y)
+                if (isMobile) setDrawerOpen(false)
+              }}
+            >
+              {getPirateIcon(o.userId)}
+            </button>
+          ))}
+          {others.length > MAX_PRESENCE_ICONS && (
+            <span style={styles.presenceOverflow}>+{others.length - MAX_PRESENCE_ICONS}</span>
+          )}
+        </div>
+      )}
+    </>
+  )
+
+  const drawerContent = (
+    <div style={styles.drawerInner}>
+      <div style={styles.drawerHeader}>
+        <button
+          type="button"
+          onClick={() => setDrawerOpen(false)}
+          style={styles.drawerCloseBtn}
+          aria-label="Close menu"
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg>
         </button>
-        {titleEditing ? (
-          <input
-            type="text"
-            value={titleValue}
-            onChange={(e) => setTitleValue(e.target.value)}
-            onBlur={handleTitleSave}
-            onKeyDown={handleTitleKeyDown}
-            autoFocus
-            style={styles.titleInput}
-            aria-label="Board name"
-          />
-        ) : (
-          <h1
-            style={styles.title}
-            onClick={handleTitleClick}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => e.key === 'Enter' && handleTitleClick()}
-            aria-label={`Board name: ${board.title}. Click to rename.`}
-          >
-            {board.title}
-          </h1>
-        )}
+        <span style={styles.drawerTitle}>Tools</span>
+      </div>
+      <div style={styles.drawerSection}>
         <AiPromptBar
           boardId={board.id}
           getSelectedObjectIds={() => canvasZoomRef.current?.getSelectedObjectIds() ?? []}
@@ -258,49 +333,9 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
           createZoomSpiral={() => canvasZoomRef.current?.createZoomSpiral()}
           getViewportCenter={() => canvasZoomRef.current?.getViewportCenter() ?? { x: 400, y: 300 }}
         />
-        <button
-          type="button"
-          onClick={() => setShareOpen(true)}
-          style={styles.shareBtn}
-          title="Share board"
-        >
-          Share
-        </button>
-        {shareOpen && (
-          <ShareModal
-            board={board}
-            onClose={() => setShareOpen(false)}
-          />
-        )}
-        {others.length > 0 && (
-          <div
-            style={styles.presenceCluster}
-            onMouseEnter={() => setPresenceHovered(true)}
-            onMouseLeave={() => setPresenceHovered(false)}
-          >
-            {presenceHovered && (
-              <span style={styles.presenceCount}>
-                {others.length} {others.length === 1 ? 'other' : 'others'}
-              </span>
-            )}
-            {others.slice(0, MAX_PRESENCE_ICONS).map((o) => (
-              <button
-                key={o.userId}
-                type="button"
-                title={o.name}
-                style={styles.presenceIconBtn}
-                onClick={() => canvasZoomRef.current?.panToScene(o.x, o.y)}
-              >
-                {getPirateIcon(o.userId)}
-              </button>
-            ))}
-            {others.length > MAX_PRESENCE_ICONS && (
-              <span style={styles.presenceOverflow}>+{others.length - MAX_PRESENCE_ICONS}</span>
-            )}
-          </div>
-        )}
-      </header>
+      </div>
       <WorkspaceToolbar
+        inDrawer
         selectedTool={selectedTool}
         onToolChange={setSelectedTool}
         selectedStickerKind={selectedStickerKind}
@@ -318,6 +353,122 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
         showMapBorder={showMapBorder}
         onToggleMapBorder={() => setShowMapBorder((v) => !v)}
       />
+      <div style={styles.drawerSection}>
+        <button
+          type="button"
+          onClick={() => {
+            setShareOpen(true)
+            setDrawerOpen(false)
+          }}
+          style={styles.shareBtn}
+          title="Share board"
+        >
+          Share
+        </button>
+      </div>
+      {others.length > 0 && (
+        <div style={styles.drawerSection}>
+          <div style={styles.drawerSectionLabel}>Viewers</div>
+          <div style={{ ...styles.presenceCluster, marginLeft: 0 }}>
+            {others.slice(0, MAX_PRESENCE_ICONS).map((o) => (
+              <button
+                key={o.userId}
+                type="button"
+                title={o.name}
+                style={styles.presenceIconBtn}
+                onClick={() => {
+                  canvasZoomRef.current?.panToScene(o.x, o.y)
+                  setDrawerOpen(false)
+                }}
+              >
+                {getPirateIcon(o.userId)}
+              </button>
+            ))}
+            {others.length > MAX_PRESENCE_ICONS && (
+              <span style={styles.presenceOverflow}>+{others.length - MAX_PRESENCE_ICONS}</span>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+
+  return (
+    <div style={styles.container}>
+      <header style={styles.header}>
+        {isMobile ? (
+          <>
+            <button
+              type="button"
+              onClick={() => setDrawerOpen(true)}
+              style={styles.hamburgerBtn}
+              aria-label="Open menu"
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M3 6h18M3 12h18M3 18h18" />
+              </svg>
+            </button>
+            <button type="button" onClick={handleBack} style={styles.backBtn}>
+              ← Boards
+            </button>
+            {titleEditing ? (
+              <input
+                type="text"
+                value={titleValue}
+                onChange={(e) => setTitleValue(e.target.value)}
+                onBlur={handleTitleSave}
+                onKeyDown={handleTitleKeyDown}
+                autoFocus
+                style={{ ...styles.titleInput, flex: 1, minWidth: 0 }}
+                aria-label="Board name"
+              />
+            ) : (
+              <h1
+                style={{ ...styles.title, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                onClick={handleTitleClick}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => e.key === 'Enter' && handleTitleClick()}
+                aria-label={`Board name: ${board.title}. Click to rename.`}
+              >
+                {board.title}
+              </h1>
+            )}
+            {shareOpen && (
+              <ShareModal
+                board={board}
+                onClose={() => setShareOpen(false)}
+              />
+            )}
+          </>
+        ) : (
+          headerContent
+        )}
+      </header>
+      {isMobile ? (
+        <MobileHamburgerDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)}>
+          {drawerContent}
+        </MobileHamburgerDrawer>
+      ) : (
+        <WorkspaceToolbar
+          selectedTool={selectedTool}
+          onToolChange={setSelectedTool}
+          selectedStickerKind={selectedStickerKind}
+          onStickerKindChange={setSelectedStickerKind}
+          zoom={viewportTransform?.[0] ?? 1}
+          onZoomToFit={() => canvasZoomRef.current?.zoomToFit()}
+          onResetView={() => canvasZoomRef.current?.resetView()}
+          onZoomSet={(z) => canvasZoomRef.current?.setZoom(z)}
+          selectionStroke={selectionStroke}
+          canvasRef={canvasZoomRef}
+          canUndo={historyState.canUndo}
+          canRedo={historyState.canRedo}
+          onUndo={() => canvasZoomRef.current?.undo()}
+          onRedo={() => canvasZoomRef.current?.redo()}
+          showMapBorder={showMapBorder}
+          onToggleMapBorder={() => setShowMapBorder((v) => !v)}
+        />
+      )}
       <div ref={canvasContainerRef} style={styles.canvas}>
         <GridOverlay ref={gridRef} />
         <EmptyCanvasX objectCount={objectCount} zoom={viewportTransform?.[0] ?? 1} />
@@ -518,5 +669,59 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 14,
     fontWeight: 500,
     color: '#6b7280',
+  },
+  hamburgerBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 40,
+    height: 40,
+    padding: 0,
+    border: 'none',
+    borderRadius: 8,
+    background: 'transparent',
+    color: '#374151',
+    cursor: 'pointer',
+  },
+  drawerInner: {
+    padding: '12px 16px',
+    paddingBottom: 24,
+  },
+  drawerHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottom: '1px solid #e5e7eb',
+  },
+  drawerCloseBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 40,
+    height: 40,
+    padding: 0,
+    border: 'none',
+    borderRadius: 8,
+    background: 'transparent',
+    color: '#374151',
+    cursor: 'pointer',
+  },
+  drawerTitle: {
+    fontSize: 16,
+    fontWeight: 600,
+    color: '#1e293b',
+  },
+  drawerSection: {
+    marginBottom: 16,
+  },
+  drawerSectionLabel: {
+    fontSize: 11,
+    fontWeight: 600,
+    color: '#6b7280',
+    textTransform: 'uppercase' as const,
+    letterSpacing: '0.5px',
+    marginBottom: 8,
   },
 }

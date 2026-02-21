@@ -12,6 +12,8 @@ export const Z_INDEX = {
   DROPDOWN: 100,
   /** Max for workspace — cursors always on top of canvas and other in-canvas UI */
   CURSORS: 100_000,
+  /** Mobile hamburger drawer — above toolbar, below modals */
+  DRAWER: 50_000,
   /** Modals/dialogs can overlay everything including cursors when open */
   MODALS: 1_000_000,
 } as const
