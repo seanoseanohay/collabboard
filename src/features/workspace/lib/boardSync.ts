@@ -716,6 +716,7 @@ export function setupDocumentSync(
         }
       }
       updateConnectorsForObjects(new Set(p.objectIds))
+      canvas.requestRenderAll()
     })
     .subscribe((status) => {
       moveChannelReady = status === 'SUBSCRIBED'
