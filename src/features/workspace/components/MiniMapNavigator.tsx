@@ -1,6 +1,9 @@
 import { useEffect, useRef, useCallback } from 'react'
 import type { FabricCanvasZoomHandle } from './FabricCanvas'
 
+/** Shared with FabricCanvas.getMiniMapData; keep in sync. */
+export const MINI_MAP_PADDING = 50
+
 const MINI_W = 200
 const MINI_H = 140
 const UPDATE_INTERVAL_MS = 2000
@@ -23,6 +26,7 @@ export function MiniMapNavigator({
   const miniCanvasRef = useRef<HTMLCanvasElement>(null)
   const contentBoundsRef = useRef<{ minX: number; minY: number; maxX: number; maxY: number } | null>(null)
   const imageRef = useRef<HTMLImageElement | null>(null)
+  const refreshIdRef = useRef(0)
 
   const redraw = useCallback(() => {
     const miniCanvas = miniCanvasRef.current
@@ -41,9 +45,8 @@ export function MiniMapNavigator({
     const bounds = contentBoundsRef.current
     if (!bounds || !viewportTransform) return
 
-    const padding = 50
-    const cw = bounds.maxX - bounds.minX + padding * 2
-    const ch = bounds.maxY - bounds.minY + padding * 2
+    const cw = bounds.maxX - bounds.minX + MINI_MAP_PADDING * 2
+    const ch = bounds.maxY - bounds.minY + MINI_MAP_PADDING * 2
     const fitZoom = Math.min(MINI_W / cw, MINI_H / ch)
 
     const zoom = viewportTransform[0] ?? 1
@@ -57,8 +60,8 @@ export function MiniMapNavigator({
     const sceneBottom = sceneTop + canvasHeight / zoom
 
     // Map scene coords to mini-map pixels using the same fitZoom transform used for the capture
-    const originX = -(bounds.minX - padding) * fitZoom
-    const originY = -(bounds.minY - padding) * fitZoom
+    const originX = -(bounds.minX - MINI_MAP_PADDING) * fitZoom
+    const originY = -(bounds.minY - MINI_MAP_PADDING) * fitZoom
 
     const rectX = sceneLeft * fitZoom + originX
     const rectY = sceneTop * fitZoom + originY
@@ -80,8 +83,10 @@ export function MiniMapNavigator({
 
     contentBoundsRef.current = data.contentBounds
 
+    const id = ++refreshIdRef.current
     const img = new Image()
     img.onload = () => {
+      if (id !== refreshIdRef.current) return
       imageRef.current = img
       redraw()
     }
@@ -113,13 +118,12 @@ export function MiniMapNavigator({
       const clickX = e.clientX - rect.left
       const clickY = e.clientY - rect.top
 
-      const padding = 50
-      const cw = bounds.maxX - bounds.minX + padding * 2
-      const ch = bounds.maxY - bounds.minY + padding * 2
+      const cw = bounds.maxX - bounds.minX + MINI_MAP_PADDING * 2
+      const ch = bounds.maxY - bounds.minY + MINI_MAP_PADDING * 2
       const fitZoom = Math.min(MINI_W / cw, MINI_H / ch)
 
-      const originX = -(bounds.minX - padding) * fitZoom
-      const originY = -(bounds.minY - padding) * fitZoom
+      const originX = -(bounds.minX - MINI_MAP_PADDING) * fitZoom
+      const originY = -(bounds.minY - MINI_MAP_PADDING) * fitZoom
 
       const sceneX = (clickX - originX) / fitZoom
       const sceneY = (clickY - originY) / fitZoom

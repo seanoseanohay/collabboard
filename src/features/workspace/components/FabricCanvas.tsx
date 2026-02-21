@@ -3,6 +3,9 @@ import { Z_INDEX } from '@/shared/constants/zIndex'
 import { Canvas, Group, ActiveSelection, Intersection, Point, Polygon, Polyline, Rect, util, PencilBrush, CircleBrush, SprayBrush, PatternBrush, type FabricObject } from 'fabric'
 import { createHistoryManager, type HistoryManager } from '../lib/historyManager'
 
+/** Shared with MiniMapNavigator.MINI_MAP_PADDING; keep in sync. */
+const MINI_MAP_PADDING = 50
+
 /** IText has enterEditing; FabricText does not. Check by method presence. */
 function isEditableText(obj: unknown): obj is { enterEditing: () => void } {
   return !!obj && typeof (obj as { enterEditing?: () => void }).enterEditing === 'function'
@@ -636,9 +639,12 @@ const FabricCanvasInner = (
       const objs = canvas.getObjects()
       if (objs.length === 0) return null
 
+      type ObjWithAbsoluteBoundingRect = FabricObject & {
+        getBoundingRect: (absolute?: boolean) => { left: number; top: number; width: number; height: number }
+      }
       const bounds = objs.reduce(
         (acc, obj) => {
-          const b = obj.getBoundingRect()
+          const b = (obj as ObjWithAbsoluteBoundingRect).getBoundingRect(true)
           return {
             minX: Math.min(acc.minX, b.left),
             minY: Math.min(acc.minY, b.top),
@@ -650,18 +656,17 @@ const FabricCanvasInner = (
       )
 
       const savedVpt = [...(canvas.viewportTransform ?? [1, 0, 0, 1, 0, 0])]
-      const padding = 50
-      const cw = bounds.maxX - bounds.minX + padding * 2
-      const ch = bounds.maxY - bounds.minY + padding * 2
+      const cw = bounds.maxX - bounds.minX + MINI_MAP_PADDING * 2
+      const ch = bounds.maxY - bounds.minY + MINI_MAP_PADDING * 2
       const fitZoom = Math.min(200 / cw, 140 / ch)
       const vpt = canvas.viewportTransform!
       vpt[0] = fitZoom
       vpt[3] = fitZoom
-      vpt[4] = -(bounds.minX - padding) * fitZoom
-      vpt[5] = -(bounds.minY - padding) * fitZoom
+      vpt[4] = -(bounds.minX - MINI_MAP_PADDING) * fitZoom
+      vpt[5] = -(bounds.minY - MINI_MAP_PADDING) * fitZoom
       canvas.requestRenderAll()
-      // multiplier: 1 captures the full canvas at native resolution; MiniMapNavigator
-      // crops the top-left MINI_W×MINI_H area where content was rendered by the fitZoom viewport.
+      // Fabric v7 uses multiplier (not width/height). multiplier: 1 captures the full canvas at native
+      // resolution; MiniMapNavigator crops the top-left 200×140 area where content was rendered by the fitZoom viewport.
       const dataUrl = canvas.toDataURL({ format: 'jpeg', quality: 0.3, multiplier: 1 })
 
       for (let i = 0; i < 6; i++) vpt[i] = savedVpt[i]
