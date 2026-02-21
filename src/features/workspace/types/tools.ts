@@ -4,6 +4,7 @@
 
 export type ToolType =
   | 'select'
+  | 'zoom-in'
   | 'hand'
   | 'lasso'
   | 'rect'

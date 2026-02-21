@@ -903,6 +903,7 @@ const FabricCanvasInner = (
     let lastConnectorDrawPoint: { x: number; y: number } | null = null
     let connectorHoverSnap: ConnectorSnapResult | null = null
     let marqueeState: { start: { x: number; y: number }; rect: Rect } | null = null
+    let zoomDragState: { start: { x: number; y: number }; rect: Rect } | null = null
     let lassoState: { points: { x: number; y: number }[]; preview: Polyline } | null = null
 
     const getScenePoint = (opt: {
@@ -1017,6 +1018,46 @@ const FabricCanvasInner = (
       fabricCanvas.requestRenderAll()
     }
 
+    const onZoomDragMouseMove = (ev: MouseEvent) => {
+      if (!zoomDragState) return
+      const sp = fabricCanvas.getScenePoint(ev)
+      const { start, rect } = zoomDragState
+      const l = Math.min(start.x, sp.x)
+      const t = Math.min(start.y, sp.y)
+      rect.set({ left: l, top: t, width: Math.abs(sp.x - start.x), height: Math.abs(sp.y - start.y) })
+      fabricCanvas.requestRenderAll()
+    }
+
+    const onZoomDragMouseUp = () => {
+      if (!zoomDragState) return
+      const { rect } = zoomDragState
+      const l = rect.left ?? 0
+      const t = rect.top ?? 0
+      const w = rect.width ?? 0
+      const h = rect.height ?? 0
+      fabricCanvas.remove(rect)
+      zoomDragState = null
+      document.removeEventListener('mousemove', onZoomDragMouseMove)
+      document.removeEventListener('mouseup', onZoomDragMouseUp)
+      if (w > 5 && h > 5) {
+        const padding = 20
+        const contentW = w + padding * 2
+        const contentH = h + padding * 2
+        const fitZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Math.min(width / contentW, height / contentH)))
+        const cx = l + w / 2
+        const cy = t + h / 2
+        const vpt = fabricCanvas.viewportTransform ?? [1, 0, 0, 1, 0, 0]
+        vpt[0] = fitZoom
+        vpt[3] = fitZoom
+        vpt[4] = width / 2 - cx * fitZoom
+        vpt[5] = height / 2 - cy * fitZoom
+        fabricCanvas.requestRenderAll()
+        if (onViewportChangeRef.current) onViewportChangeRef.current([...vpt])
+        updateFrameTitleVisibility(fabricCanvas)
+        updateTableTitleVisibility(fabricCanvas)
+      }
+    }
+
     const onLassoMouseMove = (ev: MouseEvent) => {
       if (!lassoState) return
       const sp = fabricCanvas.getScenePoint(ev)
@@ -1086,6 +1127,33 @@ const FabricCanvasInner = (
         marqueeState = { start: sp, rect }
         document.addEventListener('mousemove', onMarqueeMouseMove)
         document.addEventListener('mouseup', onMarqueeMouseUp)
+        return
+      }
+
+      if (tool === 'zoom-in') {
+        ev.preventDefault()
+        ev.stopImmediatePropagation()
+        const sp = fabricCanvas.getScenePoint(ev)
+        fabricCanvas.discardActiveObject()
+        const rect = new Rect({
+          left: sp.x,
+          top: sp.y,
+          width: 0,
+          height: 0,
+          originX: 'left',
+          originY: 'top',
+          fill: 'rgba(59, 130, 246, 0.08)',
+          stroke: '#2563eb',
+          strokeWidth: 1,
+          strokeDashArray: [4, 4],
+          selectable: false,
+          evented: false,
+        })
+        rect.set('data', {})
+        fabricCanvas.add(rect)
+        zoomDragState = { start: sp, rect }
+        document.addEventListener('mousemove', onZoomDragMouseMove)
+        document.addEventListener('mouseup', onZoomDragMouseUp)
         return
       }
 
@@ -1671,6 +1739,13 @@ const FabricCanvasInner = (
 
       if (e.key === 'Escape') {
         e.preventDefault()
+        // Cancel zoom drag
+        if (zoomDragState) {
+          fabricCanvas.remove(zoomDragState.rect)
+          zoomDragState = null
+          document.removeEventListener('mousemove', onZoomDragMouseMove)
+          document.removeEventListener('mouseup', onZoomDragMouseUp)
+        }
         // Cancel marquee drag
         if (marqueeState) {
           fabricCanvas.remove(marqueeState.rect)
@@ -2089,6 +2164,8 @@ const FabricCanvasInner = (
       upperEl.removeEventListener('mousedown', onCaptureMouseDown, { capture: true })
       document.removeEventListener('mousemove', onMarqueeMouseMove)
       document.removeEventListener('mouseup', onMarqueeMouseUp)
+      document.removeEventListener('mousemove', onZoomDragMouseMove)
+      document.removeEventListener('mouseup', onZoomDragMouseUp)
       document.removeEventListener('mousemove', onLassoMouseMove)
       document.removeEventListener('mouseup', onLassoMouseUp)
       zoomApiRef.current = null
@@ -2183,7 +2260,7 @@ const FabricCanvasInner = (
         className={className}
         style={{
           ...styles.container,
-          cursor: selectedTool === 'hand' ? 'grab' : selectedTool === 'draw' || selectedTool === 'lasso' ? 'crosshair' : undefined,
+          cursor: selectedTool === 'hand' ? 'grab' : selectedTool === 'zoom-in' ? 'zoom-in' : selectedTool === 'draw' || selectedTool === 'lasso' ? 'crosshair' : undefined,
         }}
       />
       {connectorDropMenuState && (
