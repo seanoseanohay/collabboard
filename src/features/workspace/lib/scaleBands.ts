@@ -7,11 +7,11 @@ export interface ScaleBand {
 }
 
 export const SCALE_BANDS: ScaleBand[] = [
-  { id: 'ocean',    name: 'Ocean',    emoji: '🌊', minZoom: 0,    maxZoom: 0.05 },
-  { id: 'voyage',   name: 'Voyage',   emoji: '⛵', minZoom: 0.05, maxZoom: 0.25 },
-  { id: 'harbor',   name: 'Harbor',   emoji: '⚓', minZoom: 0.25, maxZoom: 1.0  },
-  { id: 'deck',     name: 'Deck',     emoji: '🏴‍☠️', minZoom: 1.0,  maxZoom: 4.0  },
-  { id: 'spyglass', name: 'Spyglass', emoji: '🔭', minZoom: 4.0,  maxZoom: Infinity },
+  { id: 'ocean',    name: 'Ocean',    emoji: '🌊', minZoom: 0,      maxZoom: 0.0001 },
+  { id: 'voyage',   name: 'Voyage',   emoji: '⛵', minZoom: 0.0001, maxZoom: 0.001  },
+  { id: 'harbor',   name: 'Harbor',   emoji: '⚓', minZoom: 0.001,  maxZoom: 0.01   },
+  { id: 'deck',     name: 'Deck',     emoji: '🏴‍☠️', minZoom: 0.01,   maxZoom: 0.1    },
+  { id: 'spyglass', name: 'Spyglass', emoji: '🔭', minZoom: 0.1,    maxZoom: Infinity },
 ]
 
 export const ALL_SCALES_ID = 'all'

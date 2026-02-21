@@ -21,129 +21,134 @@ export interface GeneratedMap {
   initialZoom: number
 }
 
-const MAP_WIDTH = 20000
-const MAP_HEIGHT = 15000
+const MAP_WIDTH = 80_000_000
+const MAP_HEIGHT = 60_000_000
+const MAP_CX = MAP_WIDTH / 2
+const MAP_CY = MAP_HEIGHT / 2
 
 export function generateExpeditionMap(theme: ExpeditionTheme, seed?: number): GeneratedMap {
   const rng = seededRandom(seed ?? Date.now())
   const objects: MapObjectSpec[] = []
 
-  // Ocean scale: large landmasses (visible 0–25% zoom)
-  const continentCount = 3 + Math.floor(rng() * 3) // 3–5
+  // ── Ocean scale: continents (visible zoom 0 to 0.0001) ──
+  const continentCount = 3 + Math.floor(rng() * 3)
   const continents: Array<{ x: number; y: number; w: number; h: number }> = []
 
   for (let i = 0; i < continentCount; i++) {
-    const w = 2000 + rng() * 3000
-    const h = 1500 + rng() * 2500
-    const x = 500 + rng() * (MAP_WIDTH - w - 1000)
-    const y = 500 + rng() * (MAP_HEIGHT - h - 1000)
+    const w = 8_000_000 + rng() * 12_000_000
+    const h = 6_000_000 + rng() * 10_000_000
+    const x = 2_000_000 + rng() * (MAP_WIDTH - w - 4_000_000)
+    const y = 2_000_000 + rng() * (MAP_HEIGHT - h - 4_000_000)
     continents.push({ x, y, w, h })
 
     objects.push({
       type: 'ellipse', left: x, top: y, width: w, height: h,
       fill: theme.landFills[i % theme.landFills.length],
-      stroke: '#8b7355', strokeWidth: 2,
-      minZoom: 0, maxZoom: 0.25,
+      stroke: '#8b7355', strokeWidth: 100_000,
+      minZoom: 0, maxZoom: 0.0001,
     })
 
-    // Continent label (ocean scale only)
     const name = theme.continentNames[i % theme.continentNames.length]
     objects.push({
-      type: 'text', left: x + w / 2 - 300, top: y + h / 2 - 60,
-      width: 600, height: 120,
-      text: name, fontSize: 100,
+      type: 'text', left: x + w * 0.2, top: y + h * 0.35,
+      width: w * 0.6, height: h * 0.3,
+      text: name, fontSize: 2_000_000,
       fill: '#4a3728',
-      minZoom: 0, maxZoom: 0.08,
+      minZoom: 0, maxZoom: 0.00008,
     })
   }
 
-  // Ocean labels (ocean scale)
+  // Ocean labels
   for (let i = 0; i < 3; i++) {
     objects.push({
       type: 'text',
-      left: 1000 + rng() * (MAP_WIDTH - 2000),
-      top: 1000 + rng() * (MAP_HEIGHT - 2000),
-      width: 600, height: 60,
+      left: 5_000_000 + rng() * (MAP_WIDTH - 10_000_000),
+      top: 5_000_000 + rng() * (MAP_HEIGHT - 10_000_000),
+      width: 20_000_000, height: 3_000_000,
       text: theme.oceanNames[i % theme.oceanNames.length],
-      fontSize: 48, fill: '#4a86b8',
-      minZoom: 0, maxZoom: 0.1,
+      fontSize: 1_500_000, fill: '#4a86b8',
+      minZoom: 0, maxZoom: 0.00008,
     })
   }
 
-  // Voyage scale: islands (visible 3%–100% zoom)
+  // ── Voyage scale: islands within continents (visible zoom 0.0001 to 0.001) ──
   for (const continent of continents) {
-    const islandCount = 3 + Math.floor(rng() * 3)  // 3–5 per continent
+    const islandCount = 3 + Math.floor(rng() * 3)
     for (let i = 0; i < islandCount; i++) {
-      const iw = 300 + rng() * 600
-      const ih = 200 + rng() * 400
-      const ix = continent.x + rng() * continent.w * 0.8
-      const iy = continent.y + rng() * continent.h * 0.8
+      const iw = 500_000 + rng() * 1_500_000
+      const ih = 400_000 + rng() * 1_200_000
+      const ix = continent.x + continent.w * 0.05 + rng() * (continent.w * 0.7)
+      const iy = continent.y + continent.h * 0.05 + rng() * (continent.h * 0.7)
       const name = theme.islandNames[Math.floor(rng() * theme.islandNames.length)]
 
       objects.push({
         type: 'ellipse', left: ix, top: iy, width: iw, height: ih,
         fill: theme.landFills[Math.floor(rng() * theme.landFills.length)],
-        stroke: '#8b7355', strokeWidth: 1,
-        minZoom: 0.03, maxZoom: 1.0,
+        stroke: '#8b7355', strokeWidth: 10_000,
+        minZoom: 0.00005, maxZoom: 0.001,
       })
 
       objects.push({
-        type: 'text', left: ix + iw / 2 - 150, top: iy - 40,
-        width: 300, height: 30,
-        text: name, fontSize: 22,
+        type: 'text', left: ix + iw * 0.1, top: iy - ih * 0.15,
+        width: iw * 0.8, height: ih * 0.2,
+        text: name, fontSize: 150_000,
         fill: '#2d1a0e',
-        minZoom: 0.05, maxZoom: 0.5,
+        minZoom: 0.0001, maxZoom: 0.0008,
       })
     }
   }
 
-  // Harbor scale: towns (visible 15%–400% zoom)
+  // ── Harbor scale: towns within continents (visible zoom 0.001 to 0.01) ──
   for (const continent of continents) {
-    const townCount = 1 + Math.floor(rng() * 2)
+    const townCount = 2 + Math.floor(rng() * 2)
     for (let i = 0; i < townCount; i++) {
-      const tx = continent.x + continent.w * 0.2 + rng() * continent.w * 0.6
-      const ty = continent.y + continent.h * 0.2 + rng() * continent.h * 0.6
+      const tw = 30_000 + rng() * 50_000
+      const th = 25_000 + rng() * 40_000
+      const tx = continent.x + continent.w * 0.15 + rng() * continent.w * 0.7
+      const ty = continent.y + continent.h * 0.15 + rng() * continent.h * 0.7
       const name = theme.townNames[Math.floor(rng() * theme.townNames.length)]
 
       objects.push({
-        type: 'rect', left: tx, top: ty, width: 200, height: 150,
-        fill: '#f5f0e1', stroke: '#8b7355', strokeWidth: 2,
-        minZoom: 0.15, maxZoom: 4.0,
+        type: 'rect', left: tx, top: ty, width: tw, height: th,
+        fill: '#f5f0e1', stroke: '#8b7355', strokeWidth: 1000,
+        minZoom: 0.0005, maxZoom: 0.01,
       })
 
       objects.push({
-        type: 'text', left: tx + 10, top: ty + 10,
-        width: 180, height: 20,
-        text: name, fontSize: 14, fill: '#2d1a0e',
-        minZoom: 0.15, maxZoom: 4.0,
+        type: 'text', left: tx + tw * 0.05, top: ty + th * 0.1,
+        width: tw * 0.9, height: th * 0.3,
+        text: name, fontSize: 15_000,
+        fill: '#2d1a0e',
+        minZoom: 0.001, maxZoom: 0.008,
       })
     }
   }
 
-  // Deck scale: landmarks (visible 50%+)
-  for (let i = 0; i < 4; i++) {
-    const lx = MAP_WIDTH * 0.1 + rng() * MAP_WIDTH * 0.8
-    const ly = MAP_HEIGHT * 0.1 + rng() * MAP_HEIGHT * 0.8
+  // ── Deck scale: landmarks scattered (visible zoom 0.01+) ──
+  for (let i = 0; i < 5; i++) {
+    const lx = MAP_WIDTH * 0.05 + rng() * MAP_WIDTH * 0.9
+    const ly = MAP_HEIGHT * 0.05 + rng() * MAP_HEIGHT * 0.9
     const name = theme.landmarks[i % theme.landmarks.length]
 
     objects.push({
-      type: 'rect', left: lx, top: ly, width: 160, height: 80,
-      fill: '#fef08a', stroke: '#ca8a04', strokeWidth: 2,
-      minZoom: 0.5,
+      type: 'rect', left: lx, top: ly, width: 5000, height: 3000,
+      fill: '#fef08a', stroke: '#ca8a04', strokeWidth: 200,
+      minZoom: 0.005,
     })
 
     objects.push({
-      type: 'text', left: lx + 8, top: ly + 8,
-      width: 144, height: 64,
-      text: `📍 ${name}`, fontSize: 12, fill: '#1a1a1a',
-      minZoom: 0.5,
+      type: 'text', left: lx + 200, top: ly + 200,
+      width: 4600, height: 2600,
+      text: `📍 ${name}`, fontSize: 1500,
+      fill: '#1a1a1a',
+      minZoom: 0.005,
     })
   }
 
   return {
     objects,
-    viewportCenter: { x: MAP_WIDTH / 2, y: MAP_HEIGHT / 2 },
-    initialZoom: 0.03,
+    viewportCenter: { x: MAP_CX, y: MAP_CY },
+    initialZoom: 0.00002,
   }
 }
 
