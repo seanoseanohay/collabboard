@@ -127,6 +127,7 @@ export interface FabricCanvasZoomHandle {
   setFrameChildren: (frameId: string, childIds: string[]) => void
   panToScene: (sceneX: number, sceneY: number) => void
   captureDataUrl: () => string | null
+  getMiniMapData: () => { imageDataUrl: string; contentBounds: { minX: number; minY: number; maxX: number; maxY: number } } | null
   resetView: () => void
   duplicateSelected: () => Promise<void>
   copySelected: () => void
@@ -628,6 +629,45 @@ const FabricCanvasInner = (
       zoomApiRef.current?.zoomToFit()
       canvas.renderAll()
       return canvas.toDataURL({ format: 'jpeg', quality: 0.7, multiplier: 0.5 })
+    },
+    getMiniMapData: () => {
+      const canvas = canvasRef.current
+      if (!canvas) return null
+      const objs = canvas.getObjects()
+      if (objs.length === 0) return null
+
+      const bounds = objs.reduce(
+        (acc, obj) => {
+          const b = obj.getBoundingRect()
+          return {
+            minX: Math.min(acc.minX, b.left),
+            minY: Math.min(acc.minY, b.top),
+            maxX: Math.max(acc.maxX, b.left + b.width),
+            maxY: Math.max(acc.maxY, b.top + b.height),
+          }
+        },
+        { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity }
+      )
+
+      const savedVpt = [...(canvas.viewportTransform ?? [1, 0, 0, 1, 0, 0])]
+      const padding = 50
+      const cw = bounds.maxX - bounds.minX + padding * 2
+      const ch = bounds.maxY - bounds.minY + padding * 2
+      const fitZoom = Math.min(200 / cw, 140 / ch)
+      const vpt = canvas.viewportTransform!
+      vpt[0] = fitZoom
+      vpt[3] = fitZoom
+      vpt[4] = -(bounds.minX - padding) * fitZoom
+      vpt[5] = -(bounds.minY - padding) * fitZoom
+      canvas.requestRenderAll()
+      // multiplier: 1 captures the full canvas at native resolution; MiniMapNavigator
+      // crops the top-left MINI_W×MINI_H area where content was rendered by the fitZoom viewport.
+      const dataUrl = canvas.toDataURL({ format: 'jpeg', quality: 0.3, multiplier: 1 })
+
+      for (let i = 0; i < 6; i++) vpt[i] = savedVpt[i]
+      canvas.requestRenderAll()
+
+      return { imageDataUrl: dataUrl, contentBounds: bounds }
     },
     ungroupSelected: () => {
       const canvas = canvasRef.current

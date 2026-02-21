@@ -22,6 +22,7 @@ import { ScaleBandIndicator } from './ScaleBandIndicator'
 import { PortsOfCallPanel } from './PortsOfCallPanel'
 import type { PortOfCall } from '../lib/portsOfCall'
 import { DebugConsole } from './DebugConsole'
+import { MiniMapNavigator } from './MiniMapNavigator'
 import { FrameFormOverlay } from './FrameFormOverlay'
 import { MobileHamburgerDrawer } from './MobileHamburgerDrawer'
 import type { FormFrameSceneInfo, FormSchema } from '../lib/frameFormTypes'
@@ -547,6 +548,15 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
         />
         {isExplorer && viewportTransform && (
           <ScaleBandIndicator zoom={viewportTransform[0]} />
+        )}
+        {isExplorer && (
+          <MiniMapNavigator
+            canvasRef={canvasZoomRef}
+            viewportTransform={viewportTransform}
+            canvasWidth={canvasSize.width}
+            canvasHeight={canvasSize.height}
+            objectCount={objectCount}
+          />
         )}
         {isExplorer && portsOpen && (
           <PortsOfCallPanel
