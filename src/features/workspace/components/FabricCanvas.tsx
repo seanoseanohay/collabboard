@@ -570,7 +570,12 @@ const FabricCanvasInner = (
         const theta = i * (2 * Math.PI / 6)
         const x = center.x + r * Math.cos(theta)
         const y = center.y + r * Math.sin(theta)
-        const sticker = createSticker('parrot', x, y, { assignId: true, zoom: 1 })
+        // Each parrot is sized for the zoom level at which it will be viewed:
+        // innermost (t=0) → MAX_ZOOM (1000%), outermost (t=1) → MIN_ZOOM (0.001%).
+        // createSticker uses scale = 1/zoom so the parrot appears ~96px on screen
+        // at that zoom level, keeping every parrot the same apparent screen size.
+        const stickerZoom = MAX_ZOOM * Math.pow(MIN_ZOOM / MAX_ZOOM, t)
+        const sticker = createSticker('parrot', x, y, { assignId: true, zoom: stickerZoom })
         if (sticker) {
           setObjectZIndex(sticker, baseZ + i)
           canvas.add(sticker)
