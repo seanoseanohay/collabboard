@@ -13,6 +13,7 @@ import {
   updateBoardVisibility,
 } from '@/features/boards/api/boardsApi'
 import { parseBoardIdFromShareInput, getShareUrl } from '@/shared/lib/shareLinks'
+import { Z_INDEX } from '@/shared/constants/zIndex'
 import type { BoardMeta } from '@/features/boards/api/boardsApi'
 import { NavBar } from '@/shared/components/NavBar'
 import { Footer } from '@/shared/components/Footer'
@@ -837,16 +838,16 @@ const styles: Record<string, React.CSSProperties> = {
   },
   menu: {
     position: 'absolute',
-    top: '100%',
+    bottom: '100%',
     right: 0,
-    marginTop: 4,
+    marginBottom: 4,
     minWidth: 160,
     padding: 4,
     background: '#fff',
     border: '1px solid #e5e7eb',
     borderRadius: 8,
     boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-    zIndex: 10,
+    zIndex: Z_INDEX.DROPDOWN,
   },
   menuItem: {
     display: 'block',
