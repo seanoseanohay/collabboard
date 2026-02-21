@@ -2080,6 +2080,8 @@ const FabricCanvasInner = (
     fabricCanvas.on('object:added', assignFreeDrawPathId)
 
     // Snap-to-grid: registered before boardSync so snapped position is what gets synced
+    // NOTE: Snap uses square grid regardless of gridType.
+    // Hex-grid-specific snap (nearest hex center) is a future enhancement.
     const handleSnapToGrid = (e: { target?: FabricObject }) => {
       if (!snapToGridRef.current || !e.target) return
       const obj = e.target

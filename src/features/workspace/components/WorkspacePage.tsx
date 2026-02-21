@@ -502,7 +502,7 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
         />
       )}
       <div ref={canvasContainerRef} style={styles.canvas}>
-        <GridOverlay ref={gridRef} />
+        {gridType === 'square' && <GridOverlay ref={gridRef} />}
         <EmptyCanvasX objectCount={objectCount} zoom={viewportTransform?.[0] ?? 1} />
         <MapBorderOverlay zoom={viewportTransform?.[0] ?? 1} visible={showMapBorder} />
         <TreasureMapFrame zoom={viewportTransform?.[0] ?? 1} visible={showMapBorder} />
