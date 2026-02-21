@@ -1,12 +1,14 @@
+import { Link } from 'react-router-dom'
+
 export function Footer() {
   return (
     <footer style={styles.footer}>
       <div style={styles.inner}>
         <span style={styles.copy}>© MeBoard – All hands on deck</span>
         <div style={styles.links}>
-          <a href="#" style={styles.link}>Terms</a>
-          <a href="#" style={styles.link}>Privacy</a>
-          <a href="#" style={styles.link}>Contact</a>
+          <Link to="/terms" style={styles.link}>Terms</Link>
+          <Link to="/privacy" style={styles.link}>Privacy</Link>
+          <a href="mailto:contact@meboard.dev" style={styles.link}>Contact</a>
         </div>
       </div>
     </footer>

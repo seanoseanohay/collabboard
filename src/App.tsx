@@ -2,6 +2,7 @@ import { useAuth } from '@/features/auth/hooks/useAuth'
 import { LoginPage } from '@/features/auth/components/LoginPage'
 import { BoardListPage } from '@/features/boards/components/BoardListPage'
 import { BoardPage } from '@/features/boards/components/BoardPage'
+import { TermsPage, PrivacyPage } from '@/features/legal'
 import { Routes, Route, Navigate } from 'react-router-dom'
 
 function App() {
@@ -16,14 +17,12 @@ function App() {
     )
   }
 
-  if (!user) {
-    return <LoginPage />
-  }
-
   return (
     <Routes>
-      <Route path="/" element={<BoardListPage />} />
-      <Route path="/board/:boardId" element={<BoardPage />} />
+      <Route path="/terms" element={<TermsPage />} />
+      <Route path="/privacy" element={<PrivacyPage />} />
+      <Route path="/" element={user ? <BoardListPage /> : <LoginPage />} />
+      <Route path="/board/:boardId" element={user ? <BoardPage /> : <Navigate to="/" replace />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
