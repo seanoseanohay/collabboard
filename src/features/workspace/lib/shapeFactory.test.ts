@@ -5,7 +5,7 @@
 import { createShape } from './shapeFactory'
 import type { ToolType } from '../types/tools'
 
-const SHAPE_TOOLS: ToolType[] = ['rect', 'circle', 'triangle', 'line', 'text', 'sticky']
+const SHAPE_TOOLS: ToolType[] = ['rect', 'circle', 'triangle', 'ellipse', 'polygon', 'line', 'text', 'sticky']
 
 describe('shapeFactory', () => {
   describe('createShape', () => {
@@ -65,6 +65,34 @@ describe('shapeFactory', () => {
       const shape = createShape('sticky', 0, 0, 120, 80)
       expect(shape).not.toBeNull()
       expect(shape!.type).toBe('group')
+    })
+
+    it('creates ellipse with rx and ry', () => {
+      const shape = createShape('ellipse', 0, 0, 200, 100)
+      expect(shape).not.toBeNull()
+      expect((shape as any).rx).toBe(100)
+      expect((shape as any).ry).toBe(50)
+    })
+
+    it('creates polygon with default 6 sides (hexagon)', () => {
+      const shape = createShape('polygon', 0, 0, 100, 100)
+      expect(shape).not.toBeNull()
+      const points = (shape as any).points
+      expect(points).toHaveLength(6)
+    })
+
+    it('creates polygon with custom sides', () => {
+      const shape = createShape('polygon', 0, 0, 100, 100, { polygonSides: 5 })
+      expect(shape).not.toBeNull()
+      const points = (shape as any).points
+      expect(points).toHaveLength(5)
+    })
+
+    it('creates star with double the points', () => {
+      const shape = createShape('polygon', 0, 0, 100, 100, { polygonSides: 5, starMode: true })
+      expect(shape).not.toBeNull()
+      const points = (shape as any).points
+      expect(points).toHaveLength(10)
     })
 
     it('returns null for invalid tool', () => {

@@ -49,6 +49,9 @@ export function BoardListPage() {
   const PAGE_SIZE = 20
   const [publicBoards, setPublicBoards] = useState<BoardMeta[]>([])
   const [publicLoading, setPublicLoading] = useState(false)
+  const [createMenuOpen, setCreateMenuOpen] = useState(false)
+  const createMenuRef = useRef<HTMLDivElement>(null)
+  const createBtnRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const [menuAnchorRect, setMenuAnchorRect] = useState<DOMRect | null>(null)
   const parrotInitialized = useRef(false)
@@ -88,6 +91,18 @@ export function BoardListPage() {
     return () => document.removeEventListener('click', close)
   }, [menuBoardId, closeMenu])
 
+  useEffect(() => {
+    if (!createMenuOpen) return
+    const close = (e: MouseEvent) => {
+      const target = e.target as Node
+      if (createMenuRef.current?.contains(target)) return
+      if (createBtnRef.current?.contains(target)) return
+      setCreateMenuOpen(false)
+    }
+    document.addEventListener('click', close)
+    return () => document.removeEventListener('click', close)
+  }, [createMenuOpen])
+
   const loadPublicBoards = useCallback(async () => {
     setPublicLoading(true)
     try {
@@ -118,10 +133,12 @@ export function BoardListPage() {
     }
   }
 
-  const handleCreate = async () => {
+  const handleCreate = async (mode: 'standard' | 'explorer' = 'standard') => {
     setCreating(true)
+    setCreateMenuOpen(false)
     try {
-      const boardId = await createBoard(userId, 'Untitled Board')
+      const title = mode === 'explorer' ? 'Untitled Expedition' : 'Untitled Board'
+      const boardId = await createBoard(userId, title, mode)
       navigate(`/board/${boardId}`)
     } finally {
       setCreating(false)
@@ -283,14 +300,35 @@ export function BoardListPage() {
                 Count
               </button>
             </div>
-            <button
-              type="button"
-              onClick={handleCreate}
-              disabled={creating}
-              style={styles.createBtn}
-            >
-              {creating ? 'Creating…' : '+ New Board'}
-            </button>
+            <div style={{ position: 'relative' }}>
+              <button
+                ref={createBtnRef}
+                type="button"
+                onClick={() => setCreateMenuOpen((v) => !v)}
+                disabled={creating}
+                style={styles.createBtn}
+              >
+                {creating ? 'Creating…' : '+ New Board ▾'}
+              </button>
+              {createMenuOpen && (
+                <div ref={createMenuRef} style={styles.createMenu}>
+                  <button
+                    type="button"
+                    style={styles.createMenuItem}
+                    onClick={() => void handleCreate('standard')}
+                  >
+                    ⚓ New Board
+                  </button>
+                  <button
+                    type="button"
+                    style={styles.createMenuItem}
+                    onClick={() => void handleCreate('explorer')}
+                  >
+                    🗺️ New Expedition
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
           <div style={styles.joinRow}>
             <input
@@ -329,14 +367,34 @@ export function BoardListPage() {
             ) : (
               <>
                 <p style={styles.empty}>No boards yet. Create one to get started.</p>
-                <button
-                  type="button"
-                  onClick={handleCreate}
-                  disabled={creating}
-                  style={styles.emptyCreateBtn}
-                >
-                  + New Board
-                </button>
+                <div style={{ position: 'relative', display: 'inline-block' }}>
+                  <button
+                    type="button"
+                    onClick={() => setCreateMenuOpen((v) => !v)}
+                    disabled={creating}
+                    style={styles.emptyCreateBtn}
+                  >
+                    {creating ? 'Creating…' : '+ New Board ▾'}
+                  </button>
+                  {createMenuOpen && (
+                    <div ref={createMenuRef} style={styles.createMenu}>
+                      <button
+                        type="button"
+                        style={styles.createMenuItem}
+                        onClick={() => void handleCreate('standard')}
+                      >
+                        ⚓ New Board
+                      </button>
+                      <button
+                        type="button"
+                        style={styles.createMenuItem}
+                        onClick={() => void handleCreate('explorer')}
+                      >
+                        🗺️ New Expedition
+                      </button>
+                    </div>
+                  )}
+                </div>
               </>
             )}
           </div>
@@ -426,6 +484,9 @@ export function BoardListPage() {
                       <span style={styles.objectCount}>
                         {board.objectCount} {board.objectCount === 1 ? 'object' : 'objects'}
                       </span>
+                    )}
+                    {board.boardMode === 'explorer' && (
+                      <span style={styles.explorerBadge}>🗺️ Expedition</span>
                     )}
                     {board.isPublic && (
                       <span style={styles.publicBadge}>🌐 Public</span>
@@ -856,6 +917,38 @@ const styles: Record<string, React.CSSProperties> = {
     background: '#ecfdf5',
     padding: '1px 6px',
     borderRadius: 4,
+  },
+  explorerBadge: {
+    fontSize: 11,
+    color: '#b45309',
+    background: '#fef3c7',
+    padding: '1px 6px',
+    borderRadius: 4,
+  },
+  createMenu: {
+    position: 'absolute',
+    top: '100%',
+    right: 0,
+    marginTop: 4,
+    minWidth: 180,
+    padding: 4,
+    background: '#fff',
+    border: '1px solid #e5e7eb',
+    borderRadius: 8,
+    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+    zIndex: 20,
+  },
+  createMenuItem: {
+    display: 'block',
+    width: '100%',
+    padding: '8px 12px',
+    textAlign: 'left' as const,
+    fontSize: 14,
+    border: 'none',
+    borderRadius: 6,
+    background: 'transparent',
+    color: '#374151',
+    cursor: 'pointer',
   },
   actionsWrap: {
     position: 'relative',

@@ -1,6 +1,6 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { Z_INDEX } from '@/shared/constants/zIndex'
-import { Canvas, Group, ActiveSelection, Intersection, Point, Polyline, Rect, util, PencilBrush, type FabricObject } from 'fabric'
+import { Canvas, Group, ActiveSelection, Intersection, Point, Polyline, Rect, util, PencilBrush, CircleBrush, SprayBrush, PatternBrush, type FabricObject } from 'fabric'
 import { createHistoryManager, type HistoryManager } from '../lib/historyManager'
 
 /** IText has enterEditing; FabricText does not. Check by method presence. */
@@ -132,6 +132,9 @@ export interface FabricCanvasZoomHandle {
   hasClipboard: () => boolean
   setDrawBrushColor: (color: string) => void
   setDrawBrushWidth: (width: number) => void
+  setDrawBrushType: (type: 'pencil' | 'circle' | 'spray' | 'pattern') => void
+  setDrawBrushOpacity: (opacity: number) => void
+  setDrawEraserMode: (active: boolean) => void
   getViewportCenter: () => { x: number; y: number }
   updateFrameFormData: (frameId: string, formSchema: FormSchema | null) => void
   updateTableTitle: (objectId: string, title: string) => void
@@ -159,8 +162,11 @@ interface FabricCanvasProps {
   selectedTool?: ToolType
   selectedStickerKind?: StickerKind
   boardId?: string
+  boardMode?: 'standard' | 'explorer'
   userId?: string
   userName?: string
+  polygonSides?: number
+  starMode?: boolean
   onPointerMove?: (scenePoint: { x: number; y: number }) => void
   onViewportChange?: (vpt: number[]) => void
   onSelectionChange?: (info: SelectionStrokeInfo | null) => void
@@ -192,8 +198,11 @@ const FabricCanvasInner = (
     selectedTool = 'select',
     selectedStickerKind = 'anchor',
     boardId,
+    boardMode = 'standard',
     userId,
     userName,
+    polygonSides = 6,
+    starMode = false,
     onPointerMove,
     onViewportChange,
     onSelectionChange,
@@ -218,6 +227,14 @@ const FabricCanvasInner = (
   toolRef.current = selectedTool
   const stickerKindRef = useRef(selectedStickerKind)
   stickerKindRef.current = selectedStickerKind
+  const boardModeRef = useRef(boardMode)
+  boardModeRef.current = boardMode
+  const polygonSidesRef = useRef(polygonSides)
+  polygonSidesRef.current = polygonSides
+  const starModeRef = useRef(starMode)
+  starModeRef.current = starMode
+  const brushOpacityRef = useRef(1)
+  const eraserActiveRef = useRef(false)
   const onPointerMoveRef = useRef(onPointerMove)
   onPointerMoveRef.current = onPointerMove
   const onViewportChangeRef = useRef(onViewportChange)
@@ -783,6 +800,26 @@ const FabricCanvasInner = (
       if (!canvas.freeDrawingBrush) canvas.freeDrawingBrush = new PencilBrush(canvas)
       canvas.freeDrawingBrush.width = width
     },
+    setDrawBrushType: (type: 'pencil' | 'circle' | 'spray' | 'pattern') => {
+      const canvas = canvasRef.current
+      if (!canvas) return
+      const color = canvas.freeDrawingBrush?.color ?? '#1e293b'
+      const w = canvas.freeDrawingBrush?.width ?? 2
+      switch (type) {
+        case 'pencil':  canvas.freeDrawingBrush = new PencilBrush(canvas); break
+        case 'circle':  canvas.freeDrawingBrush = new CircleBrush(canvas); break
+        case 'spray':   canvas.freeDrawingBrush = new SprayBrush(canvas); break
+        case 'pattern': canvas.freeDrawingBrush = new PatternBrush(canvas); break
+      }
+      canvas.freeDrawingBrush.color = color
+      canvas.freeDrawingBrush.width = w
+    },
+    setDrawBrushOpacity: (opacity: number) => {
+      brushOpacityRef.current = opacity
+    },
+    setDrawEraserMode: (active: boolean) => {
+      eraserActiveRef.current = active
+    },
     }
     fabricImperativeRef.current = api
     return api
@@ -1131,6 +1168,8 @@ const FabricCanvasInner = (
             : createShape(tool, sp.x, sp.y, sp.x, sp.y, {
                 assignId: false,
                 zoom: fabricCanvas.getZoom(),
+                polygonSides: polygonSidesRef.current,
+                starMode: starModeRef.current,
               })
           if (shape) {
             previewObj = shape
@@ -1198,6 +1237,8 @@ const FabricCanvasInner = (
             : createShape(tool, drawStart.x, drawStart.y, sp.x, sp.y, {
                 assignId: false,
                 zoom: fabricCanvas.getZoom(),
+                polygonSides: polygonSidesRef.current,
+                starMode: starModeRef.current,
               })
           if (shape) {
             fabricCanvas.remove(previewObj)
@@ -1320,6 +1361,8 @@ const FabricCanvasInner = (
               )
             : createShape(tool, drawStart.x, drawStart.y, end.x, end.y, {
                 zoom: fabricCanvas.getZoom(),
+                polygonSides: polygonSidesRef.current,
+                starMode: starModeRef.current,
               })
           if (shape) {
             if (tool === 'frame') {
@@ -1759,6 +1802,12 @@ const FabricCanvasInner = (
         setObjectId(obj, crypto.randomUUID())
         setObjectZIndex(obj, Date.now())
         obj.set('perPixelTargetFind', true)
+        if (eraserActiveRef.current) {
+          obj.set('globalCompositeOperation', 'destination-out')
+        }
+        if (brushOpacityRef.current < 1) {
+          obj.set('opacity', brushOpacityRef.current)
+        }
       }
       if (isConnector(obj)) connectorCacheSet.add(obj)
       applyConnectorControls(obj)

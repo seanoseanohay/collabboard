@@ -95,8 +95,12 @@
 
 ## Current Status
 **Phase:** MVP + post-MVP complete. DataTable polish ✅ (2026-02-20): accent colors, optional title bar, view/edit mode, frame containment, persistence. Template redesign ✅ (2026-02-20): SWOT/Retro/UserJourney now use DataTable objects with colored headers. `createGrid` AI command ✅. All 6 required AI layout/template commands working. Frame/Table no-rotate enforced.
-**Next:** Connector Phase 2, remaining branding (hero illustration).
-Explorer Canvas plan written (2026-02-21) — 14 tasks, ~48 hrs, at `docs/plans/2026-02-21-explorer-canvas.md`.
+**Frame/table title scaling fix** ✅ (2026-02-21): counter-scale during resize + bake-on-release. **Boards page dropdown** ✅ (2026-02-21): React Portal with `position: fixed` anchored above kebab button.
+**Next:** Connector Phase 2, remaining branding, Explorer Canvas (14-task plan at `docs/plans/2026-02-21-explorer-canvas.md`).
+
+## Recently Fixed (2026-02-21)
+- ✅ **Frame/table title expands on resize/move** — `counterScaleFrameOrTableTitle` in `frameUtils.ts` called during `object:scaling` (via `boardSync.ts`) counter-scales the title IText to neutralize group scale during interactive drag. `bakeFrameOrTableGroupScale` in `frameUtils.ts` called in `FabricCanvas.tsx` `handleObjectModified` bakes the scale into the Rect's `width/height` and resets group + IText scales to 1. `FabricCanvas.tsx` excludes frame/table groups from `updateStickyTextFontSize`. `isFrameOrTableGroup` helper added to `frameUtils.ts`.
+- ✅ **Boards page kebab dropdown overlaps metadata** — Menu rearchitected as React Portal (`createPortal` → `document.body`). `position: fixed, bottom: window.innerHeight - menuAnchorRect.top + 4, right: window.innerWidth - menuAnchorRect.right` positions the menu's bottom just above the button's top edge, right-aligned. Outside-click detection updated for portal. `closeMenu` useCallback handles both `menuBoardId` and `menuAnchorRect` state. Menu now floats above all card content.
 
 ## Recently Added (2026-02-20 — Template/DataTable bug fixes)
 - ✅ **SWOT frame overflow fix** — `TABLE_MIN_WIDTH = 280` silently inflated 240px-wide tables past the 560px frame. Fixed: `frameWidth` 560 → 620, right-column `relLeft` 300 → 320, all table widths 240 → 280. Tables now fit exactly inside the frame.

@@ -33,9 +33,12 @@ interface WorkspacePageProps {
 }
 
 export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePageProps) {
+  const isExplorer = board.boardMode === 'explorer'
   const [selectedTool, setSelectedTool] = useState<ToolType>('select')
   const [selectedStickerKind, setSelectedStickerKind] = useState<StickerKind>('anchor')
-  const [showMapBorder, setShowMapBorder] = useState(true)
+  const [showMapBorder, setShowMapBorder] = useState(isExplorer)
+  const [polygonSides, setPolygonSides] = useState(6)
+  const [starMode, setStarMode] = useState(false)
   const [titleEditing, setTitleEditing] = useState(false)
   const [titleValue, setTitleValue] = useState(board.title)
   const [viewportTransform, setViewportTransform] = useState<number[] | null>(null)
@@ -352,6 +355,11 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
         onRedo={() => canvasZoomRef.current?.redo()}
         showMapBorder={showMapBorder}
         onToggleMapBorder={() => setShowMapBorder((v) => !v)}
+        boardMode={board.boardMode}
+        polygonSides={polygonSides}
+        starMode={starMode}
+        onPolygonSidesChange={setPolygonSides}
+        onStarModeChange={setStarMode}
       />
       <div style={styles.drawerSection}>
         <button
@@ -467,6 +475,11 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
           onRedo={() => canvasZoomRef.current?.redo()}
           showMapBorder={showMapBorder}
           onToggleMapBorder={() => setShowMapBorder((v) => !v)}
+          boardMode={board.boardMode}
+          polygonSides={polygonSides}
+          starMode={starMode}
+          onPolygonSidesChange={setPolygonSides}
+          onStarModeChange={setStarMode}
         />
       )}
       <div ref={canvasContainerRef} style={styles.canvas}>
@@ -478,8 +491,11 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
           ref={canvasZoomRef}
           selectedTool={selectedTool}
           boardId={board.id}
+          boardMode={board.boardMode}
           userId={user?.uid}
           userName={userName}
+          polygonSides={polygonSides}
+          starMode={starMode}
           selectedStickerKind={selectedStickerKind}
           onPointerMove={handlePointerMove}
           onViewportChange={handleViewportChange}

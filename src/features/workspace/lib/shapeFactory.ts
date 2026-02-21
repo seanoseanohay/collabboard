@@ -6,6 +6,8 @@ import {
   Rect,
   Circle,
   Triangle,
+  Ellipse,
+  Polygon,
   Polyline,
   IText,
   Group,
@@ -99,7 +101,7 @@ export function createShape(
   y1: number,
   x2: number,
   y2: number,
-  options?: { assignId?: boolean; zoom?: number }
+  options?: { assignId?: boolean; zoom?: number; polygonSides?: number; starMode?: boolean }
 ): FabricObject | null {
   const assignId = options?.assignId !== false
   const zoom = options?.zoom ?? 1
@@ -144,6 +146,41 @@ export function createShape(
         top,
         width,
         height,
+        fill: FILL,
+      }))
+    }
+    case 'ellipse': {
+      const rx = width / 2
+      const ry = height / 2
+      return withId(new Ellipse({
+        ...baseOpts,
+        left,
+        top,
+        rx,
+        ry,
+        fill: FILL,
+      }))
+    }
+    case 'polygon': {
+      const sides = options?.polygonSides ?? 6
+      const isStarMode = options?.starMode ?? false
+      const cx = left + width / 2
+      const cy = top + height / 2
+      const outerR = Math.min(width, height) / 2
+      const innerR = outerR * 0.4
+
+      const points: Array<{ x: number; y: number }> = []
+      const totalPoints = isStarMode ? sides * 2 : sides
+      for (let i = 0; i < totalPoints; i++) {
+        const angle = (i * 2 * Math.PI) / totalPoints - Math.PI / 2
+        const r = isStarMode ? (i % 2 === 0 ? outerR : innerR) : outerR
+        points.push({
+          x: cx + r * Math.cos(angle),
+          y: cy + r * Math.sin(angle),
+        })
+      }
+      return withId(new Polygon(points, {
+        ...baseOpts,
         fill: FILL,
       }))
     }

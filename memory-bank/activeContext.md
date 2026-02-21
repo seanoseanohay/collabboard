@@ -2,6 +2,20 @@
 
 ## Current Focus (for next agent)
 
+**Frame/table title scaling fix + boards page dropdown fix (2026-02-21).** Two UI bugs resolved:
+
+1. **Frame/table title expands when resizing/moving** — Root cause: Fabric's group scaling multiplied IText children's scale in addition to the group's own scale, causing titles to visually grow when the group was resized. Also, `updateStickyTextFontSize` (designed for sticky notes) was incorrectly applied to frame/table groups. Three-part fix:
+   - `FabricCanvas.tsx`: Excluded frame/table groups from `updateStickyTextFontSize` call (condition changed from `subtype !== 'container'` to `subtype !== 'container' && subtype !== 'frame' && subtype !== 'table'`).
+   - `frameUtils.ts`: Added `counterScaleFrameOrTableTitle(target)` — called during `object:scaling` via `boardSync.ts`; counter-scales the title IText (`scaleX = 1/groupScaleX, scaleY = 1/groupScaleY`) to keep it visually fixed size during interactive resize. Handles `ActiveSelection` by iterating children.
+   - `frameUtils.ts`: Added `bakeFrameOrTableGroupScale(group)` — called in `FabricCanvas.tsx` `handleObjectModified` after `normalizeScaleFlips`; bakes current `scaleX/scaleY` into the background Rect's `width/height`, resets title IText scale to 1, and resets group scale to 1. Ensures clean un-scaled state for persistence.
+   - `isFrameOrTableGroup(obj)` helper added to `frameUtils.ts` for both functions.
+
+2. **Boards page kebab dropdown overlaps metadata row** — The dropdown menu ("Copy share link", Rename, etc.) was rendered inside the board card (which has `overflow: hidden`) and opened downward, overlapping the "Opened X ago" metadata text. Two iterations of fix:
+   - **First attempt (clipped):** Changed menu position from `top: 100%` to `bottom: 100%` within the card — but `overflow: hidden` on the card still clipped the upward-opening menu.
+   - **Final fix (portal):** Rearchitected to use React Portal (`createPortal` → `document.body`). Menu uses `position: fixed, bottom: window.innerHeight - menuAnchorRect.top + 4, right: window.innerWidth - menuAnchorRect.right` — placing the menu's bottom edge just above the button's top, aligned to the button's right edge. Outside-click detection updated to exclude both the portaled menu div (`menuRef`) and the kebab anchor button (`data-board-kebab-anchor` attribute). `closeMenu` useCallback manages both `menuBoardId` and `menuAnchorRect` state. `Z_INDEX.DROPDOWN = 100` ensures it floats above all page content.
+
+---
+
 **Explorer Canvas plan written (2026-02-21).** Comprehensive implementation plan at `docs/plans/2026-02-21-explorer-canvas.md` covering 14 tasks across 7 parallel groups (~48 hrs total). Key features:
 
 1. **Board mode infrastructure** — `board_mode` column (`'standard' | 'explorer'`), creation picker ("New Board" vs "New Expedition"), mode threaded through component tree.

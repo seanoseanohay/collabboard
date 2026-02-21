@@ -9,16 +9,18 @@ export interface BoardMeta {
   ownerId?: string
   objectCount?: number
   thumbnailUrl?: string
+  boardMode?: 'standard' | 'explorer'
 }
 
 export async function createBoard(
   userId: string,
-  title: string = 'Untitled Board'
+  title: string = 'Untitled Board',
+  boardMode: 'standard' | 'explorer' = 'standard'
 ): Promise<string> {
   const supabase = getSupabaseClient()
   const { data: board, error: boardErr } = await supabase
     .from('boards')
-    .insert({ title, owner_id: userId })
+    .insert({ title, owner_id: userId, board_mode: boardMode })
     .select('id')
     .single()
 
@@ -88,7 +90,7 @@ export async function joinBoard(
     ),
     supabase
       .from('boards')
-      .select('id, title, created_at, is_public, owner_id')
+      .select('id, title, created_at, is_public, owner_id, board_mode')
       .eq('id', boardId)
       .single(),
   ])
@@ -113,6 +115,7 @@ export async function joinBoard(
     lastAccessedAt: new Date(now).getTime(),
     isPublic: board.is_public ?? false,
     ownerId: board.owner_id,
+    boardMode: board.board_mode ?? 'standard',
   }
 }
 
@@ -176,7 +179,7 @@ export async function fetchPublicBoards(): Promise<BoardMeta[]> {
   const supabase = getSupabaseClient()
   const { data, error } = await supabase
     .from('boards')
-    .select('id, title, owner_id, created_at, is_public, thumbnail_url')
+    .select('id, title, owner_id, created_at, is_public, thumbnail_url, board_mode')
     .eq('is_public', true)
     .order('created_at', { ascending: false })
 
@@ -189,6 +192,7 @@ export async function fetchPublicBoards(): Promise<BoardMeta[]> {
     isPublic: true,
     ownerId: r.owner_id,
     thumbnailUrl: r.thumbnail_url ?? undefined,
+    boardMode: r.board_mode ?? 'standard',
   }))
 }
 
@@ -224,6 +228,7 @@ export function subscribeToUserBoards(
         owner_id?: string
         object_count?: number
         thumbnail_url?: string
+        board_mode?: string
       }) => ({
         id: r.board_id,
         title: r.title ?? 'Untitled',
@@ -235,6 +240,7 @@ export function subscribeToUserBoards(
         ownerId: r.owner_id,
         objectCount: Number(r.object_count ?? 0),
         thumbnailUrl: r.thumbnail_url ?? undefined,
+        boardMode: (r.board_mode as BoardMeta['boardMode']) ?? 'standard',
       })
     )
     onBoards(boards)

@@ -9,6 +9,8 @@ export type ToolType =
   | 'rect'
   | 'circle'
   | 'triangle'
+  | 'ellipse'
+  | 'polygon'
   | 'line'
   | 'text'
   | 'sticky'
@@ -23,6 +25,8 @@ export const SHAPE_TOOLS: ToolType[] = [
   'rect',
   'circle',
   'triangle',
+  'ellipse',
+  'polygon',
   'line',
   'text',
   'sticky',

@@ -28,6 +28,11 @@ interface WorkspaceToolbarProps {
   onRedo?: () => void
   showMapBorder?: boolean
   onToggleMapBorder?: () => void
+  boardMode?: 'standard' | 'explorer'
+  polygonSides?: number
+  starMode?: boolean
+  onPolygonSidesChange?: (sides: number) => void
+  onStarModeChange?: (star: boolean) => void
   /** When true, layout stacks vertically for mobile drawer (Figma-like) */
   inDrawer?: boolean
 }
@@ -39,6 +44,8 @@ const TOOLS: { id: ToolType; label: string }[] = [
   { id: 'rect', label: 'Rectangle' },
   { id: 'circle', label: 'Circle' },
   { id: 'triangle', label: 'Triangle' },
+  { id: 'ellipse', label: 'Ellipse' },
+  { id: 'polygon', label: 'Polygon' },
   { id: 'line', label: 'Line' },
   { id: 'draw', label: 'Draw' },
   { id: 'text', label: 'Text' },
@@ -109,6 +116,16 @@ const ToolIcons: Record<ToolType, React.ReactNode> = {
       <path d="M12 2L2 22h20L12 2z" />
     </svg>
   ),
+  ellipse: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <ellipse cx="12" cy="12" rx="10" ry="6" />
+    </svg>
+  ),
+  polygon: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round">
+      <polygon points="12,2 22,8.5 19,20 5,20 2,8.5" />
+    </svg>
+  ),
   line: (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <line x1="5" y1="19" x2="19" y2="5" />
@@ -164,7 +181,7 @@ const ToolIcons: Record<ToolType, React.ReactNode> = {
   ),
 }
 
-const INSERT_TOOLS: ToolType[] = ['rect', 'circle', 'triangle', 'line', 'draw', 'text', 'sticky', 'frame']
+const INSERT_TOOLS: ToolType[] = ['rect', 'circle', 'triangle', 'ellipse', 'polygon', 'line', 'draw', 'text', 'sticky', 'frame']
 
 export function WorkspaceToolbar({
   selectedTool,
@@ -183,6 +200,11 @@ export function WorkspaceToolbar({
   onRedo,
   showMapBorder = true,
   onToggleMapBorder,
+  boardMode: _boardMode = 'standard',
+  polygonSides = 6,
+  starMode = false,
+  onPolygonSidesChange,
+  onStarModeChange,
   inDrawer = false,
 }: WorkspaceToolbarProps) {
   const [zoomOpen, setZoomOpen] = useState(false)
@@ -520,11 +542,31 @@ export function WorkspaceToolbar({
       </div>
 
       {/* Contextual bar (selection controls or draw brush) */}
-      {(selectionStroke != null || selectedTool === 'draw') && canvasRef && (
+      {(selectionStroke != null || selectedTool === 'draw' || selectedTool === 'polygon') && canvasRef && (
         <div style={styles.contextualRow}>
           <div style={styles.contextualLeft}>
             {selectedTool === 'draw' ? (
               <DrawBrushControl canvasRef={canvasRef} />
+            ) : selectedTool === 'polygon' ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: 32, padding: '0 10px', fontSize: 12, border: '1px solid #e5e7eb', borderRadius: 6, background: '#fff', color: '#374151' }}>
+                <label style={{ color: '#6b7280' }}>Sides</label>
+                <input
+                  type="number"
+                  min={3}
+                  max={12}
+                  value={polygonSides}
+                  onChange={(e) => onPolygonSidesChange?.(Math.min(12, Math.max(3, Number(e.target.value) || 6)))}
+                  style={{ width: 42, padding: '2px 4px', fontSize: 12, border: '1px solid #e5e7eb', borderRadius: 4, textAlign: 'center' }}
+                />
+                <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', color: '#6b7280' }}>
+                  <input
+                    type="checkbox"
+                    checked={starMode}
+                    onChange={(e) => onStarModeChange?.(e.target.checked)}
+                  />
+                  Star
+                </label>
+              </div>
             ) : (
               <>
                 {showStrokeControls && (
