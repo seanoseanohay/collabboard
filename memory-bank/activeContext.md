@@ -97,6 +97,8 @@ Parallel execution: Tasks 2/3/4 (tools+shapes) run in parallel; Tasks 5/6/7 (exp
 
 **Current state:** TypeScript compiles clean, no linter errors. Edge Function deployed. Frames sync across collaborators.
 
+**Free draw persistence fix (2026-02-21):** Root cause: `assignFreeDrawPathId` was registered after `setupDocumentSync`, so boardSync's `object:added` handler fired first without a path ID and skipped emitAdd. Fixed by registering `assignFreeDrawPathId` before `setupDocumentSync`. Also switched to full zoom compensation (`/ zoom`) for brushes and paths — sqrt compensation left strokes at 0.063px at zoom 0.001 (invisible). `data.brushWidth` stored on each path; `notifyViewport` recomputes `strokeWidth = brushWidth / zoom` on every zoom change so paths are always exactly `brushWidth` screen pixels wide at any zoom including on reload.
+
 **Remaining work:**
 1. ~~**Fix OpenAI key**~~ ✅
 2. ~~**`usePirateJokes` hook**~~ ✅
@@ -210,7 +212,7 @@ Frames are **visual containers** (Fabric Group: bg Rect + title IText) whose ass
 4. ~~**Shape tool vs selection**~~ ✅ — With shape tool active, pointer-down always starts drawing (discardActiveObject + draw); never selects.
 5. ~~**Board loading performance**~~ ✅ — Paginated fetch in documentsApi (50 per batch, order by object_id).
 6. ~~**Stroke width (border thickness)**~~ ✅ — PRD §4. strokeUtils (getStrokeWidthFromObject, setStrokeWidthOnObject), StrokeControl in toolbar when selection has stroke (1/2/4/8px). Sync uses Fabric strokeWidth in payload. FabricCanvas: onSelectionChange, setActiveObjectStrokeWidth on ref.
-17. **Explorer Canvas (MeBoard 2.0)** — Tasks 1-7 done. Group C complete. Next: Group D Tasks 8-9 (mini-map, hex grid + snap), then Task 10 (procedural map gen). See `docs/plans/2026-02-21-explorer-canvas.md`.
+17. **Explorer Canvas (MeBoard 2.0)** — Tasks 1-9 done. Groups A/B/C/D complete. Next: Task 10 (procedural map gen), then Tasks 11/12/13 (Fog of War, laser, follow mode), then Task 14 (animated zoom + arrow shape). See `docs/plans/2026-02-21-explorer-canvas.md`.
 
 ## Recent Changes (2026-02-19 — Board list features + drawing fixes)
 

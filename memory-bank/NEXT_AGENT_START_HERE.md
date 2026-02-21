@@ -106,14 +106,26 @@ Connector endpoints now update in real-time when connected objects are **rotated
 - `applyRemote`: both the group path and regular-object path now call `updateConnectorsForObjects` after applying remote property changes, so remote rotate/scale propagates to connector endpoints on all clients. Guard: `!isConnector(existing)` prevents redundant updates when a connector itself is remotely modified.
 - Port positions were already correct (they use `calcTransformMatrix()` which includes full rotation + scale matrix) — only the trigger was missing.
 
+## Critical Pattern: Free Draw Event Registration Order
+
+Free-draw paths require their ID to be assigned **before** `setupDocumentSync` is called, because boardSync's `object:added` fires first. The handler `assignFreeDrawPathId` must always be registered on `canvas.on('object:added')` **before** `setupDocumentSync(...)`.
+
+Pattern: any handler that mutates an object before boardSync sees it must be registered before `setupDocumentSync`.
+
+## Explorer Canvas Group D COMPLETE (2026-02-21)
+
+Tasks 8 and 9 of the Explorer Canvas plan are done:
+
+8. **Mini-map navigator** ✅ — `MiniMapNavigator.tsx` (200×140px parchment-styled overlay, bottom-left, explorer only). `getMiniMapData()` on `FabricCanvasZoomHandle`: saves viewport, zoom-to-fit, JPEG capture, restore. Blue viewport rectangle overlay. Click-to-pan via `panToScene`. Updates every 2s + on object count change. `getBoundingRect(true)` for grouped objects. Refresh race protection via version counter.
+9. **Hex grid + snap** ✅ — `drawHexGrid(canvas)` in `drawCanvasGrid.ts` (flat-top hexagons, HEX_SIZE=20, low-zoom guard `hexH < 4`). `gridType: 'square' | 'hex' | 'none'` prop on FabricCanvas; explorer boards default `'hex'`, standard boards `'square'`. `GridOverlay` (CSS) only rendered when `gridType === 'square'`. 3-button pill in toolbar (□/⬡/✕). `snapToGrid: boolean` prop; snap rounds to nearest 20px grid on `object:modified` (before `setupDocumentSync`). 🧲 toggle in toolbar.
+
 ## Next Items (suggested)
 
 **Next up (MeBoard 2.0 — Explorer Canvas):**
-- Tasks 1-7 DONE (board mode, brushes, shapes, freeform polygon, LOD visibility, scale band HUD, Ports of Call). **Groups B + C complete.**
-- **Start with Tasks 8-9 in parallel (Group D):** Mini-map navigator + Hex grid + snap.
-- **Then Task 10:** Procedural + AI map generation (`expeditionMapGenerator.ts`).
-- **Then Tasks 11-12 (Group E/F):** Fog of War, laser pointer + follow mode.
-- **Last:** Animated zoom transitions + polish.
+- Tasks 1-9 DONE (Groups A + B + C + D complete).
+- **Task 10:** Procedural + AI map generation (`expeditionMapGenerator.ts`). New expedition boards auto-generate a full pirate map (~40–80 objects across LOD bands).
+- **Then Tasks 11-12-13 (Groups E/F):** Fog of War, laser pointer + follow mode. Can run in parallel.
+- **Last:** Task 14 — Animated zoom transitions + arrow shape.
 - See `docs/plans/2026-02-21-explorer-canvas.md` for full details.
 
 **Done this session:**
