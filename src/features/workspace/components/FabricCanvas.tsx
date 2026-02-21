@@ -1,5 +1,4 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react'
-import { Z_INDEX } from '@/shared/constants/zIndex'
 import { Canvas, Ellipse, Group, ActiveSelection, Intersection, IText, Point, Polygon, Polyline, Rect, util, PencilBrush, CircleBrush, SprayBrush, PatternBrush, type FabricObject } from 'fabric'
 import { createHistoryManager, type HistoryManager } from '../lib/historyManager'
 
@@ -10,7 +9,6 @@ const MINI_MAP_PADDING = 50
 function isEditableText(obj: unknown): obj is { enterEditing: () => void } {
   return !!obj && typeof (obj as { enterEditing?: () => void }).enterEditing === 'function'
 }
-import type { ToolType } from '../types/tools'
 import { isShapeTool } from '../types/tools'
 import { createShape } from '../lib/shapeFactory'
 import { createFrameShape } from '../lib/frameFactory'
@@ -43,7 +41,7 @@ import {
   setObjectZIndex,
   type LockStateCallbackRef,
 } from '../lib/boardSync'
-import { createSticker, type StickerKind } from '../lib/pirateStickerFactory'
+import { createSticker } from '../lib/pirateStickerFactory'
 import { applyConnectorControls, applyConnectorWaypointControls, clearConnectorWaypointControls } from '../lib/connectorControls'
 import {
   createConnector,
@@ -78,121 +76,15 @@ import { loadViewport } from '../lib/viewportPersistence'
 import { isVisibleAtZoom, SCALE_BANDS, ALL_SCALES_ID } from '../lib/scaleBands'
 import { getClipboard, setClipboard, hasClipboard } from '../lib/clipboardStore'
 import type { GeneratedMap } from '../lib/expeditionMapGenerator'
+import type {
+  SelectionStrokeInfo,
+  FabricCanvasZoomHandle,
+  ConnectorDropState,
+  FabricCanvasProps,
+} from '../types/fabricCanvasTypes'
+import { fabricCanvasStyles } from './fabricCanvasStyles'
 
-export interface SelectionStrokeInfo {
-  strokeWidth: number
-  strokeColor: string | null
-  fill: string | null
-  canGroup: boolean
-  canUngroup: boolean
-  /** True when selection is standalone text (no stroke/border controls). */
-  isTextOnly: boolean
-  /** True when selection is a sticky note (no stroke/border controls). */
-  isStickyNote: boolean
-  /** Font family when selection has text (standalone or in group). */
-  fontFamily: string | null
-  /** Font size when selection has text (standalone or in group). */
-  fontSize: number | null
-  /** True when the selected object is a connector. */
-  isConnector: boolean
-  /** Arrow mode for connector (null when not a connector). */
-  arrowMode: ArrowMode | null
-  /** Stroke dash style for connector (null when not a connector). */
-  strokeDash: StrokeDash | null
-  /** True when the selected object is a frame. */
-  isFrame: boolean
-  /** Form schema for the selected frame (null when not a frame or no schema). */
-  frameFormSchema: FormSchema | null
-}
-
-export interface FabricCanvasZoomHandle {
-  setZoom: (zoom: number) => void
-  zoomToFit: () => void
-  zoomToSelection: () => void
-  getActiveObject: () => FabricObject | null
-  setActiveObjectStrokeWidth: (strokeWidth: number) => void
-  setActiveObjectFill: (fill: string) => void
-  setActiveObjectStrokeColor: (stroke: string) => void
-  setActiveObjectFontFamily: (fontFamily: string) => void
-  setActiveObjectFontSize: (fontSize: number) => void
-  setActiveConnectorArrowMode: (mode: ArrowMode) => void
-  setActiveConnectorStrokeDash: (dash: StrokeDash) => void
-  bringToFront: () => void
-  sendToBack: () => void
-  bringForward: () => void
-  sendBackward: () => void
-  undo: () => void
-  redo: () => void
-  groupSelected: () => void
-  ungroupSelected: () => void
-  getSelectedObjectIds: () => string[]
-  groupObjectIds: (ids: string[]) => Promise<void>
-  createFrame: (params: { title: string; childIds: string[]; left: number; top: number; width: number; height: number }) => string
-  setFrameChildren: (frameId: string, childIds: string[]) => void
-  panToScene: (sceneX: number, sceneY: number) => void
-  captureDataUrl: () => string | null
-  getMiniMapData: () => { imageDataUrl: string; contentBounds: { minX: number; minY: number; maxX: number; maxY: number } } | null
-  resetView: () => void
-  duplicateSelected: () => Promise<void>
-  copySelected: () => void
-  paste: () => Promise<void>
-  hasClipboard: () => boolean
-  setDrawBrushColor: (color: string) => void
-  setDrawBrushWidth: (width: number) => void
-  setDrawBrushType: (type: 'pencil' | 'circle' | 'spray' | 'pattern') => void
-  setDrawBrushOpacity: (opacity: number) => void
-  setDrawEraserMode: (active: boolean) => void
-  getViewportCenter: () => { x: number; y: number }
-  updateFrameFormData: (frameId: string, formSchema: FormSchema | null) => void
-  updateTableTitle: (objectId: string, title: string) => void
-  getFormFrameInfos: () => FormFrameSceneInfo[]
-  createTable: (params: {
-    left: number; top: number; width: number; height: number
-    title: string; showTitle: boolean; accentColor?: string
-    formSchema: FormSchema | null
-  }) => string
-  createZoomSpiral: (options?: { count?: number }) => void
-  setActiveObjectScaleBand: (bandId: string) => void
-  getActiveObjectData: () => Record<string, unknown> | null
-  populateExpeditionMap: (map: GeneratedMap) => void
-}
-
-interface ConnectorDropState {
-  screenX: number
-  screenY: number
-  scenePoint: { x: number; y: number }
-  sourceId: string
-  sourcePort: ConnectorPort
-}
-
-interface FabricCanvasProps {
-  width?: number
-  height?: number
-  className?: string
-  selectedTool?: ToolType
-  selectedStickerKind?: StickerKind
-  boardId?: string
-  boardMode?: 'standard' | 'explorer'
-  userId?: string
-  userName?: string
-  polygonSides?: number
-  starMode?: boolean
-  onPointerMove?: (scenePoint: { x: number; y: number }) => void
-  onViewportChange?: (vpt: number[]) => void
-  onSelectionChange?: (info: SelectionStrokeInfo | null) => void
-  onHistoryChange?: (canUndo: boolean, canRedo: boolean) => void
-  onObjectCountChange?: (count: number) => void
-  onToolChange?: (tool: ToolType) => void
-  onSelectedCountChange?: (count: number) => void
-  onBoardReady?: () => void
-  onFpsChange?: (fps: number) => void
-  onSyncLatency?: (ms: number) => void
-  onFormFramesChange?: (frames: FormFrameSceneInfo[]) => void
-  onTableEditStart?: (objectId: string) => void
-  onTableEditEnd?: () => void
-  gridType?: 'square' | 'hex' | 'none'
-  snapToGrid?: boolean
-}
+export type { SelectionStrokeInfo, FabricCanvasZoomHandle }
 
 /**
  * Fabric.js canvas wrapper with pan/zoom and shape drawing.
@@ -230,6 +122,7 @@ const FabricCanvasInner = (
     onTableEditEnd,
     gridType = 'square',
     snapToGrid = false,
+    onFogReveal,
   }: FabricCanvasProps,
   ref: React.Ref<FabricCanvasZoomHandle>
 ) => {
@@ -281,6 +174,8 @@ const FabricCanvasInner = (
   onFpsChangeRef.current = onFpsChange
   const onSyncLatencyRef = useRef(onSyncLatency)
   onSyncLatencyRef.current = onSyncLatency
+  const onFogRevealRef = useRef(onFogReveal)
+  onFogRevealRef.current = onFogReveal
   const lockOptsRef = useRef({ userId: userId ?? '', userName: userName ?? 'Anonymous' })
   lockOptsRef.current = { userId: userId ?? '', userName: userName ?? 'Anonymous' }
   const applyLockStateCallbackRef = useRef<LockStateCallbackRef['current']>(null)
@@ -979,6 +874,14 @@ const FabricCanvasInner = (
       canvas.requestRenderAll()
       onViewportChangeRef.current?.(canvas.viewportTransform!)
     },
+    getDrawBrushWidth: () => brushWidthRef.current,
+    setViewportTransform: (vpt: number[]) => {
+      const canvas = canvasRef.current
+      if (!canvas?.viewportTransform) return
+      for (let i = 0; i < 6; i++) canvas.viewportTransform![i] = vpt[i]
+      canvas.requestRenderAll()
+      onViewportChangeRef.current?.(canvas.viewportTransform!)
+    },
     }
     fabricImperativeRef.current = api
     return api
@@ -1330,6 +1233,15 @@ const FabricCanvasInner = (
     const onCaptureMouseDown = (ev: MouseEvent) => {
       if (ev.button !== 0) return
       const tool = toolRef.current
+
+      if (tool === 'reveal') {
+        ev.preventDefault()
+        ev.stopImmediatePropagation()
+        const sp = fabricCanvas.getScenePoint(ev)
+        const radius = brushWidthRef.current
+        onFogRevealRef.current?.(sp.x, sp.y, radius)
+        return
+      }
 
       if (tool === 'select') {
         const mod = ev.altKey || ev.metaKey || ev.ctrlKey
@@ -2572,13 +2484,13 @@ const FabricCanvasInner = (
   }, [boardId, userId, userName])
 
   return (
-    <div style={styles.wrapper}>
+    <div style={fabricCanvasStyles.wrapper}>
       <div
         ref={containerRef}
         className={className}
         style={{
-          ...styles.container,
-          cursor: selectedTool === 'hand' ? 'grab' : selectedTool === 'zoom-in' ? 'zoom-in' : selectedTool === 'draw' || selectedTool === 'lasso' || selectedTool === 'polygon-draw' ? 'crosshair' : undefined,
+          ...fabricCanvasStyles.container,
+          cursor: selectedTool === 'hand' ? 'grab' : selectedTool === 'zoom-in' ? 'zoom-in' : selectedTool === 'draw' || selectedTool === 'lasso' || selectedTool === 'polygon-draw' || selectedTool === 'reveal' ? 'crosshair' : selectedTool === 'laser' ? 'crosshair' : undefined,
         }}
       />
       {connectorDropMenuState && (
@@ -2591,24 +2503,6 @@ const FabricCanvasInner = (
       )}
     </div>
   )
-}
-
-const styles: Record<string, React.CSSProperties> = {
-  wrapper: {
-    position: 'relative',
-    width: '100%',
-    height: '100%',
-  },
-  container: {
-    width: '100%',
-    height: '100%',
-    minHeight: 0,
-    background: 'transparent',
-    cursor: 'default',
-    position: 'relative',
-    zIndex: Z_INDEX.CANVAS,
-    touchAction: 'none', // let JS own all touch gestures; prevents browser scroll/zoom conflicts
-  },
 }
 
 export const FabricCanvas = forwardRef(FabricCanvasInner)

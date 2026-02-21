@@ -26,9 +26,11 @@ import type { PortOfCall } from '../lib/portsOfCall'
 import { DebugConsole } from './DebugConsole'
 import { MiniMapNavigator } from './MiniMapNavigator'
 import { FrameFormOverlay } from './FrameFormOverlay'
+import { FogOfWarOverlay } from './FogOfWarOverlay'
 import { MobileHamburgerDrawer } from './MobileHamburgerDrawer'
 import type { FormFrameSceneInfo, FormSchema } from '../lib/frameFormTypes'
 import { usePresence } from '../hooks/usePresence'
+import { loadFogReveals, addFogReveal, type FogReveal } from '../lib/fogOfWarStorage'
 import type { ToolType } from '../types/tools'
 import type { StickerKind } from '../lib/pirateStickerFactory'
 
@@ -70,6 +72,11 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
   const mapGeneratedRef = useRef(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [portsOpen, setPortsOpen] = useState(false)
+  const [fogEnabled, setFogEnabled] = useState(false)
+  const [fogReveals, setFogReveals] = useState<FogReveal[]>(() => loadFogReveals(board.id))
+  const [followingUserId, setFollowingUserId] = useState<string | null>(null)
+  const [laserTrail, setLaserTrail] = useState<Array<{ x: number; y: number; t: number }>>([])
+  const viewportTransformRef = useRef<number[] | null>(null)
 
   const isMobile = useIsMobile()
   const { user } = useAuth()
@@ -83,9 +90,19 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
   const handlePointerMove = useCallback(
     (scenePoint: { x: number; y: number }) => {
       setCursorPosition(scenePoint)
-      if (user) updatePresence(scenePoint.x, scenePoint.y)
+      const extras: { viewportTransform?: number[]; laserTrail?: Array<{ x: number; y: number; t: number }> } = {}
+      if (viewportTransformRef.current) extras.viewportTransform = viewportTransformRef.current
+      if (selectedTool === 'laser') {
+        const t = Date.now()
+        const newTrail = [...laserTrail, { x: scenePoint.x, y: scenePoint.y, t }]
+          .filter((p) => p.t > t - 1500)
+          .slice(-100)
+        setLaserTrail(newTrail)
+        extras.laserTrail = newTrail
+      }
+      if (user) updatePresence(scenePoint.x, scenePoint.y, Object.keys(extras).length > 0 ? extras : undefined)
     },
-    [user, updatePresence]
+    [user, updatePresence, selectedTool, laserTrail]
   )
 
   const GRID_SIZE = 20
@@ -93,6 +110,7 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
 
   const handleViewportChange = useCallback(
     (vpt: number[]) => {
+      viewportTransformRef.current = vpt
       setViewportTransform(vpt)
       // Update grid directly via DOM ref — no React re-render on the hot path
       const el = gridRef.current
@@ -124,6 +142,11 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
     setSelectionStroke(info)
   }, [])
 
+  const handleToolChange = useCallback((tool: ToolType) => {
+    setSelectedTool(tool)
+    if (tool !== 'laser') setLaserTrail([])
+  }, [])
+
   const handleHistoryChange = useCallback((canUndo: boolean, canRedo: boolean) => {
     setHistoryState({ canUndo, canRedo })
   }, [])
@@ -147,6 +170,36 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
   useEffect(() => {
     mapGeneratedRef.current = false
   }, [board.id])
+
+  useEffect(() => {
+    setFogReveals(loadFogReveals(board.id))
+  }, [board.id])
+
+  const handleFogReveal = useCallback(
+    (cx: number, cy: number, radius: number) => {
+      const next = addFogReveal(board.id, { cx, cy, radius })
+      setFogReveals(next)
+    },
+    [board.id]
+  )
+
+  // Follow mode: mirror followed user's viewport
+  useEffect(() => {
+    if (!followingUserId) return
+    const other = others.find((o) => o.userId === followingUserId)
+    if (other?.viewportTransform) {
+      canvasZoomRef.current?.setViewportTransform(other.viewportTransform)
+    }
+  }, [followingUserId, others])
+
+  // Escape stops following
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && followingUserId) setFollowingUserId(null)
+    }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [followingUserId])
 
   useEffect(() => {
     if (!isExplorer) return
@@ -319,10 +372,16 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
             <button
               key={o.userId}
               type="button"
-              title={o.name}
-              style={styles.presenceIconBtn}
+              title={followingUserId === o.userId ? `Following ${o.name} — click to stop` : `Follow ${o.name}`}
+              style={{
+                ...styles.presenceIconBtn,
+                ...(followingUserId === o.userId ? { borderColor: '#6366f1', borderWidth: 2, background: '#eef2ff' } : {}),
+              }}
               onClick={() => {
-                canvasZoomRef.current?.panToScene(o.x, o.y)
+                setFollowingUserId((prev) => (prev === o.userId ? null : o.userId))
+                if (!followingUserId || followingUserId !== o.userId) {
+                  canvasZoomRef.current?.panToScene(o.x, o.y)
+                }
                 if (isMobile) setDrawerOpen(false)
               }}
             >
@@ -366,7 +425,7 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
       <WorkspaceToolbar
         inDrawer
         selectedTool={selectedTool}
-        onToolChange={setSelectedTool}
+        onToolChange={handleToolChange}
         selectedStickerKind={selectedStickerKind}
         onStickerKindChange={setSelectedStickerKind}
         zoom={viewportTransform?.[0] ?? 1}
@@ -392,6 +451,8 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
         onGridTypeChange={setGridType}
         snapToGrid={snapToGrid}
         onSnapToggle={() => setSnapToGrid((s) => !s)}
+        fogEnabled={fogEnabled}
+        onFogToggle={() => setFogEnabled((v) => !v)}
       />
       <div style={styles.drawerSection}>
         <button
@@ -414,10 +475,16 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
               <button
                 key={o.userId}
                 type="button"
-                title={o.name}
-                style={styles.presenceIconBtn}
+                title={followingUserId === o.userId ? `Following ${o.name} — click to stop` : `Follow ${o.name}`}
+                style={{
+                  ...styles.presenceIconBtn,
+                  ...(followingUserId === o.userId ? { borderColor: '#6366f1', borderWidth: 2, background: '#eef2ff' } : {}),
+                }}
                 onClick={() => {
-                  canvasZoomRef.current?.panToScene(o.x, o.y)
+                  setFollowingUserId((prev) => (prev === o.userId ? null : o.userId))
+                  if (!followingUserId || followingUserId !== o.userId) {
+                    canvasZoomRef.current?.panToScene(o.x, o.y)
+                  }
                   setDrawerOpen(false)
                 }}
               >
@@ -492,7 +559,7 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
       ) : (
         <WorkspaceToolbar
           selectedTool={selectedTool}
-          onToolChange={setSelectedTool}
+          onToolChange={handleToolChange}
           selectedStickerKind={selectedStickerKind}
           onStickerKindChange={setSelectedStickerKind}
           zoom={viewportTransform?.[0] ?? 1}
@@ -518,9 +585,17 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
           onGridTypeChange={setGridType}
           snapToGrid={snapToGrid}
           onSnapToggle={() => setSnapToGrid((s) => !s)}
+          fogEnabled={fogEnabled}
+          onFogToggle={() => setFogEnabled((v) => !v)}
         />
       )}
-      <div ref={canvasContainerRef} style={styles.canvas}>
+      <div
+        ref={canvasContainerRef}
+        style={styles.canvas}
+        onClick={followingUserId ? () => setFollowingUserId(null) : undefined}
+        role={followingUserId ? 'button' : undefined}
+        aria-label={followingUserId ? 'Click to stop following' : undefined}
+      >
         {gridType === 'square' && <GridOverlay ref={gridRef} />}
         <EmptyCanvasX objectCount={objectCount} zoom={viewportTransform?.[0] ?? 1} />
         <MapBorderOverlay zoom={viewportTransform?.[0] ?? 1} visible={showMapBorder} />
@@ -542,7 +617,7 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
           onObjectCountChange={handleObjectCountChange}
           onSelectedCountChange={handleSelectedCountChange}
           onBoardReady={handleBoardReady}
-          onToolChange={setSelectedTool}
+          onToolChange={handleToolChange}
           onFpsChange={handleFpsChange}
           onSyncLatency={handleSyncLatency}
           onFormFramesChange={handleFormFramesChange}
@@ -550,6 +625,7 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
           onTableEditEnd={() => setEditingTableId(null)}
           gridType={gridType}
           snapToGrid={snapToGrid}
+          onFogReveal={handleFogReveal}
         />
         <FrameFormOverlay
           frames={formFrames}
@@ -558,12 +634,42 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
           onSchemaChange={handleFrameFormSchemaChange}
           onTitleChange={handleTableTitleChange}
         />
+        {fogEnabled && (
+          <FogOfWarOverlay
+            reveals={fogReveals}
+            viewportTransform={viewportTransform}
+            width={canvasSize.width}
+            height={canvasSize.height}
+          />
+        )}
         <CursorOverlay
           cursors={others}
           viewportTransform={viewportTransform}
           width={canvasSize.width}
           height={canvasSize.height}
+          localLaserTrail={selectedTool === 'laser' ? laserTrail : []}
         />
+        {followingUserId && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 12,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              padding: '6px 14px',
+              background: 'rgba(99, 102, 241, 0.95)',
+              color: 'white',
+              fontSize: 13,
+              fontWeight: 600,
+              borderRadius: 8,
+              zIndex: 9,
+              pointerEvents: 'none',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+            }}
+          >
+            Following {others.find((o) => o.userId === followingUserId)?.name ?? 'someone'} — click anywhere to stop
+          </div>
+        )}
         {cursorPosition && (
           <CursorPositionReadout x={cursorPosition.x} y={cursorPosition.y} />
         )}

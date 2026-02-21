@@ -39,27 +39,31 @@ export interface UsePresenceOptions {
 
 export function usePresence({ boardId, userId, userName }: UsePresenceOptions): {
   others: PresenceEntry[]
-  updatePresence: (x: number, y: number) => void
+  updatePresence: (x: number, y: number, extras?: { viewportTransform?: number[]; laserTrail?: Array<{ x: number; y: number; t: number }> }) => void
 } {
   const [others, setOthers] = useState<PresenceEntry[]>([])
   const colorRef = useRef(hashToColor(userId))
   const lastRef = useRef<{ x: number; y: number } | null>(null)
+  const lastExtrasRef = useRef<{ viewportTransform?: number[]; laserTrail?: Array<{ x: number; y: number; t: number }> } | null>(null)
   const lastSendRef = useRef(0)
   const scheduledRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const channelRef = useRef<ReturnType<typeof setupPresenceChannel> | null>(null)
 
   const updatePresence = useCallback(
-    (x: number, y: number) => {
+    (x: number, y: number, extras?: { viewportTransform?: number[]; laserTrail?: Array<{ x: number; y: number; t: number }> }) => {
       if (!boardId || !userId) return
       const handle = channelRef.current
       if (!handle) return
 
+      lastExtrasRef.current = extras ?? null
       const payload = {
         x,
         y,
         name: userName,
         color: colorRef.current,
         lastActive: Date.now(),
+        ...(extras?.viewportTransform != null && { viewportTransform: extras.viewportTransform }),
+        ...(extras?.laserTrail != null && extras.laserTrail.length > 0 && { laserTrail: extras.laserTrail }),
       }
       lastRef.current = { x, y }
 
@@ -73,10 +77,13 @@ export function usePresence({ boardId, userId, userName }: UsePresenceOptions): 
         scheduledRef.current = setTimeout(() => {
           scheduledRef.current = null
           lastSendRef.current = Date.now()
+          const ex = lastExtrasRef.current
           handle.track({
             ...payload,
             x: lastRef.current?.x ?? x,
             y: lastRef.current?.y ?? y,
+            ...(ex?.viewportTransform != null && { viewportTransform: ex.viewportTransform }),
+            ...(ex?.laserTrail != null && ex.laserTrail.length > 0 && { laserTrail: ex.laserTrail }),
           })
         }, THROTTLE_MS - elapsed)
       }

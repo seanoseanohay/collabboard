@@ -1,0 +1,32 @@
+/**
+ * Fog of War reveal regions — localStorage persistence per board.
+ * MVP: single-user; later: Supabase table for multi-user sync.
+ */
+
+export interface FogReveal {
+  cx: number
+  cy: number
+  radius: number
+}
+
+const STORAGE_KEY = (boardId: string) => `meboard:fog:${boardId}`
+
+export function loadFogReveals(boardId: string): FogReveal[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY(boardId))
+    return raw ? JSON.parse(raw) : []
+  } catch {
+    return []
+  }
+}
+
+export function saveFogReveals(boardId: string, reveals: FogReveal[]): void {
+  localStorage.setItem(STORAGE_KEY(boardId), JSON.stringify(reveals))
+}
+
+export function addFogReveal(boardId: string, reveal: FogReveal): FogReveal[] {
+  const reveals = loadFogReveals(boardId)
+  reveals.push(reveal)
+  saveFogReveals(boardId, reveals)
+  return reveals
+}

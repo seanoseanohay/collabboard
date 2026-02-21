@@ -10,12 +10,22 @@
 
 import { getSupabaseClient } from '@/shared/lib/supabase/config'
 
+export interface LaserPoint {
+  x: number
+  y: number
+  t: number
+}
+
 export interface PresencePayload {
   x: number
   y: number
   name: string
   color: string
   lastActive: number
+  /** Optional viewport transform for Follow mode. */
+  viewportTransform?: number[]
+  /** Optional laser trail (temporary, fades in 1.5s). */
+  laserTrail?: LaserPoint[]
 }
 
 export interface PresenceEntry extends PresencePayload {
@@ -74,6 +84,8 @@ export function setupPresenceChannel(
         name: p.name,
         color: p.color,
         lastActive: p.lastActive,
+        ...(p.viewportTransform != null && { viewportTransform: p.viewportTransform }),
+        ...(p.laserTrail != null && p.laserTrail.length > 0 && { laserTrail: p.laserTrail }),
       })
       emit()
     })

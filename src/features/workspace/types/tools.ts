@@ -7,6 +7,8 @@ export type ToolType =
   | 'zoom-in'
   | 'hand'
   | 'lasso'
+  | 'laser'
+  | 'reveal'
   | 'rect'
   | 'circle'
   | 'triangle'

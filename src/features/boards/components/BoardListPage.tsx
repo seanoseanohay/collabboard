@@ -16,6 +16,8 @@ import {
 import { parseBoardIdFromShareInput, getShareUrl } from '@/shared/lib/shareLinks'
 import { Z_INDEX } from '@/shared/constants/zIndex'
 import type { BoardMeta } from '@/features/boards/api/boardsApi'
+import { formatLastAccessed } from '../lib/boardListUtils'
+import { boardListStyles } from '../lib/boardListStyles'
 import { NavBar } from '@/shared/components/NavBar'
 import { Footer } from '@/shared/components/Footer'
 import { ParrotMascot } from './ParrotMascot'
@@ -250,81 +252,81 @@ export function BoardListPage() {
   const visibleBoards = sortedBoards.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
 
   return (
-    <div style={styles.container}>
+    <div style={boardListStyles.container}>
       <NavBar isAuthenticated={!!user} onSignOut={() => signOutUser()} />
       <WelcomeToast />
-      <header style={styles.header}>
-        <h1 style={styles.title}>⚓ MeBoard</h1>
-        <div style={styles.userRow}>
-          <span style={styles.email}>{user?.email ?? 'Signed in'}</span>
+      <header style={boardListStyles.header}>
+        <h1 style={boardListStyles.title}>⚓ MeBoard</h1>
+        <div style={boardListStyles.userRow}>
+          <span style={boardListStyles.email}>{user?.email ?? 'Signed in'}</span>
         </div>
       </header>
-      <main style={styles.main}>
-        <div style={styles.tabBar}>
+      <main style={boardListStyles.main}>
+        <div style={boardListStyles.tabBar}>
           {(['my', 'public', 'all'] as TabKey[]).map((tab) => (
             <button
               key={tab}
               type="button"
               onClick={() => setActiveTab(tab)}
-              style={activeTab === tab ? { ...styles.tabBtn, ...styles.tabBtnActive } : styles.tabBtn}
+              style={activeTab === tab ? { ...boardListStyles.tabBtn, ...boardListStyles.tabBtnActive } : boardListStyles.tabBtn}
             >
               {tab === 'my' ? 'My Boards' : tab === 'public' ? 'Public' : 'All'}
             </button>
           ))}
         </div>
 
-        <div style={styles.toolbar}>
-          <div style={styles.toolbarTop}>
+        <div style={boardListStyles.toolbar}>
+          <div style={boardListStyles.toolbarTop}>
             <input
               type="text"
               placeholder="Search boards…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              style={styles.searchInput}
+              style={boardListStyles.searchInput}
               aria-label="Search boards"
             />
-            <div style={styles.sortGroup}>
+            <div style={boardListStyles.sortGroup}>
               <button
                 type="button"
                 onClick={() => setSortBy('recent')}
-                style={sortBy === 'recent' ? { ...styles.sortBtn, ...styles.sortBtnActive } : styles.sortBtn}
+                style={sortBy === 'recent' ? { ...boardListStyles.sortBtn, ...boardListStyles.sortBtnActive } : boardListStyles.sortBtn}
               >
                 Recent
               </button>
               <button
                 type="button"
                 onClick={() => setSortBy('name')}
-                style={sortBy === 'name' ? { ...styles.sortBtn, ...styles.sortBtnActive } : styles.sortBtn}
+                style={sortBy === 'name' ? { ...boardListStyles.sortBtn, ...boardListStyles.sortBtnActive } : boardListStyles.sortBtn}
               >
                 Name
               </button>
               <button
                 type="button"
                 onClick={() => setSortBy('count')}
-                style={sortBy === 'count' ? { ...styles.sortBtn, ...styles.sortBtnActive } : styles.sortBtn}
+                style={sortBy === 'count' ? { ...boardListStyles.sortBtn, ...boardListStyles.sortBtnActive } : boardListStyles.sortBtn}
               >
                 Count
               </button>
             </div>
-            <div style={styles.sortGroup} role="group" aria-label="Filter by board type">
+            <div style={boardListStyles.sortGroup} role="group" aria-label="Filter by board type">
               <button
                 type="button"
                 onClick={() => setBoardTypeFilter('all')}
-                style={boardTypeFilter === 'all' ? { ...styles.sortBtn, ...styles.sortBtnActive } : styles.sortBtn}
+                style={boardTypeFilter === 'all' ? { ...boardListStyles.sortBtn, ...boardListStyles.sortBtnActive } : boardListStyles.sortBtn}
               >
                 All
               </button>
               <button
                 type="button"
                 onClick={() => setBoardTypeFilter('standard')}
-                style={boardTypeFilter === 'standard' ? { ...styles.sortBtn, ...styles.sortBtnActive } : styles.sortBtn}
+                style={boardTypeFilter === 'standard' ? { ...boardListStyles.sortBtn, ...boardListStyles.sortBtnActive } : boardListStyles.sortBtn}
               >
                 ⚓ Boards
               </button>
               <button
                 type="button"
                 onClick={() => setBoardTypeFilter('explorer')}
-                style={boardTypeFilter === 'explorer' ? { ...styles.sortBtn, ...styles.sortBtnActive } : styles.sortBtn}
+                style={boardTypeFilter === 'explorer' ? { ...boardListStyles.sortBtn, ...boardListStyles.sortBtnActive } : boardListStyles.sortBtn}
               >
                 🗺️ Expeditions
               </button>
@@ -335,22 +337,22 @@ export function BoardListPage() {
                 type="button"
                 onClick={() => setCreateMenuOpen((v) => !v)}
                 disabled={creating}
-                style={styles.createBtn}
+                style={boardListStyles.createBtn}
               >
                 {creating ? 'Creating…' : '+ New Board ▾'}
               </button>
               {createMenuOpen && (
-                <div ref={createMenuRef} style={styles.createMenu}>
+                <div ref={createMenuRef} style={boardListStyles.createMenu}>
                   <button
                     type="button"
-                    style={styles.createMenuItem}
+                    style={boardListStyles.createMenuItem}
                     onClick={() => void handleCreate('standard')}
                   >
                     ⚓ New Board
                   </button>
                   <button
                     type="button"
-                    style={styles.createMenuItem}
+                    style={boardListStyles.createMenuItem}
                     onClick={() => void handleCreate('explorer')}
                   >
                     🗺️ New Expedition
@@ -359,7 +361,7 @@ export function BoardListPage() {
               )}
             </div>
           </div>
-          <div style={styles.joinRow}>
+          <div style={boardListStyles.joinRow}>
             <input
               type="text"
               placeholder="Paste board link or ID to join"
@@ -369,54 +371,54 @@ export function BoardListPage() {
                 setJoinError(null)
               }}
               onKeyDown={(e) => e.key === 'Enter' && handleJoin()}
-              style={styles.joinInput}
+              style={boardListStyles.joinInput}
             />
             <button
               type="button"
               onClick={handleJoin}
               disabled={joining}
-              style={styles.joinBtn}
+              style={boardListStyles.joinBtn}
             >
               {joining ? 'Joining…' : 'Join Board'}
             </button>
           </div>
-          {joinError && <p style={styles.joinError}>{joinError}</p>}
+          {joinError && <p style={boardListStyles.joinError}>{joinError}</p>}
         </div>
 
         {loading || (publicLoading && activeTab !== 'my') ? (
-          <div style={styles.grid}>
+          <div style={boardListStyles.grid}>
             {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div key={i} style={styles.skeletonCard} />
+              <div key={i} style={boardListStyles.skeletonCard} />
             ))}
           </div>
         ) : tabBoards.length === 0 ? (
-          <div style={styles.emptyWrap}>
+          <div style={boardListStyles.emptyWrap}>
             {activeTab === 'public' ? (
-              <p style={styles.empty}>No public boards yet.</p>
+              <p style={boardListStyles.empty}>No public boards yet.</p>
             ) : (
               <>
-                <p style={styles.empty}>No boards yet. Create one to get started.</p>
+                <p style={boardListStyles.empty}>No boards yet. Create one to get started.</p>
                 <div style={{ position: 'relative', display: 'inline-block' }}>
                   <button
                     type="button"
                     onClick={() => setCreateMenuOpen((v) => !v)}
                     disabled={creating}
-                    style={styles.emptyCreateBtn}
+                    style={boardListStyles.emptyCreateBtn}
                   >
                     {creating ? 'Creating…' : '+ New Board ▾'}
                   </button>
                   {createMenuOpen && (
-                    <div ref={createMenuRef} style={styles.createMenu}>
+                    <div ref={createMenuRef} style={boardListStyles.createMenu}>
                       <button
                         type="button"
-                        style={styles.createMenuItem}
+                        style={boardListStyles.createMenuItem}
                         onClick={() => void handleCreate('standard')}
                       >
                         ⚓ New Board
                       </button>
                       <button
                         type="button"
-                        style={styles.createMenuItem}
+                        style={boardListStyles.createMenuItem}
                         onClick={() => void handleCreate('explorer')}
                       >
                         🗺️ New Expedition
@@ -428,8 +430,8 @@ export function BoardListPage() {
             )}
           </div>
         ) : visibleBoards.length === 0 ? (
-          <div style={styles.emptyWrap}>
-            <p style={styles.empty}>
+          <div style={boardListStyles.emptyWrap}>
+            <p style={boardListStyles.empty}>
               {searchQuery && boardTypeFilter !== 'all'
                 ? 'No boards match your filters.'
                 : searchQuery
@@ -442,9 +444,9 @@ export function BoardListPage() {
             </p>
           </div>
         ) : (
-          <div style={styles.grid}>
+          <div style={boardListStyles.grid}>
             {visibleBoards.map((board) => (
-              <div key={board.id} style={styles.gridItem}>
+              <div key={board.id} style={boardListStyles.gridItem}>
                 <div
                   role="button"
                   tabIndex={0}
@@ -452,22 +454,22 @@ export function BoardListPage() {
                   onKeyDown={(e) =>
                     e.key === 'Enter' && handleSelectBoard(board)
                   }
-                  style={styles.boardCard}
+                  style={boardListStyles.boardCard}
                 >
-                  <div style={styles.boardThumb}>
+                  <div style={boardListStyles.boardThumb}>
                     {board.thumbnailUrl ? (
                       <img
                         src={board.thumbnailUrl}
                         alt={board.title}
-                        style={styles.boardThumbImg}
+                        style={boardListStyles.boardThumbImg}
                         draggable={false}
                       />
                     ) : (
-                      <div style={styles.boardThumbPlaceholder} />
+                      <div style={boardListStyles.boardThumbPlaceholder} />
                     )}
                   </div>
-                  <div style={styles.boardCardHeader}>
-                    <div style={styles.boardCardMain}>
+                  <div style={boardListStyles.boardCardHeader}>
+                    <div style={boardListStyles.boardCardMain}>
                       {renameBoardId === board.id ? (
                         <input
                           type="text"
@@ -484,15 +486,15 @@ export function BoardListPage() {
                             }
                           }}
                           onClick={(e) => e.stopPropagation()}
-                          style={styles.renameInput}
+                          style={boardListStyles.renameInput}
                           autoFocus
                           aria-label="Rename board"
                         />
                       ) : (
-                        <span style={styles.boardTitle}>{board.title}</span>
+                        <span style={boardListStyles.boardTitle}>{board.title}</span>
                       )}
                     </div>
-                    <div style={styles.actionsWrap}>
+                    <div style={boardListStyles.actionsWrap}>
                       <button
                         type="button"
                         onClick={(e) => {
@@ -506,7 +508,7 @@ export function BoardListPage() {
                             setMenuAnchorRect(btn.getBoundingClientRect())
                           }
                         }}
-                        style={styles.kebabBtn}
+                        style={boardListStyles.kebabBtn}
                         aria-label="Board actions"
                         aria-expanded={menuBoardId === board.id}
                         data-board-kebab-anchor={menuBoardId === board.id ? '' : undefined}
@@ -515,20 +517,20 @@ export function BoardListPage() {
                       </button>
                     </div>
                   </div>
-                  <div style={styles.boardMeta}>
-                    <span style={styles.boardDate}>
+                  <div style={boardListStyles.boardMeta}>
+                    <span style={boardListStyles.boardDate}>
                       {formatLastAccessed(board.lastAccessedAt ?? board.createdAt)}
                     </span>
                     {board.objectCount !== undefined && board.objectCount > 0 && (
-                      <span style={styles.objectCount}>
+                      <span style={boardListStyles.objectCount}>
                         {board.objectCount} {board.objectCount === 1 ? 'object' : 'objects'}
                       </span>
                     )}
                     {board.boardMode === 'explorer' && (
-                      <span style={styles.explorerBadge}>🗺️ Expedition</span>
+                      <span style={boardListStyles.explorerBadge}>🗺️ Expedition</span>
                     )}
                     {board.isPublic && (
-                      <span style={styles.publicBadge}>🌐 Public</span>
+                      <span style={boardListStyles.publicBadge}>🌐 Public</span>
                     )}
                   </div>
                 </div>
@@ -538,24 +540,24 @@ export function BoardListPage() {
         )}
 
         {totalPages > 1 && (
-          <div style={styles.pagination}>
+          <div style={boardListStyles.pagination}>
             <button
               type="button"
               onClick={() => setPage((p) => Math.max(0, p - 1))}
               disabled={page === 0}
-              style={page === 0 ? { ...styles.pageBtn, ...styles.pageBtnDisabled } : styles.pageBtn}
+              style={page === 0 ? { ...boardListStyles.pageBtn, ...boardListStyles.pageBtnDisabled } : boardListStyles.pageBtn}
             >
               ← Prev
             </button>
-            <span style={styles.pageInfo}>
+            <span style={boardListStyles.pageInfo}>
               {page + 1} / {totalPages}
-              <span style={styles.pageTotal}> ({sortedBoards.length} boards)</span>
+              <span style={boardListStyles.pageTotal}> ({sortedBoards.length} boards)</span>
             </span>
             <button
               type="button"
               onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
               disabled={page >= totalPages - 1}
-              style={page >= totalPages - 1 ? { ...styles.pageBtn, ...styles.pageBtnDisabled } : styles.pageBtn}
+              style={page >= totalPages - 1 ? { ...boardListStyles.pageBtn, ...boardListStyles.pageBtnDisabled } : boardListStyles.pageBtn}
             >
               Next →
             </button>
@@ -584,7 +586,7 @@ export function BoardListPage() {
           >
             <button
               type="button"
-              style={styles.menuItem}
+              style={boardListStyles.menuItem}
               onClick={(e) => handleCopyLink(e, board.id)}
             >
               {copiedId === board.id ? 'Copied!' : 'Copy share link'}
@@ -593,14 +595,14 @@ export function BoardListPage() {
               <>
                 <button
                   type="button"
-                  style={styles.menuItem}
+                  style={boardListStyles.menuItem}
                   onClick={(e) => handleRenameClick(e, board)}
                 >
                   Rename
                 </button>
                 <button
                   type="button"
-                  style={styles.menuItem}
+                  style={boardListStyles.menuItem}
                   onClick={(e) => void handleTogglePublic(e, board)}
                 >
                   {board.isPublic ? '🔒 Make private' : '🌐 Make public'}
@@ -609,7 +611,7 @@ export function BoardListPage() {
             )}
             <button
               type="button"
-              style={{ ...styles.menuItem, ...styles.menuItemDanger }}
+              style={{ ...boardListStyles.menuItem, ...boardListStyles.menuItemDanger }}
               onClick={(e) => handleDeleteClick(e, board.id)}
             >
               {board.ownerId === userId ? 'Delete' : 'Leave board'}
@@ -623,21 +625,21 @@ export function BoardListPage() {
         const target = [...boards, ...publicBoards].find((b) => b.id === deleteConfirmId)
         const isOwner = target?.ownerId === userId
         return (
-          <div style={styles.modalBackdrop} role="dialog" aria-modal="true" aria-labelledby="delete-title">
-            <div style={styles.modal}>
-              <h2 id="delete-title" style={styles.modalTitle}>
+          <div style={boardListStyles.modalBackdrop} role="dialog" aria-modal="true" aria-labelledby="delete-title">
+            <div style={boardListStyles.modal}>
+              <h2 id="delete-title" style={boardListStyles.modalTitle}>
                 {isOwner ? 'Delete this board?' : 'Leave this board?'}
               </h2>
-              <p style={styles.modalBody}>
+              <p style={boardListStyles.modalBody}>
                 {isOwner
                   ? "This can\u2019t be undone."
                   : 'This board will be removed from your list. You can rejoin later with the share link.'}
               </p>
-              <div style={styles.modalActions}>
+              <div style={boardListStyles.modalActions}>
                 <button
                   type="button"
                   onClick={() => setDeleteConfirmId(null)}
-                  style={styles.cancelBtn}
+                  style={boardListStyles.cancelBtn}
                 >
                   Cancel
                 </button>
@@ -645,7 +647,7 @@ export function BoardListPage() {
                   type="button"
                   onClick={handleDeleteConfirm}
                   disabled={deleting}
-                  style={styles.deleteBtn}
+                  style={boardListStyles.deleteBtn}
                 >
                   {deleting ? (isOwner ? 'Deleting\u2026' : 'Leaving\u2026') : (isOwner ? 'Delete' : 'Leave')}
                 </button>
@@ -666,454 +668,3 @@ export function BoardListPage() {
   )
 }
 
-function formatLastAccessed(ts: number): string {
-  if (!ts) return ''
-  const d = new Date(ts)
-  const now = new Date()
-  const diff = now.getTime() - d.getTime()
-  if (diff < 60_000) return 'Opened just now'
-  if (diff < 3600_000) return `Opened ${Math.floor(diff / 60000)}m ago`
-  if (diff < 86400_000) return `Opened ${Math.floor(diff / 3600000)}h ago`
-  if (diff < 7 * 86400_000) return `Opened ${Math.floor(diff / 86400000)}d ago`
-  return `Opened ${d.toLocaleDateString()}`
-}
-
-const styles: Record<string, React.CSSProperties> = {
-  container: {
-    minHeight: '100vh',
-    background: '#f9fafb',
-    display: 'flex',
-    flexDirection: 'column',
-    paddingTop: 56,
-  },
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '8px 16px',
-    background: '#fff',
-    borderBottom: '1px solid #e5e7eb',
-    boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
-  },
-  title: {
-    margin: 0,
-    fontSize: 16,
-    fontWeight: 600,
-    color: '#1e293b',
-  },
-  userRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 12,
-  },
-  email: {
-    fontSize: 13,
-    color: '#6b7280',
-  },
-  headerBtn: {
-    display: 'flex',
-    alignItems: 'center',
-    height: 32,
-    padding: '0 12px',
-    fontSize: 13,
-    fontWeight: 500,
-    border: '1px solid #e5e7eb',
-    borderRadius: 6,
-    background: '#fff',
-    color: '#374151',
-    cursor: 'pointer',
-  },
-  main: {
-    flex: 1,
-    padding: '24px 24px 24px',
-    maxWidth: 1200,
-    margin: '0 auto',
-    width: '100%',
-  },
-  tabBar: {
-    display: 'flex',
-    gap: 4,
-    marginBottom: 16,
-    paddingRight: 245,
-  },
-  tabBtn: {
-    padding: '7px 16px',
-    fontSize: 13,
-    fontWeight: 500,
-    border: '1px solid #e5e7eb',
-    borderRadius: 8,
-    background: '#fff',
-    color: '#6b7280',
-    cursor: 'pointer',
-  },
-  tabBtnActive: {
-    background: '#374151',
-    color: '#fff',
-    borderColor: '#374151',
-  },
-  toolbar: {
-    marginBottom: 20,
-    paddingRight: 245,
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 10,
-  },
-  toolbarTop: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-  },
-  searchInput: {
-    flex: 1,
-    padding: '9px 14px',
-    fontSize: 14,
-    border: '1px solid #e5e7eb',
-    borderRadius: 8,
-    background: '#fff',
-    color: '#374151',
-    outline: 'none',
-  },
-  sortGroup: {
-    display: 'flex',
-    gap: 4,
-    background: '#f3f4f6',
-    borderRadius: 8,
-    padding: 3,
-  },
-  sortBtn: {
-    padding: '5px 12px',
-    fontSize: 13,
-    fontWeight: 500,
-    border: 'none',
-    borderRadius: 6,
-    background: 'transparent',
-    color: '#6b7280',
-    cursor: 'pointer',
-  },
-  sortBtnActive: {
-    background: '#fff',
-    color: '#374151',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-  },
-  joinRow: {
-    display: 'flex',
-    gap: 8,
-  },
-  joinInput: {
-    flex: 1,
-    padding: '10px 14px',
-    fontSize: 14,
-    border: '1px solid #e5e7eb',
-    borderRadius: 8,
-    background: '#fff',
-    color: '#374151',
-  },
-  joinBtn: {
-    padding: '10px 20px',
-    fontSize: 13,
-    fontWeight: 500,
-    border: '1px solid #e5e7eb',
-    borderRadius: 8,
-    background: '#fff',
-    color: '#374151',
-    cursor: 'pointer',
-  },
-  joinError: {
-    margin: 0,
-    fontSize: 13,
-    color: '#b91c1c',
-  },
-  createBtn: {
-    padding: '12px 24px',
-    fontSize: 15,
-    fontWeight: 500,
-    border: 'none',
-    borderRadius: 8,
-    background: '#374151',
-    color: '#fff',
-    cursor: 'pointer',
-  },
-  grid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
-    gridAutoRows: 'auto',
-    columnGap: 16,
-    rowGap: 20,
-    alignItems: 'stretch',
-    listStyle: 'none',
-    margin: 0,
-    padding: 0,
-    paddingRight: 245,
-  },
-  gridItem: {
-    minWidth: 0,
-    display: 'flex',
-  },
-  skeletonCard: {
-    aspectRatio: '4/3',
-    borderRadius: 12,
-    background: '#e5e7eb',
-    minHeight: 140,
-  },
-  emptyWrap: {
-    textAlign: 'center',
-    padding: '48px 24px',
-  },
-  empty: {
-    color: '#6b7280',
-    fontSize: 16,
-    marginBottom: 16,
-  },
-  emptyCreateBtn: {
-    padding: '12px 24px',
-    fontSize: 15,
-    fontWeight: 500,
-    border: 'none',
-    borderRadius: 8,
-    background: '#374151',
-    color: '#fff',
-    cursor: 'pointer',
-  },
-  boardCard: {
-    display: 'flex',
-    flexDirection: 'column',
-    flex: 1,
-    background: '#fff',
-    border: '1px solid #e5e7eb',
-    borderRadius: 12,
-    boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-    cursor: 'pointer',
-    overflow: 'hidden',
-  },
-  boardThumb: {
-    width: '100%',
-    height: 130,
-    flexShrink: 0,
-    background: '#f3f4f6',
-    overflow: 'hidden',
-  },
-  boardThumbImg: {
-    width: '100%',
-    height: '100%',
-    objectFit: 'cover' as const,
-    display: 'block',
-  },
-  boardThumbPlaceholder: {
-    width: '100%',
-    height: '100%',
-    background: 'linear-gradient(135deg, #e5e7eb 0%, #f3f4f6 100%)',
-  },
-  boardCardHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: 8,
-    minWidth: 0,
-    padding: '10px 12px 0',
-  },
-  boardCardMain: {
-    flex: 1,
-    minWidth: 0,
-  },
-  boardTitle: {
-    fontWeight: 500,
-    color: '#374151',
-    fontSize: 15,
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-    display: 'block',
-  },
-  renameInput: {
-    width: '100%',
-    padding: '4px 8px',
-    fontSize: 15,
-    border: '1px solid #e5e7eb',
-    borderRadius: 6,
-    outline: 'none',
-    boxSizing: 'border-box',
-  },
-  boardMeta: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 6,
-    marginBottom: 10,
-    padding: '0 12px',
-    flexWrap: 'wrap' as const,
-  },
-  boardDate: {
-    fontSize: 12,
-    color: '#9ca3af',
-  },
-  objectCount: {
-    fontSize: 11,
-    color: '#9ca3af',
-  },
-  publicBadge: {
-    fontSize: 11,
-    color: '#059669',
-    background: '#ecfdf5',
-    padding: '1px 6px',
-    borderRadius: 4,
-  },
-  explorerBadge: {
-    fontSize: 11,
-    color: '#b45309',
-    background: '#fef3c7',
-    padding: '1px 6px',
-    borderRadius: 4,
-  },
-  createMenu: {
-    position: 'absolute',
-    top: '100%',
-    right: 0,
-    marginTop: 4,
-    minWidth: 180,
-    padding: 4,
-    background: '#fff',
-    border: '1px solid #e5e7eb',
-    borderRadius: 8,
-    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-    zIndex: 20,
-  },
-  createMenuItem: {
-    display: 'block',
-    width: '100%',
-    padding: '8px 12px',
-    textAlign: 'left' as const,
-    fontSize: 14,
-    border: 'none',
-    borderRadius: 6,
-    background: 'transparent',
-    color: '#374151',
-    cursor: 'pointer',
-  },
-  actionsWrap: {
-    position: 'relative',
-    flexShrink: 0,
-  },
-  kebabBtn: {
-    width: 32,
-    height: 32,
-    padding: 0,
-    border: 'none',
-    borderRadius: 6,
-    background: 'transparent',
-    color: '#6b7280',
-    fontSize: 18,
-    lineHeight: 1,
-    cursor: 'pointer',
-  },
-  menu: {
-    position: 'absolute',
-    bottom: '100%',
-    right: 0,
-    marginBottom: 4,
-    minWidth: 160,
-    padding: 4,
-    background: '#fff',
-    border: '1px solid #e5e7eb',
-    borderRadius: 8,
-    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-    zIndex: Z_INDEX.DROPDOWN,
-  },
-  menuItem: {
-    display: 'block',
-    width: '100%',
-    padding: '8px 12px',
-    textAlign: 'left',
-    fontSize: 13,
-    border: 'none',
-    borderRadius: 6,
-    background: 'transparent',
-    color: '#374151',
-    cursor: 'pointer',
-  },
-  menuItemDanger: {
-    color: '#b91c1c',
-  },
-  modalBackdrop: {
-    position: 'fixed',
-    inset: 0,
-    background: 'rgba(0,0,0,0.4)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 100,
-  },
-  modal: {
-    background: '#fff',
-    borderRadius: 8,
-    padding: 24,
-    maxWidth: 360,
-    boxShadow: '0 4px 24px rgba(0,0,0,0.15)',
-  },
-  modalTitle: {
-    margin: 0,
-    fontSize: 18,
-    fontWeight: 600,
-    color: '#374151',
-  },
-  modalBody: {
-    margin: '12px 0 20px',
-    fontSize: 14,
-    color: '#6b7280',
-  },
-  modalActions: {
-    display: 'flex',
-    justifyContent: 'flex-end',
-    gap: 8,
-  },
-  cancelBtn: {
-    padding: '8px 16px',
-    fontSize: 13,
-    fontWeight: 500,
-    border: '1px solid #e5e7eb',
-    borderRadius: 6,
-    background: '#fff',
-    color: '#374151',
-    cursor: 'pointer',
-  },
-  pagination: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 16,
-    marginTop: 24,
-    paddingRight: 245,
-  },
-  pageBtn: {
-    padding: '7px 16px',
-    fontSize: 13,
-    fontWeight: 500,
-    border: '1px solid #e5e7eb',
-    borderRadius: 8,
-    background: '#fff',
-    color: '#374151',
-    cursor: 'pointer',
-  },
-  pageBtnDisabled: {
-    color: '#d1d5db',
-    cursor: 'not-allowed',
-  },
-  pageInfo: {
-    fontSize: 13,
-    color: '#374151',
-    fontWeight: 500,
-  },
-  pageTotal: {
-    fontWeight: 400,
-    color: '#9ca3af',
-  },
-  deleteBtn: {
-    padding: '8px 16px',
-    fontSize: 13,
-    fontWeight: 500,
-    border: 'none',
-    borderRadius: 6,
-    background: '#b91c1c',
-    color: '#fff',
-    cursor: 'pointer',
-  },
-}
