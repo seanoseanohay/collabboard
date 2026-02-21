@@ -48,6 +48,7 @@ const TOOLS: { id: ToolType; label: string }[] = [
   { id: 'triangle', label: 'Triangle' },
   { id: 'ellipse', label: 'Ellipse' },
   { id: 'polygon', label: 'Polygon' },
+  { id: 'polygon-draw', label: 'Freeform Polygon' },
   { id: 'line', label: 'Line' },
   { id: 'draw', label: 'Draw' },
   { id: 'text', label: 'Text' },
@@ -136,6 +137,15 @@ const ToolIcons: Record<ToolType, React.ReactNode> = {
       <polygon points="12,2 22,8.5 19,20 5,20 2,8.5" />
     </svg>
   ),
+  'polygon-draw': (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 17L9 3l8 6 4 12H3z" strokeDasharray="2 2" />
+      <circle cx="3" cy="17" r="2" fill="currentColor" stroke="none" />
+      <circle cx="9" cy="3" r="2" fill="currentColor" stroke="none" />
+      <circle cx="17" cy="9" r="2" fill="currentColor" stroke="none" />
+      <circle cx="21" cy="21" r="2" fill="currentColor" stroke="none" />
+    </svg>
+  ),
   line: (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <line x1="5" y1="19" x2="19" y2="5" />
@@ -191,7 +201,7 @@ const ToolIcons: Record<ToolType, React.ReactNode> = {
   ),
 }
 
-const INSERT_TOOLS: ToolType[] = ['rect', 'circle', 'triangle', 'ellipse', 'polygon', 'line', 'draw', 'text', 'sticky', 'frame']
+const INSERT_TOOLS: ToolType[] = ['rect', 'circle', 'triangle', 'ellipse', 'polygon', 'polygon-draw', 'line', 'draw', 'text', 'sticky', 'frame']
 
 export function WorkspaceToolbar({
   selectedTool,
@@ -349,7 +359,7 @@ export function WorkspaceToolbar({
                 <div style={styles.insertSection}>
                   <div style={styles.insertHeader}>Shapes</div>
                   <div style={styles.insertGrid}>
-                    {(['rect', 'circle', 'triangle', 'ellipse', 'polygon', 'line', 'draw'] as const).map((id) => (
+                    {(['rect', 'circle', 'triangle', 'ellipse', 'polygon', 'polygon-draw', 'line', 'draw'] as const).map((id) => (
                       <button
                         key={id}
                         type="button"

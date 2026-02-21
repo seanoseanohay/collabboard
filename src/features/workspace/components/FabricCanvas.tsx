@@ -1,6 +1,6 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { Z_INDEX } from '@/shared/constants/zIndex'
-import { Canvas, Group, ActiveSelection, Intersection, Point, Polyline, Rect, util, PencilBrush, CircleBrush, SprayBrush, PatternBrush, type FabricObject } from 'fabric'
+import { Canvas, Group, ActiveSelection, Intersection, Point, Polygon, Polyline, Rect, util, PencilBrush, CircleBrush, SprayBrush, PatternBrush, type FabricObject } from 'fabric'
 import { createHistoryManager, type HistoryManager } from '../lib/historyManager'
 
 /** IText has enterEditing; FabricText does not. Check by method presence. */
@@ -905,6 +905,7 @@ const FabricCanvasInner = (
     let marqueeState: { start: { x: number; y: number }; rect: Rect } | null = null
     let zoomDragState: { start: { x: number; y: number }; rect: Rect } | null = null
     let lassoState: { points: { x: number; y: number }[]; preview: Polyline } | null = null
+    let polygonDrawState: { points: Array<{ x: number; y: number }>; preview: Polyline | null } | null = null
 
     const getScenePoint = (opt: {
       scenePoint?: { x: number; y: number }
@@ -1098,6 +1099,42 @@ const FabricCanvasInner = (
       fabricCanvas.requestRenderAll()
     }
 
+    const onPolygonDrawMouseMove = (ev: MouseEvent) => {
+      if (!polygonDrawState || polygonDrawState.points.length === 0) return
+      const sp = fabricCanvas.getScenePoint(ev)
+      const preview = polygonDrawState.preview as { points: { x: number; y: number }[]; setBoundingBox: (v?: boolean) => void } | null
+      if (preview) {
+        preview.points = [...polygonDrawState.points, sp]
+        preview.setBoundingBox(true)
+      }
+      fabricCanvas.requestRenderAll()
+    }
+
+    const closePolygonDraw = () => {
+      if (!polygonDrawState) return
+      const { points, preview } = polygonDrawState
+      if (preview) fabricCanvas.remove(preview)
+      document.removeEventListener('mousemove', onPolygonDrawMouseMove)
+      polygonDrawState = null
+      if (points.length >= 3) {
+        const poly = new Polygon(points, {
+          fill: '#ffffff',
+          stroke: '#1e293b',
+          strokeWidth: 2,
+          originX: 'left',
+          originY: 'top',
+          selectable: true,
+          evented: true,
+        })
+        setObjectId(poly, crypto.randomUUID())
+        setObjectZIndex(poly, Date.now())
+        fabricCanvas.add(poly)
+        fabricCanvas.setActiveObject(poly)
+        fabricCanvas.requestRenderAll()
+      }
+      onToolChangeRef.current?.('select')
+    }
+
     const onCaptureMouseDown = (ev: MouseEvent) => {
       if (ev.button !== 0) return
       const tool = toolRef.current
@@ -1174,6 +1211,50 @@ const FabricCanvasInner = (
         lassoState = { points: [sp], preview }
         document.addEventListener('mousemove', onLassoMouseMove)
         document.addEventListener('mouseup', onLassoMouseUp)
+      }
+
+      if (tool === 'polygon-draw') {
+        ev.preventDefault()
+        ev.stopImmediatePropagation()
+        const sp = fabricCanvas.getScenePoint(ev)
+
+        // Clicking within 10px of the first point closes the polygon (3+ points required)
+        if (polygonDrawState && polygonDrawState.points.length >= 3) {
+          const first = polygonDrawState.points[0]!
+          const zoom = fabricCanvas.getZoom()
+          const threshold = 10 / zoom
+          const dist = Math.sqrt((sp.x - first.x) ** 2 + (sp.y - first.y) ** 2)
+          if (dist < threshold) {
+            closePolygonDraw()
+            return
+          }
+        }
+
+        if (!polygonDrawState) {
+          // First vertex: create the preview polyline
+          fabricCanvas.discardActiveObject()
+          const preview = new Polyline([sp, sp], {
+            fill: 'rgba(99, 102, 241, 0.1)',
+            stroke: '#6366f1',
+            strokeWidth: 1,
+            strokeDashArray: [4, 4],
+            selectable: false,
+            evented: false,
+          })
+          preview.set('data', {})
+          fabricCanvas.add(preview)
+          polygonDrawState = { points: [sp], preview }
+          document.addEventListener('mousemove', onPolygonDrawMouseMove)
+        } else {
+          // Subsequent vertex: append and update preview
+          polygonDrawState.points.push(sp)
+          const previewPoly = polygonDrawState.preview as { points: { x: number; y: number }[]; setBoundingBox: (v?: boolean) => void } | null
+          if (previewPoly) {
+            previewPoly.points = [...polygonDrawState.points]
+            previewPoly.setBoundingBox(true)
+          }
+          fabricCanvas.requestRenderAll()
+        }
       }
     }
     upperEl.addEventListener('mousedown', onCaptureMouseDown, { capture: true })
@@ -1542,6 +1623,16 @@ const FabricCanvasInner = (
     }
 
     const handleDblClick = (opt: { target?: unknown; scenePoint?: { x: number; y: number }; viewportPoint?: { x: number; y: number } }) => {
+      // Double-click while polygon-draw active → close polygon.
+      // The second mousedown of dblclick already added one extra point; remove it before closing.
+      if (toolRef.current === 'polygon-draw') {
+        if (polygonDrawState && polygonDrawState.points.length > 1) {
+          polygonDrawState.points.pop()
+        }
+        closePolygonDraw()
+        return
+      }
+
       const target = opt.target as FabricObject | undefined
       if (!target) return
 
@@ -1759,6 +1850,12 @@ const FabricCanvasInner = (
           lassoState = null
           document.removeEventListener('mousemove', onLassoMouseMove)
           document.removeEventListener('mouseup', onLassoMouseUp)
+        }
+        // Cancel freeform polygon draw
+        if (polygonDrawState) {
+          if (polygonDrawState.preview) fabricCanvas.remove(polygonDrawState.preview)
+          document.removeEventListener('mousemove', onPolygonDrawMouseMove)
+          polygonDrawState = null
         }
         // Cancel shape/frame draw in progress
         if (isDrawing && previewObj) {
@@ -2168,6 +2265,7 @@ const FabricCanvasInner = (
       document.removeEventListener('mouseup', onZoomDragMouseUp)
       document.removeEventListener('mousemove', onLassoMouseMove)
       document.removeEventListener('mouseup', onLassoMouseUp)
+      document.removeEventListener('mousemove', onPolygonDrawMouseMove)
       zoomApiRef.current = null
       historyRef.current = null
       history.clear()
@@ -2260,7 +2358,7 @@ const FabricCanvasInner = (
         className={className}
         style={{
           ...styles.container,
-          cursor: selectedTool === 'hand' ? 'grab' : selectedTool === 'zoom-in' ? 'zoom-in' : selectedTool === 'draw' || selectedTool === 'lasso' ? 'crosshair' : undefined,
+          cursor: selectedTool === 'hand' ? 'grab' : selectedTool === 'zoom-in' ? 'zoom-in' : selectedTool === 'draw' || selectedTool === 'lasso' || selectedTool === 'polygon-draw' ? 'crosshair' : undefined,
         }}
       />
       {connectorDropMenuState && (

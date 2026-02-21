@@ -12,6 +12,7 @@ export type ToolType =
   | 'triangle'
   | 'ellipse'
   | 'polygon'
+  | 'polygon-draw'
   | 'line'
   | 'text'
   | 'sticky'
