@@ -805,9 +805,8 @@ const FabricCanvasInner = (
       if (!canvas) return
       brushWidthRef.current = width
       if (!canvas.freeDrawingBrush) canvas.freeDrawingBrush = new PencilBrush(canvas)
-      // Sqrt zoom compensation: brush appears consistent on screen at any zoom level
-      // without creating absurdly large scene-space strokes at extreme zoom-out.
-      canvas.freeDrawingBrush.width = width / Math.sqrt(canvas.getZoom())
+      // Full zoom compensation: stroke is always `width` screen pixels wide at any zoom
+      canvas.freeDrawingBrush.width = width / canvas.getZoom()
     },
     setDrawBrushType: (type: 'pencil' | 'circle' | 'spray' | 'pattern') => {
       const canvas = canvasRef.current
@@ -977,10 +976,27 @@ const FabricCanvasInner = (
       if (vpt && onViewportChangeRef.current) onViewportChangeRef.current([...vpt])
       updateFrameTitleVisibility(fabricCanvas)
       updateTableTitleVisibility(fabricCanvas)
-      // Recompute brush width with sqrt zoom compensation so strokes stay visible at any zoom level
+      // Full zoom compensation: brush and all drawn paths are zoom-invariant
+      // (always brushWidth screen pixels wide regardless of zoom level).
+      const currentZoom = fabricCanvas.getZoom()
       if (fabricCanvas.isDrawingMode && fabricCanvas.freeDrawingBrush) {
-        fabricCanvas.freeDrawingBrush.width = brushWidthRef.current / Math.sqrt(fabricCanvas.getZoom())
+        fabricCanvas.freeDrawingBrush.width = brushWidthRef.current / currentZoom
       }
+      // Recompute strokeWidth for all free-draw paths so they remain visible at any zoom
+      let needsRender = false
+      for (const obj of fabricCanvas.getObjects()) {
+        if (obj.type === 'path') {
+          const data = obj.get('data') as { brushWidth?: number } | undefined
+          if (data?.brushWidth != null) {
+            const target = data.brushWidth / currentZoom
+            if (Math.abs((obj.strokeWidth ?? 0) - target) > 0.0001) {
+              obj.set('strokeWidth', target)
+              needsRender = true
+            }
+          }
+        }
+      }
+      if (needsRender) fabricCanvas.requestRenderAll()
       // LOD visibility: hide/show objects based on their minZoom/maxZoom (explorer mode only)
       if (boardModeRef.current === 'explorer') {
         const zoom = fabricCanvas.getZoom()
@@ -2026,6 +2042,13 @@ const FabricCanvasInner = (
         setObjectId(obj, crypto.randomUUID())
         setObjectZIndex(obj, Date.now())
         obj.set('perPixelTargetFind', true)
+        // Store the user's screen-pixel brush preference so we can recompute
+        // strokeWidth on every zoom change, keeping the stroke zoom-invariant.
+        const existingData = (obj.get('data') as Record<string, unknown>) ?? {}
+        obj.set('data', { ...existingData, brushWidth: brushWidthRef.current })
+        // Apply correct zoom-invariant strokeWidth immediately
+        const zoom = canvasRef.current?.getZoom() ?? 1
+        obj.set('strokeWidth', brushWidthRef.current / zoom)
         if (eraserActiveRef.current) {
           obj.set('globalCompositeOperation', 'destination-out')
         }
@@ -2376,8 +2399,8 @@ const FabricCanvasInner = (
       }
       const brush = canvas.freeDrawingBrush
       brush.color = '#1e293b'
-      // Restore stored width with sqrt zoom compensation (keeps stroke visible at any zoom level)
-      brush.width = brushWidthRef.current / Math.sqrt(canvas.getZoom())
+      // Full zoom compensation: stroke is always brushWidthRef px on screen at any zoom
+      brush.width = brushWidthRef.current / canvas.getZoom()
       canvas.isDrawingMode = true
     } else {
       canvas.isDrawingMode = false
