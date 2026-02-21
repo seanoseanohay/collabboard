@@ -2008,6 +2008,24 @@ const FabricCanvasInner = (
 
     zoomApiRef.current = { setZoom: applyZoom, zoomToFit, zoomToSelection }
 
+    // Free-draw paths: assign ID/properties BEFORE setupDocumentSync so boardSync's
+    // object:added handler finds a valid ID and writes the path to Supabase.
+    // If this fires after boardSync, emitAdd sees no ID and silently skips the path.
+    const assignFreeDrawPathId = (e: { target?: FabricObject }) => {
+      const obj = e.target
+      if (!obj || obj.type !== 'path' || getObjectId(obj)) return
+      setObjectId(obj, crypto.randomUUID())
+      setObjectZIndex(obj, Date.now())
+      obj.set('perPixelTargetFind', true)
+      const existingData = (obj.get('data') as Record<string, unknown>) ?? {}
+      obj.set('data', { ...existingData, brushWidth: brushWidthRef.current })
+      const zoom = canvasRef.current?.getZoom() ?? 1
+      obj.set('strokeWidth', brushWidthRef.current / zoom)
+      if (eraserActiveRef.current) obj.set('globalCompositeOperation', 'destination-out')
+      if (brushOpacityRef.current < 1) obj.set('opacity', brushOpacityRef.current)
+    }
+    fabricCanvas.on('object:added', assignFreeDrawPathId)
+
     // Document sync only - never torn down when auth changes; pass getCurrentUserId so move-delta broadcast ignores our own messages
     const connectorCacheRefForSync = { current: connectorCacheSet }
     const cleanupDocSync =
@@ -2037,25 +2055,8 @@ const FabricCanvasInner = (
       const obj = e.target
       if (!obj) return
       if (isDataTable(obj)) notifyFormFrames()
-      // Free-draw paths need an id for sync; assign before boardSync emitAdd
-      if (obj.type === 'path' && !getObjectId(obj)) {
-        setObjectId(obj, crypto.randomUUID())
-        setObjectZIndex(obj, Date.now())
-        obj.set('perPixelTargetFind', true)
-        // Store the user's screen-pixel brush preference so we can recompute
-        // strokeWidth on every zoom change, keeping the stroke zoom-invariant.
-        const existingData = (obj.get('data') as Record<string, unknown>) ?? {}
-        obj.set('data', { ...existingData, brushWidth: brushWidthRef.current })
-        // Apply correct zoom-invariant strokeWidth immediately
-        const zoom = canvasRef.current?.getZoom() ?? 1
-        obj.set('strokeWidth', brushWidthRef.current / zoom)
-        if (eraserActiveRef.current) {
-          obj.set('globalCompositeOperation', 'destination-out')
-        }
-        if (brushOpacityRef.current < 1) {
-          obj.set('opacity', brushOpacityRef.current)
-        }
-      }
+      // Free-draw path properties (ID, brushWidth, strokeWidth, perPixelTargetFind, etc.)
+      // are assigned by assignFreeDrawPathId, which is registered BEFORE setupDocumentSync.
       if (isConnector(obj)) connectorCacheSet.add(obj)
       applyConnectorControls(obj)
       if (isEditableText(obj) || (obj.type === 'group' && getTextToEdit(obj))) {
@@ -2348,6 +2349,7 @@ const FabricCanvasInner = (
       fabricCanvas.off('object:modified', handleObjectModified)
       fabricCanvas.off('object:added', notifyObjectCount)
       fabricCanvas.off('object:removed', notifyObjectCount)
+      fabricCanvas.off('object:added', assignFreeDrawPathId)
       fabricCanvas.off('object:added', handleObjectAdded)
       fabricCanvas.off('object:removed', handleObjectRemoved)
       fabricCanvas.off('selection:created', handleSelectionCreated)
