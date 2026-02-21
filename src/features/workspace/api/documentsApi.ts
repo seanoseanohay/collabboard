@@ -22,7 +22,7 @@ export async function writeDocument(
       { board_id: boardId, object_id: objectId, data, updated_at: new Date().toISOString() },
       { onConflict: 'board_id,object_id' }
     )
-  if (error) throw error
+  if (error) throw new Error(error.message || 'Failed to write document')
 }
 
 /** Batch write multiple documents in chunked HTTP requests. */
@@ -45,7 +45,7 @@ export async function writeDocumentsBatch(
     const { error } = await supabase
       .from('documents')
       .upsert(rows, { onConflict: 'board_id,object_id' })
-    if (error) throw error
+    if (error) throw new Error(error.message || 'Failed to write documents batch')
   }
 }
 
@@ -59,7 +59,7 @@ export async function deleteDocument(
     .delete()
     .eq('board_id', boardId)
     .eq('object_id', objectId)
-  if (error) throw error
+  if (error) throw new Error(error.message || 'Failed to delete document')
 }
 
 /** Fetch a single document by board and object id. Returns null if not found. */
@@ -74,7 +74,7 @@ export async function getDocument(
     .eq('board_id', boardId)
     .eq('object_id', objectId)
     .maybeSingle()
-  if (error) throw error
+  if (error) throw new Error(error.message || 'Failed to fetch document')
   return (data?.data as Record<string, unknown>) ?? null
 }
 
@@ -95,7 +95,7 @@ export async function getDocumentsByIds(
     .select('object_id, data')
     .eq('board_id', boardId)
     .in('object_id', objectIds)
-  if (error) throw error
+  if (error) throw new Error(error.message || 'Failed to fetch documents by ids')
   const rows = data ?? []
   return rows
     .filter((row): row is { object_id: string; data: Record<string, unknown> } => !!row?.object_id && !!row.data)
@@ -123,7 +123,7 @@ export async function fetchDocuments(
     query = query.eq('data->>fill', criteria.fill)
   }
   const { data, error } = await query
-  if (error) throw error
+  if (error) throw new Error(error.message || 'Failed to fetch documents')
   const rows = data ?? []
   return rows
     .filter((row): row is { object_id: string; data: Record<string, unknown> } => !!row?.object_id && !!row.data)

@@ -167,8 +167,18 @@ export async function invokeAiInterpret(
   )
 
   if (error) {
-    // FunctionsHttpError carries the HTTP status; extract message from body if possible
-    const msg = (error as { message?: string; context?: { json?: () => Promise<{ error?: string }> } }).message ?? String(error)
+    // FunctionsHttpError stores the raw Response in .context — read the body to get our
+    // JSON error message (e.g. "AI response was too long…") instead of the generic SDK string.
+    const httpErr = error as { message?: string; context?: Response }
+    let msg = httpErr.message ?? 'AI request failed'
+    if (httpErr.context instanceof Response) {
+      try {
+        const body = (await httpErr.context.clone().json()) as { error?: string }
+        if (body?.error) msg = body.error
+      } catch {
+        // Body not JSON or already consumed — fall back to the SDK message
+      }
+    }
     if (msg.includes('401') || msg.toLowerCase().includes('unauthorized') || msg.toLowerCase().includes('not authorized')) {
       throw new Error('Not authorized — make sure you are signed in and the function is deployed.')
     }

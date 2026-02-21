@@ -403,8 +403,15 @@ export async function executeAiCommands(
         console.warn('[executeAiCommands] unrecognised action — skipping:', (cmd as { action: string }).action)
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      return { ok: false, error: msg, createdIds, shouldGroup }
+      // PostgrestError and FunctionsHttpError are plain objects, not Error instances.
+      // Extract .message before falling back to String() so we never show "[object Object]".
+      const msg =
+        err instanceof Error
+          ? err.message
+          : typeof err === 'object' && err !== null && 'message' in err
+          ? String((err as { message: unknown }).message)
+          : String(err)
+      return { ok: false, error: msg || 'Unknown error', createdIds, shouldGroup }
     }
   }
 
