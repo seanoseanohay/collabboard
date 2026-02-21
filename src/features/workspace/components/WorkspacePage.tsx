@@ -213,6 +213,8 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
     const theme = EXPEDITION_THEMES[0]
     const map = generateExpeditionMap(theme)
     canvasZoomRef.current.populateExpeditionMap(map)
+    setFogEnabled(true)
+    saveFogEnabled(board.id, true)
   }, [isExplorer, boardReady, objectCount, board.id])
 
   const handleSyncLatency = useCallback((ms: number) => {

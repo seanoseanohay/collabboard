@@ -446,8 +446,10 @@ export function useFabricCanvasSetup({
         ev.preventDefault()
         ev.stopImmediatePropagation()
         const sp = fabricCanvas.getScenePoint(ev)
-        const radius = revealRadiusRef.current
-        onFogRevealRef.current?.(sp.x, sp.y, radius)
+        const zoom = fabricCanvas.getZoom()
+        // Scale like free-draw: user's revealRadius is in screen pixels; convert to scene units
+        const sceneRadius = revealRadiusRef.current / zoom
+        onFogRevealRef.current?.(sp.x, sp.y, sceneRadius)
         return
       }
 
