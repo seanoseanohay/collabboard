@@ -9,7 +9,8 @@ import { StrokeColorControl } from './StrokeColorControl'
 import { FontControl } from './FontControl'
 import { DrawBrushControl } from './DrawBrushControl'
 import { ToolIcons } from './ToolIcons'
-import { STICKER_DEFS, STICKER_KINDS, type StickerKind } from '../lib/pirateStickerFactory'
+import { InsertMenu } from './InsertMenu'
+import { STICKER_DEFS, type StickerKind } from '../lib/pirateStickerFactory'
 import { TOOLS, INSERT_TOOLS, ZOOM_PRESETS } from '../lib/toolbarConstants'
 import { zoomToLabel, zoomToSliderValue, sliderValueToZoom } from '../lib/toolbarZoomUtils'
 import type { ArrowMode, StrokeDash } from '../lib/connectorFactory'
@@ -216,109 +217,12 @@ export function WorkspaceToolbar({
               )}
             </button>
             {insertOpen && (
-              <div ref={insertRef} style={styles.insertMenu}>
-                <div style={styles.insertSection}>
-                  <div style={styles.insertHeader}>Shapes</div>
-                  <div style={styles.insertGrid}>
-                    {(['rect', 'circle', 'triangle', 'ellipse', 'polygon', 'polygon-draw', 'line', 'draw'] as const).map((id) => (
-                      <button
-                        key={id}
-                        type="button"
-                        style={{
-                          ...styles.insertItem,
-                          ...(selectedTool === id ? styles.insertItemActive : {}),
-                        }}
-                        title={TOOLS.find((t) => t.id === id)?.label ?? id}
-                        onClick={() => selectAndClose(id)}
-                      >
-                        {ToolIcons[id]}
-                        <span style={styles.insertLabel}>{TOOLS.find((t) => t.id === id)?.label ?? id}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div style={styles.insertSection}>
-                  <div style={styles.insertHeader}>Text</div>
-                  <div style={styles.insertGrid}>
-                    <button
-                      type="button"
-                      style={{
-                        ...styles.insertItem,
-                        ...(selectedTool === 'text' ? styles.insertItemActive : {}),
-                      }}
-                      title="Text"
-                      onClick={() => selectAndClose('text')}
-                    >
-                      {ToolIcons.text}
-                      <span style={styles.insertLabel}>Text</span>
-                    </button>
-                    <button
-                      type="button"
-                      style={{
-                        ...styles.insertItem,
-                        ...(selectedTool === 'sticky' ? styles.insertItemActive : {}),
-                      }}
-                      title="Sticky note"
-                      onClick={() => selectAndClose('sticky')}
-                    >
-                      {ToolIcons.sticky}
-                      <span style={styles.insertLabel}>Sticky note</span>
-                    </button>
-                  </div>
-                </div>
-                <div style={styles.insertSection}>
-                  <div style={styles.insertHeader}>Containers</div>
-                  <div style={styles.insertGrid}>
-                    <button
-                      type="button"
-                      style={{
-                        ...styles.insertItem,
-                        ...(selectedTool === 'frame' ? styles.insertItemActive : {}),
-                      }}
-                      title="Frame — drag to draw a spatial container"
-                      onClick={() => selectAndClose('frame')}
-                    >
-                      {ToolIcons.frame}
-                      <span style={styles.insertLabel}>Frame</span>
-                    </button>
-                    <button
-                      type="button"
-                      style={{
-                        ...styles.insertItem,
-                        ...(selectedTool === 'table' ? styles.insertItemActive : {}),
-                      }}
-                      title="Table — drag to draw a data table"
-                      onClick={() => selectAndClose('table')}
-                    >
-                      {ToolIcons.table}
-                      <span style={styles.insertLabel}>Table</span>
-                    </button>
-                  </div>
-                </div>
-                <div style={styles.insertSection}>
-                  <div style={styles.insertHeader}>Pirate Plunder</div>
-                  <div style={{ ...styles.insertGrid, gridTemplateColumns: 'repeat(3, 1fr)' }}>
-                    {STICKER_KINDS.map((kind) => {
-                      const def = STICKER_DEFS[kind]
-                      return (
-                        <button
-                          key={kind}
-                          type="button"
-                          style={{
-                            ...styles.insertItem,
-                            ...(selectedStickerKind === kind && selectedTool === 'sticker' ? styles.insertItemActive : {}),
-                          }}
-                          title={def.label}
-                          onClick={() => selectAndClose('sticker', kind)}
-                        >
-                          <span style={styles.stickerIcon}>{def.icon}</span>
-                          <span style={styles.insertLabel}>{def.label}</span>
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              </div>
+              <InsertMenu
+                selectedTool={selectedTool}
+                selectedStickerKind={selectedStickerKind}
+                onSelect={selectAndClose}
+                innerRef={insertRef}
+              />
             )}
           </div>
           <div style={styles.divider} />
@@ -903,61 +807,6 @@ const styles: Record<string, React.CSSProperties> = {
     background: 'transparent',
     cursor: 'pointer',
     textAlign: 'left',
-  },
-  insertMenu: {
-    position: 'absolute',
-    top: '100%',
-    left: 0,
-    marginTop: 4,
-    background: '#fff',
-    border: '1px solid #e5e7eb',
-    borderRadius: 10,
-    boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
-    padding: '10px 12px',
-    minWidth: 180,
-    maxWidth: 260,
-    zIndex: Z_INDEX.TOOLBAR_OVERLAY,
-  },
-  insertSection: {
-    marginBottom: 10,
-  },
-  insertHeader: {
-    fontSize: 11,
-    fontWeight: 600,
-    color: '#6b7280',
-    textTransform: 'uppercase' as const,
-    letterSpacing: '0.6px',
-    marginBottom: 6,
-  },
-  insertGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(4, 1fr)',
-    gap: 4,
-  },
-  insertItem: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    alignItems: 'center',
-    gap: 3,
-    padding: '8px 4px',
-    border: '1px solid transparent',
-    borderRadius: 8,
-    background: 'transparent',
-    cursor: 'pointer',
-  },
-  insertItemActive: {
-    background: '#f1f5f9',
-    border: '1px solid #cbd5e1',
-  },
-  insertLabel: {
-    fontSize: 10,
-    color: '#6b7280',
-    textAlign: 'center' as const,
-    lineHeight: 1.2,
-  },
-  stickerIcon: {
-    fontSize: 20,
-    lineHeight: 1,
   },
   contextualRow: {
     display: 'flex',
