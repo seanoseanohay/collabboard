@@ -91,9 +91,9 @@ export function generateExpeditionMap(theme: ExpeditionTheme, seed?: number): Ge
       objects.push({
         type: 'text', left: ix + iw * 0.1, top: iy - ih * 0.15,
         width: iw * 0.8, height: ih * 0.2,
-        text: name, fontSize: 150_000,
+        text: name, fontSize: 300_000,
         fill: '#2d1a0e',
-        minZoom: 0.0001, maxZoom: 0.0008,
+        minZoom: 0.00005, maxZoom: 0.001,
       })
     }
   }
@@ -117,9 +117,9 @@ export function generateExpeditionMap(theme: ExpeditionTheme, seed?: number): Ge
       objects.push({
         type: 'text', left: tx + tw * 0.05, top: ty + th * 0.1,
         width: tw * 0.9, height: th * 0.3,
-        text: name, fontSize: 15_000,
+        text: name, fontSize: 25_000,
         fill: '#2d1a0e',
-        minZoom: 0.001, maxZoom: 0.008,
+        minZoom: 0.0005, maxZoom: 0.01,
       })
     }
   }
@@ -139,7 +139,7 @@ export function generateExpeditionMap(theme: ExpeditionTheme, seed?: number): Ge
     objects.push({
       type: 'text', left: lx + 200, top: ly + 200,
       width: 4600, height: 2600,
-      text: `📍 ${name}`, fontSize: 1500,
+      text: `📍 ${name}`, fontSize: 2500,
       fill: '#1a1a1a',
       minZoom: 0.005,
     })

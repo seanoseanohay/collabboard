@@ -27,6 +27,7 @@ const WELCOME_MESSAGE =
 
 type SortKey = 'recent' | 'name' | 'count'
 type TabKey = 'my' | 'public' | 'all'
+type BoardTypeFilter = 'all' | 'standard' | 'explorer'
 
 export function BoardListPage() {
   const { user } = useAuth()
@@ -44,6 +45,7 @@ export function BoardListPage() {
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState<SortKey>('recent')
+  const [boardTypeFilter, setBoardTypeFilter] = useState<BoardTypeFilter>('all')
   const [activeTab, setActiveTab] = useState<TabKey>('my')
   const [page, setPage] = useState(0)
   const PAGE_SIZE = 20
@@ -219,7 +221,7 @@ export function BoardListPage() {
   }
 
   // Reset to page 0 whenever the filter/sort/tab changes
-  useEffect(() => { setPage(0) }, [activeTab, searchQuery, sortBy])
+  useEffect(() => { setPage(0) }, [activeTab, searchQuery, sortBy, boardTypeFilter])
 
   const myBoardIds = new Set(boards.map((b) => b.id))
   const tabBoards: BoardMeta[] =
@@ -230,9 +232,13 @@ export function BoardListPage() {
         : // 'all' — user's boards + public boards not already in user's list
           [...boards, ...publicBoards.filter((b) => !myBoardIds.has(b.id))]
 
-  const filteredBoards = tabBoards.filter((b) =>
-    b.title.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  const filteredBoards = tabBoards.filter((b) => {
+    const matchesSearch = b.title.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesType =
+      boardTypeFilter === 'all' ||
+      boardTypeFilter === (b.boardMode ?? 'standard')
+    return matchesSearch && matchesType
+  })
   const sortedBoards =
     sortBy === 'name'
       ? [...filteredBoards].sort((a, b) => a.title.localeCompare(b.title))
@@ -298,6 +304,29 @@ export function BoardListPage() {
                 style={sortBy === 'count' ? { ...styles.sortBtn, ...styles.sortBtnActive } : styles.sortBtn}
               >
                 Count
+              </button>
+            </div>
+            <div style={styles.sortGroup} role="group" aria-label="Filter by board type">
+              <button
+                type="button"
+                onClick={() => setBoardTypeFilter('all')}
+                style={boardTypeFilter === 'all' ? { ...styles.sortBtn, ...styles.sortBtnActive } : styles.sortBtn}
+              >
+                All
+              </button>
+              <button
+                type="button"
+                onClick={() => setBoardTypeFilter('standard')}
+                style={boardTypeFilter === 'standard' ? { ...styles.sortBtn, ...styles.sortBtnActive } : styles.sortBtn}
+              >
+                ⚓ Boards
+              </button>
+              <button
+                type="button"
+                onClick={() => setBoardTypeFilter('explorer')}
+                style={boardTypeFilter === 'explorer' ? { ...styles.sortBtn, ...styles.sortBtnActive } : styles.sortBtn}
+              >
+                🗺️ Expeditions
               </button>
             </div>
             <div style={{ position: 'relative' }}>
@@ -400,7 +429,17 @@ export function BoardListPage() {
           </div>
         ) : visibleBoards.length === 0 ? (
           <div style={styles.emptyWrap}>
-            <p style={styles.empty}>No boards match &ldquo;{searchQuery}&rdquo;</p>
+            <p style={styles.empty}>
+              {searchQuery && boardTypeFilter !== 'all'
+                ? 'No boards match your filters.'
+                : searchQuery
+                  ? `No boards match "${searchQuery}".`
+                  : boardTypeFilter === 'explorer'
+                    ? 'No expeditions found.'
+                    : boardTypeFilter === 'standard'
+                      ? 'No boards found.'
+                      : 'No boards found.'}
+            </p>
           </div>
         ) : (
           <div style={styles.grid}>
