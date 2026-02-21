@@ -46,6 +46,8 @@ interface WorkspaceToolbarProps {
   onSnapToggle?: () => void
   fogEnabled?: boolean
   onFogToggle?: () => void
+  revealRadius?: number
+  onRevealRadiusChange?: (radius: number) => void
   /** When true, layout stacks vertically for mobile drawer (Figma-like) */
   inDrawer?: boolean
 }
@@ -80,6 +82,8 @@ export function WorkspaceToolbar({
   onSnapToggle,
   fogEnabled = false,
   onFogToggle,
+  revealRadius = 80,
+  onRevealRadiusChange,
   inDrawer = false,
 }: WorkspaceToolbarProps) {
   const [zoomOpen, setZoomOpen] = useState(false)
@@ -441,12 +445,28 @@ export function WorkspaceToolbar({
         </div>
       </div>
 
-      {/* Contextual bar (selection controls or draw brush) */}
-      {(selectionStroke != null || selectedTool === 'draw' || selectedTool === 'polygon') && canvasRef && (
+      {/* Contextual bar (selection controls or draw brush or reveal) */}
+      {(selectionStroke != null || selectedTool === 'draw' || selectedTool === 'polygon' || selectedTool === 'reveal') && canvasRef && (
         <div style={styles.contextualRow}>
           <div style={styles.contextualLeft}>
             {selectedTool === 'draw' ? (
               <DrawBrushControl canvasRef={canvasRef} />
+            ) : selectedTool === 'reveal' ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: 32, padding: '0 10px', fontSize: 12, border: '1px solid #e5e7eb', borderRadius: 6, background: '#fff', color: '#374151' }}>
+                <label style={{ color: '#6b7280' }}>Reveal size</label>
+                <input
+                  type="range"
+                  min={20}
+                  max={300}
+                  step={10}
+                  value={revealRadius}
+                  onChange={(e) => onRevealRadiusChange?.(Number(e.target.value))}
+                  style={{ width: 120, height: 4, cursor: 'pointer', accentColor: '#4f46e5' }}
+                  title="Reveal circle size"
+                  aria-label="Reveal size"
+                />
+                <span style={{ color: '#6b7280', fontSize: 11, minWidth: 32 }}>{revealRadius}px</span>
+              </div>
             ) : selectedTool === 'polygon' ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: 32, padding: '0 10px', fontSize: 12, border: '1px solid #e5e7eb', borderRadius: 6, background: '#fff', color: '#374151' }}>
                 <label style={{ color: '#6b7280' }}>Sides</label>

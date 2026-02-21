@@ -129,4 +129,5 @@ export interface FabricCanvasProps {
   gridType?: 'square' | 'hex' | 'none'
   snapToGrid?: boolean
   onFogReveal?: (cx: number, cy: number, radius: number) => void
+  revealRadius?: number
 }

@@ -55,6 +55,7 @@ const FabricCanvasInner = (
     gridType = 'square',
     snapToGrid = false,
     onFogReveal,
+    revealRadius = 80,
   }: FabricCanvasProps,
   ref: React.Ref<FabricCanvasZoomHandle>
 ) => {
@@ -108,6 +109,8 @@ const FabricCanvasInner = (
   onSyncLatencyRef.current = onSyncLatency
   const onFogRevealRef = useRef(onFogReveal)
   onFogRevealRef.current = onFogReveal
+  const revealRadiusRef = useRef(revealRadius)
+  revealRadiusRef.current = revealRadius
   const lockOptsRef = useRef({ userId: userId ?? '', userName: userName ?? 'Anonymous' })
   lockOptsRef.current = { userId: userId ?? '', userName: userName ?? 'Anonymous' }
   const applyLockStateCallbackRef = useRef<LockStateCallbackRef['current']>(null)
@@ -206,6 +209,7 @@ const FabricCanvasInner = (
     onFpsChangeRef,
     onSyncLatencyRef,
     onFogRevealRef,
+    revealRadiusRef,
     onTableEditStartRef,
     onTableEditEndRef,
     setConnectorDropMenuState,

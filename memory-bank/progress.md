@@ -99,7 +99,21 @@
 **MeBoard 1.0 done (2026-02-21):** Board mode infrastructure (board_mode column, creation picker for "New Board" vs "New Expedition", Expedition badge on cards). Enhanced DrawBrushControl (log-scale slider 1–512px, 4 brush types, opacity slider, eraser via globalCompositeOperation). New shapes (Ellipse, Polygon 3–12 sides, Star mode). vitest globals fix.
 **Explorer Canvas Group B complete (2026-02-21):** Freeform polygon tool (`polygon-draw`) — click-to-place vertices, dashed rubber-band preview, double-click or click-near-start to close, Escape cancels, fills white with dark stroke. TypeScript: 0 errors.
 **Explorer Canvas Groups C + D complete (2026-02-21):** LOD visibility (Tasks 5+6) + Ports of Call (Task 7) + Mini-map navigator (Task 8) + Hex grid + snap (Task 9). See "Recently Added" below.
+**FabricCanvas major refactor complete (2026-02-21):** `FabricCanvas.tsx` was 2637 LOC — split into 5 files all under 1000 LOC. TypeScript build: 0 errors.
 **Next:** Explorer Canvas Tasks 11/12/13 — Fog of War, laser pointer, follow mode (can run in parallel). Then Task 14 (animated zoom + arrow shape). See `docs/plans/2026-02-21-explorer-canvas.md`.
+
+## Recently Fixed (2026-02-21 — FabricCanvas Major Refactor)
+
+- ✅ **FabricCanvas.tsx split: 2637 LOC → 273 LOC** — All files now under 1000 LOC hard limit. Extractions:
+  - `hooks/useFabricImperativeApi.ts` (752 LOC) — entire `useImperativeHandle` block: all 40+ external API methods (zoom, select, create, delete, duplicate, copy/paste, history, connectors, lock, etc.)
+  - `hooks/useFabricCanvasSetup.ts` (792 LOC) — main `useEffect` for canvas init, event registration, document sync, history setup, resize observer, FPS tracking.
+  - `hooks/fabricCanvasEventHandlers.ts` (867 LOC) — `createFabricCanvasEventHandlers` factory: all Fabric/DOM event handler functions (mouse, touch, connector draw, object add/remove/modify, selection, grid, arrows, hover ports).
+  - `hooks/fabricCanvasKeyHandlers.ts` (266 LOC) — `createKeyboardHandlers` factory: `handleKeyDown` (undo/redo, copy/paste/duplicate, group/ungroup, delete, zoom shortcuts, escape) + `handleKeyUp`.
+- Key architectural decisions made during refactor:
+  - `FabricCanvasInteractionState` object (`st`) groups all mutable interaction state (isPanning, drawStart, marqueeState, etc.) so closures are shared without re-creating functions.
+  - `setupDocumentSync` call lives in `useFabricCanvasSetup.ts` (not in the event handler factory) — factory is side-effect-free.
+  - `cancelTransformRaf` returned from event handler factory so setup cleanup can cancel the RAF without accessing the factory's closure.
+  - `isEditableText` exported from `fabricCanvasEventHandlers.ts` and imported where needed (no duplication).
 
 ## Recently Fixed (2026-02-21)
 - ✅ **Frame/table title expands on resize/move** — `counterScaleFrameOrTableTitle` in `frameUtils.ts` called during `object:scaling` (via `boardSync.ts`) counter-scales the title IText to neutralize group scale during interactive drag. `bakeFrameOrTableGroupScale` in `frameUtils.ts` called in `FabricCanvas.tsx` `handleObjectModified` bakes the scale into the Rect's `width/height` and resets group + IText scales to 1. `FabricCanvas.tsx` excludes frame/table groups from `updateStickyTextFontSize`. `isFrameOrTableGroup` helper added to `frameUtils.ts`.

@@ -105,3 +105,14 @@ This replaces the old `if (target) return` guard which completely blocked drawin
 - No cross-feature imports except via interfaces
 - File size target <400 LOC (hard max 1000 LOC)
 - **FabricCanvas modules (2026-02-18):** Z-order, zoom/pan, history handlers, and grid drawing extracted from FabricCanvas.tsx into lib/fabricCanvasZOrder.ts, fabricCanvasZoom.ts, fabricCanvasHistoryHandlers.ts, drawCanvasGrid.ts. FabricCanvas composes these; keeps event orchestration and imperative handle.
+- **FabricCanvas major refactor (2026-02-21):** `FabricCanvas.tsx` grew to 2637 LOC after Explorer Canvas features. Split into 5 files all under 1000 LOC hard limit:
+  - `components/FabricCanvas.tsx` (273 LOC) — thin orchestrator: mounts canvas DOM, wires hooks together, renders nothing complex.
+  - `hooks/useFabricImperativeApi.ts` (752 LOC) — all 40+ `useImperativeHandle` methods exposed via `FabricCanvasZoomHandle`. `FabricImperativeApiDeps` interface defines required refs.
+  - `hooks/useFabricCanvasSetup.ts` (792 LOC) — main `useEffect`: canvas init, event registration, document sync (`setupDocumentSync`), history, resize observer, FPS. `FabricCanvasSetupDeps` interface.
+  - `hooks/fabricCanvasEventHandlers.ts` (867 LOC) — pure factory `createFabricCanvasEventHandlers(canvas, st, deps, helpers)`. Returns handler functions; no side effects (no `.on()` calls inside). `FabricCanvasInteractionState` holds mutable interaction state (`isPanning`, `drawStart`, `marqueeState`, etc.).
+  - `hooks/fabricCanvasKeyHandlers.ts` (266 LOC) — pure factory `createKeyboardHandlers(deps)`. Returns `{ handleKeyDown, handleKeyUp }`. Contains all keyboard shortcut logic (undo/redo, copy/paste, group/ungroup, delete, zoom, escape).
+- **FabricCanvas architectural rules:**
+  - The event handler factories (`createFabricCanvasEventHandlers`, `createKeyboardHandlers`) are pure: they define handler functions only. All `.on()`/`addEventListener()` calls live in `useFabricCanvasSetup.ts`.
+  - Mutable interaction state goes in `FabricCanvasInteractionState` (`st`) object, passed by reference so all handler closures share the same state without re-creation.
+  - `setupDocumentSync` lives in `useFabricCanvasSetup.ts`; the event handler factory must not call it.
+  - Cleanup (`cancelTransformRaf`, `cleanupDocSync`) is returned from or defined in the setup hook; factories expose cleanup helpers via their return value.

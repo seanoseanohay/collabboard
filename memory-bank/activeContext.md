@@ -97,6 +97,12 @@ Parallel execution: Tasks 2/3/4 (tools+shapes) run in parallel; Tasks 5/6/7 (exp
 
 **Current state:** TypeScript compiles clean, no linter errors. Edge Function deployed. Frames sync across collaborators.
 
+**FabricCanvas major refactor complete (2026-02-21):** `FabricCanvas.tsx` was 2637 LOC — reduced to 273 LOC by extracting into 4 new files. All 5 files are now under the 1000 LOC hard limit. Build: 0 TypeScript errors.
+- `hooks/useFabricImperativeApi.ts` (752 LOC) — entire `useImperativeHandle` block
+- `hooks/useFabricCanvasSetup.ts` (792 LOC) — main `useEffect` (canvas init, event wiring, doc sync, history, FPS)
+- `hooks/fabricCanvasEventHandlers.ts` (867 LOC) — `createFabricCanvasEventHandlers` pure factory (returns handlers, no `.on()` side effects)
+- `hooks/fabricCanvasKeyHandlers.ts` (266 LOC) — `createKeyboardHandlers` pure factory (handleKeyDown/handleKeyUp)
+
 **Free draw persistence fix (2026-02-21):** Root cause: `assignFreeDrawPathId` was registered after `setupDocumentSync`, so boardSync's `object:added` handler fired first without a path ID and skipped emitAdd. Fixed by registering `assignFreeDrawPathId` before `setupDocumentSync`. Also switched to full zoom compensation (`/ zoom`) for brushes and paths — sqrt compensation left strokes at 0.063px at zoom 0.001 (invisible). `data.brushWidth` stored on each path; `notifyViewport` recomputes `strokeWidth = brushWidth / zoom` on every zoom change so paths are always exactly `brushWidth` screen pixels wide at any zoom including on reload.
 
 **Remaining work:**

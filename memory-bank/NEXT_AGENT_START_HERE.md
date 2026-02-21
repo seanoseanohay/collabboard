@@ -224,10 +224,24 @@ Task 10 of the Explorer Canvas plan is done:
 
 **Rule:** Agents **A–E** can run in parallel with each other. Agents **F–I** each touch `boardSync` and/or `FabricCanvas` — run only one of F–I at a time (or after A is done, to avoid conflicts).
 
+## FabricCanvas File Structure (after 2026-02-21 refactor)
+
+`FabricCanvas.tsx` was 2637 LOC — split into 5 files all under 1000 LOC:
+
+| File | LOC | Purpose |
+|------|-----|---------|
+| `components/FabricCanvas.tsx` | 273 | Thin orchestrator, mounts canvas, wires hooks |
+| `hooks/useFabricImperativeApi.ts` | 752 | All `useImperativeHandle` methods (FabricCanvasZoomHandle) |
+| `hooks/useFabricCanvasSetup.ts` | 792 | Main `useEffect`: init, event wiring, doc sync, history |
+| `hooks/fabricCanvasEventHandlers.ts` | 867 | `createFabricCanvasEventHandlers` pure factory (returns handlers only, no `.on()` calls) |
+| `hooks/fabricCanvasKeyHandlers.ts` | 266 | `createKeyboardHandlers` pure factory (handleKeyDown/handleKeyUp) |
+
+**Key rule:** The event handler factories are pure — they define functions only. All `canvas.on()` / `document.addEventListener()` calls live in `useFabricCanvasSetup.ts`.
+
 ## Quick Reference
-- **Zoom range:** 0.001%–10000% (MIN_ZOOM 0.00001, MAX_ZOOM 100). FabricCanvas.tsx.
+- **Zoom range:** 0.001%–10000% (MIN_ZOOM 0.00001, MAX_ZOOM 100). `fabricCanvasZoom.ts`.
 - **boardSync.ts:** getObjectsToSync(), pendingMoveIds (Set), object:modified syncs each in selection.
-- **FabricCanvas:** forwardRef with FabricCanvasZoomHandle (setZoom, zoomToFit, getActiveObject, setActiveObjectStrokeWidth). onSelectionChange(strokeInfo). Hand tool: isHandDrag → pan. Shape tool: always draw. Stroke in design units (scales with zoom automatically). **Trackpad:** two-finger scroll = pan (relativePan), pinch = zoom at cursor (ctrlKey branch; sensitivity 0.006). **Touch (mobile):** native touchstart/touchmove/touchend on canvasEl (passive:false) — 2-finger pan + pinch zoom; single-touch routes through Fabric pointer-event mapping to existing mouse:down/move/up. Container has touch-action:none.
+- **FabricCanvas:** forwardRef with FabricCanvasZoomHandle (setZoom, zoomToFit, getActiveObject, setActiveObjectStrokeWidth). onSelectionChange(strokeInfo). Hand tool: isHandDrag → pan. Shape tool: always draw. Stroke in design units (scales with zoom automatically). **Trackpad:** two-finger scroll = pan (relativePan), pinch = zoom at cursor (ctrlKey branch; sensitivity 0.006). **Touch (mobile):** native touchstart/touchmove/touchend on canvasEl (passive:false) — 2-finger pan + pinch zoom; single-touch routes through Fabric pointer-event mapping. Container has touch-action:none. **Implementation split:** `useFabricImperativeApi.ts` (ref handle) + `useFabricCanvasSetup.ts` (effect) + `fabricCanvasEventHandlers.ts` (factory) + `fabricCanvasKeyHandlers.ts` (keyboard factory).
 - **strokeUtils.ts:** getStrokeWidthFromObject, setStrokeWidthOnObject, MIN/MAX_STROKE_WEIGHT (1–100), clampStrokeWeight(); StrokeControl uses number input.
 - **WorkspaceToolbar:** Icon groups (Select|Hand | shapes | Text|Sticky), Pirate Plunder (🏴‍☠️) dropdown, StrokeControl when selectionStroke set, map border toggle (🗺️), zoom dropdown.
 - **Pirate Plunder stickers:** fabric.Text emoji (96×96), non-editable, click-to-place. pirateStickerFactory.ts: STICKER_DEFS (anchor, skull, ship, hat, compass, parrot, chest, sword 🗡️, barrel). ToolType 'sticker'.

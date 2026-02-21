@@ -68,6 +68,7 @@ export interface FabricCanvasSetupDeps {
   onFpsChangeRef: React.MutableRefObject<((fps: number) => void) | undefined>
   onSyncLatencyRef: React.MutableRefObject<((ms: number) => void) | undefined>
   onFogRevealRef: React.MutableRefObject<((cx: number, cy: number, radius: number) => void) | undefined>
+  revealRadiusRef: React.MutableRefObject<number>
   onTableEditStartRef: React.MutableRefObject<((objectId: string) => void) | undefined>
   onTableEditEndRef: React.MutableRefObject<(() => void) | undefined>
   setConnectorDropMenuState: React.Dispatch<React.SetStateAction<ConnectorDropState | null>>
@@ -110,6 +111,7 @@ export function useFabricCanvasSetup({
   onFpsChangeRef,
   onSyncLatencyRef,
   onFogRevealRef,
+  revealRadiusRef,
   onTableEditStartRef,
   onTableEditEndRef,
   setConnectorDropMenuState,
@@ -444,7 +446,7 @@ export function useFabricCanvasSetup({
         ev.preventDefault()
         ev.stopImmediatePropagation()
         const sp = fabricCanvas.getScenePoint(ev)
-        const radius = brushWidthRef.current
+        const radius = revealRadiusRef.current
         onFogRevealRef.current?.(sp.x, sp.y, radius)
         return
       }

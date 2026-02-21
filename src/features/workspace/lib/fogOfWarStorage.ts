@@ -10,6 +10,20 @@ export interface FogReveal {
 }
 
 const STORAGE_KEY = (boardId: string) => `meboard:fog:${boardId}`
+const FOG_ENABLED_KEY = (boardId: string) => `meboard:fog-enabled:${boardId}`
+
+export function loadFogEnabled(boardId: string): boolean {
+  try {
+    const raw = localStorage.getItem(FOG_ENABLED_KEY(boardId))
+    return raw === 'true'
+  } catch {
+    return false
+  }
+}
+
+export function saveFogEnabled(boardId: string, enabled: boolean): void {
+  localStorage.setItem(FOG_ENABLED_KEY(boardId), String(enabled))
+}
 
 export function loadFogReveals(boardId: string): FogReveal[] {
   try {

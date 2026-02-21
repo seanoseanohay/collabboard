@@ -30,7 +30,7 @@ import { FogOfWarOverlay } from './FogOfWarOverlay'
 import { MobileHamburgerDrawer } from './MobileHamburgerDrawer'
 import type { FormFrameSceneInfo, FormSchema } from '../lib/frameFormTypes'
 import { usePresence } from '../hooks/usePresence'
-import { loadFogReveals, addFogReveal, type FogReveal } from '../lib/fogOfWarStorage'
+import { loadFogReveals, loadFogEnabled, saveFogEnabled, addFogReveal, type FogReveal } from '../lib/fogOfWarStorage'
 import type { ToolType } from '../types/tools'
 import type { StickerKind } from '../lib/pirateStickerFactory'
 
@@ -72,7 +72,8 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
   const mapGeneratedRef = useRef(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [portsOpen, setPortsOpen] = useState(false)
-  const [fogEnabled, setFogEnabled] = useState(false)
+  const [fogEnabled, setFogEnabled] = useState(() => loadFogEnabled(board.id))
+  const [revealRadius, setRevealRadius] = useState(80)
   const [fogReveals, setFogReveals] = useState<FogReveal[]>(() => loadFogReveals(board.id))
   const [followingUserId, setFollowingUserId] = useState<string | null>(null)
   const [laserTrail, setLaserTrail] = useState<Array<{ x: number; y: number; t: number }>>([])
@@ -173,6 +174,7 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
 
   useEffect(() => {
     setFogReveals(loadFogReveals(board.id))
+    setFogEnabled(loadFogEnabled(board.id))
   }, [board.id])
 
   const handleFogReveal = useCallback(
@@ -452,7 +454,13 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
         snapToGrid={snapToGrid}
         onSnapToggle={() => setSnapToGrid((s) => !s)}
         fogEnabled={fogEnabled}
-        onFogToggle={() => setFogEnabled((v) => !v)}
+        onFogToggle={() => {
+          const next = !fogEnabled
+          setFogEnabled(next)
+          saveFogEnabled(board.id, next)
+        }}
+        revealRadius={revealRadius}
+        onRevealRadiusChange={setRevealRadius}
       />
       <div style={styles.drawerSection}>
         <button
@@ -586,7 +594,13 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
           snapToGrid={snapToGrid}
           onSnapToggle={() => setSnapToGrid((s) => !s)}
           fogEnabled={fogEnabled}
-          onFogToggle={() => setFogEnabled((v) => !v)}
+        onFogToggle={() => {
+          const next = !fogEnabled
+          setFogEnabled(next)
+          saveFogEnabled(board.id, next)
+        }}
+        revealRadius={revealRadius}
+        onRevealRadiusChange={setRevealRadius}
         />
       )}
       <div
@@ -626,6 +640,7 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
           gridType={gridType}
           snapToGrid={snapToGrid}
           onFogReveal={handleFogReveal}
+          revealRadius={revealRadius}
         />
         <FrameFormOverlay
           frames={formFrames}
