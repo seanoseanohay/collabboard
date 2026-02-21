@@ -72,7 +72,7 @@ export function generateExpeditionMap(theme: ExpeditionTheme, seed?: number): Ge
 
   // Voyage scale: islands (visible 3%–100% zoom)
   for (const continent of continents) {
-    const islandCount = 2 + Math.floor(rng() * 3)
+    const islandCount = 3 + Math.floor(rng() * 3)  // 3–5 per continent
     for (let i = 0; i < islandCount; i++) {
       const iw = 300 + rng() * 600
       const ih = 200 + rng() * 400
