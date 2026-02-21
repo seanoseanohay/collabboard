@@ -145,6 +145,10 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
   }, [])
 
   useEffect(() => {
+    mapGeneratedRef.current = false
+  }, [board.id])
+
+  useEffect(() => {
     if (!isExplorer) return
     if (!boardReady) return
     if (objectCount !== 0) return
@@ -154,7 +158,7 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
     const theme = EXPEDITION_THEMES[0]
     const map = generateExpeditionMap(theme)
     canvasZoomRef.current.populateExpeditionMap(map)
-  }, [isExplorer, boardReady, objectCount])
+  }, [isExplorer, boardReady, objectCount, board.id])
 
   const handleSyncLatency = useCallback((ms: number) => {
     setSyncLatency(ms)
