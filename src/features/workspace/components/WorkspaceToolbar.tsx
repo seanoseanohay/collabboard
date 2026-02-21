@@ -36,6 +36,10 @@ interface WorkspaceToolbarProps {
   onPolygonSidesChange?: (sides: number) => void
   onStarModeChange?: (star: boolean) => void
   onPortsToggle?: () => void
+  gridType?: 'square' | 'hex' | 'none'
+  onGridTypeChange?: (type: 'square' | 'hex' | 'none') => void
+  snapToGrid?: boolean
+  onSnapToggle?: () => void
   /** When true, layout stacks vertically for mobile drawer (Figma-like) */
   inDrawer?: boolean
 }
@@ -229,6 +233,10 @@ export function WorkspaceToolbar({
   onPolygonSidesChange,
   onStarModeChange,
   onPortsToggle,
+  gridType = 'square',
+  onGridTypeChange,
+  snapToGrid = false,
+  onSnapToggle,
   inDrawer = false,
 }: WorkspaceToolbarProps) {
   const [zoomOpen, setZoomOpen] = useState(false)
@@ -504,6 +512,35 @@ export function WorkspaceToolbar({
             title={showMapBorder ? 'Hide map border' : 'Show map border'}
           >
             🗺️
+          </button>
+          <div style={styles.gridPill}>
+            {(['square', 'hex', 'none'] as const).map((type) => (
+              <button
+                key={type}
+                type="button"
+                style={{
+                  ...styles.gridPillBtn,
+                  ...(gridType === type ? styles.gridPillBtnActive : {}),
+                }}
+                onClick={() => onGridTypeChange?.(type)}
+                title={type === 'square' ? 'Square grid' : type === 'hex' ? 'Hex grid' : 'No grid'}
+              >
+                {type === 'square' ? '□' : type === 'hex' ? '⬡' : '✕'}
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            style={{
+              ...styles.toolBtn,
+              fontSize: 14,
+              opacity: snapToGrid ? 1 : 0.4,
+              border: snapToGrid ? '1px solid #e5e7eb' : 'none',
+            }}
+            onClick={onSnapToggle}
+            title={snapToGrid ? 'Snap to grid: on' : 'Snap to grid: off'}
+          >
+            🧲
           </button>
           {_boardMode === 'explorer' && (
             <button
@@ -1112,5 +1149,30 @@ const styles: Record<string, React.CSSProperties> = {
     background: 'transparent',
     cursor: 'pointer',
     textAlign: 'left',
+  },
+  gridPill: {
+    display: 'flex',
+    alignItems: 'center',
+    border: '1px solid #e5e7eb',
+    borderRadius: 6,
+    overflow: 'hidden',
+  },
+  gridPillBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 28,
+    height: 28,
+    padding: 0,
+    border: 'none',
+    borderRadius: 0,
+    background: 'transparent',
+    color: '#6b7280',
+    cursor: 'pointer',
+    fontSize: 13,
+  },
+  gridPillBtnActive: {
+    background: '#f1f5f9',
+    color: '#1e293b',
   },
 }

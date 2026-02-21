@@ -70,7 +70,7 @@ import {
 import { drawConnectorArrows } from '../lib/connectorArrows'
 import { ConnectorDropMenu, type ConnectorDropShapeType } from './ConnectorDropMenu'
 import { bringToFront, sendToBack, bringForward, sendBackward } from '../lib/fabricCanvasZOrder'
-import { drawCanvasGrid } from '../lib/drawCanvasGrid'
+import { drawCanvasGrid, drawHexGrid } from '../lib/drawCanvasGrid'
 import { createHistoryEventHandlers } from '../lib/fabricCanvasHistoryHandlers'
 import { createZoomHandlers, ZOOM_STEP, MIN_ZOOM, MAX_ZOOM } from '../lib/fabricCanvasZoom'
 import { normalizeScaleFlips } from '../lib/fabricCanvasScaleFlips'
@@ -188,6 +188,8 @@ interface FabricCanvasProps {
   onFormFramesChange?: (frames: FormFrameSceneInfo[]) => void
   onTableEditStart?: (objectId: string) => void
   onTableEditEnd?: () => void
+  gridType?: 'square' | 'hex' | 'none'
+  snapToGrid?: boolean
 }
 
 /**
@@ -224,6 +226,8 @@ const FabricCanvasInner = (
     onFormFramesChange,
     onTableEditStart,
     onTableEditEnd,
+    gridType = 'square',
+    snapToGrid = false,
   }: FabricCanvasProps,
   ref: React.Ref<FabricCanvasZoomHandle>
 ) => {
@@ -241,6 +245,10 @@ const FabricCanvasInner = (
   polygonSidesRef.current = polygonSides
   const starModeRef = useRef(starMode)
   starModeRef.current = starMode
+  const gridTypeRef = useRef(gridType)
+  gridTypeRef.current = gridType
+  const snapToGridRef = useRef(snapToGrid)
+  snapToGridRef.current = snapToGrid
   const brushOpacityRef = useRef(1)
   const brushWidthRef = useRef(2)
   const eraserActiveRef = useRef(false)
@@ -2071,6 +2079,18 @@ const FabricCanvasInner = (
     }
     fabricCanvas.on('object:added', assignFreeDrawPathId)
 
+    // Snap-to-grid: registered before boardSync so snapped position is what gets synced
+    const handleSnapToGrid = (e: { target?: FabricObject }) => {
+      if (!snapToGridRef.current || !e.target) return
+      const obj = e.target
+      const snapSize = 20
+      obj.set('left', Math.round((obj.left ?? 0) / snapSize) * snapSize)
+      obj.set('top', Math.round((obj.top ?? 0) / snapSize) * snapSize)
+      obj.setCoords()
+      fabricCanvas.requestRenderAll()
+    }
+    fabricCanvas.on('object:modified', handleSnapToGrid)
+
     // Document sync only - never torn down when auth changes; pass getCurrentUserId so move-delta broadcast ignores our own messages
     const connectorCacheRefForSync = { current: connectorCacheSet }
     const cleanupDocSync =
@@ -2258,7 +2278,10 @@ const FabricCanvasInner = (
     const canvasAny = fabricCanvas as unknown as { on: (e: string, h: () => void) => void; off: (e: string, h: () => void) => void }
     canvasAny.on('table:data:changed', handleFrameDataChanged)
 
-    const drawGrid = () => drawCanvasGrid(fabricCanvas)
+    const drawGrid = () => {
+      if (gridTypeRef.current === 'square') drawCanvasGrid(fabricCanvas)
+      else if (gridTypeRef.current === 'hex') drawHexGrid(fabricCanvas)
+    }
     let connectorCacheArray: FabricObject[] = []
     let connectorCacheDirty = true
     const origAdd = connectorCacheSet.add.bind(connectorCacheSet)
@@ -2391,6 +2414,7 @@ const FabricCanvasInner = (
       fabricCanvas.off('after:render', drawHoverPorts)
       fabricCanvas.off('connector:draw:start' as never, handleConnectorDrawStart)
       fabricCanvas.off('path:created', handlePathCreated)
+      fabricCanvas.off('object:modified', handleSnapToGrid)
       fabricCanvas.off('object:modified', handleObjectModified)
       fabricCanvas.off('object:added', notifyObjectCount)
       fabricCanvas.off('object:removed', notifyObjectCount)

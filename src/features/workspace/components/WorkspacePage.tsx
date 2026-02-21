@@ -43,6 +43,8 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
   const [showMapBorder, setShowMapBorder] = useState(isExplorer)
   const [polygonSides, setPolygonSides] = useState(6)
   const [starMode, setStarMode] = useState(false)
+  const [gridType, setGridType] = useState<'square' | 'hex' | 'none'>(isExplorer ? 'hex' : 'square')
+  const [snapToGrid, setSnapToGrid] = useState(false)
   const [titleEditing, setTitleEditing] = useState(false)
   const [titleValue, setTitleValue] = useState(board.title)
   const [viewportTransform, setViewportTransform] = useState<number[] | null>(null)
@@ -367,6 +369,10 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
         onPolygonSidesChange={setPolygonSides}
         onStarModeChange={setStarMode}
         onPortsToggle={() => setPortsOpen((v) => !v)}
+        gridType={gridType}
+        onGridTypeChange={setGridType}
+        snapToGrid={snapToGrid}
+        onSnapToggle={() => setSnapToGrid((s) => !s)}
       />
       <div style={styles.drawerSection}>
         <button
@@ -489,6 +495,10 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
           onPolygonSidesChange={setPolygonSides}
           onStarModeChange={setStarMode}
           onPortsToggle={() => setPortsOpen((v) => !v)}
+          gridType={gridType}
+          onGridTypeChange={setGridType}
+          snapToGrid={snapToGrid}
+          onSnapToggle={() => setSnapToGrid((s) => !s)}
         />
       )}
       <div ref={canvasContainerRef} style={styles.canvas}>
@@ -519,6 +529,8 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
           onFormFramesChange={handleFormFramesChange}
           onTableEditStart={(id) => setEditingTableId(id)}
           onTableEditEnd={() => setEditingTableId(null)}
+          gridType={gridType}
+          snapToGrid={snapToGrid}
         />
         <FrameFormOverlay
           frames={formFrames}
