@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { signOutUser } from '@/features/auth/api/authApi'
 import { useAuth } from '@/features/auth/hooks/useAuth'
@@ -49,12 +50,18 @@ export function BoardListPage() {
   const [publicBoards, setPublicBoards] = useState<BoardMeta[]>([])
   const [publicLoading, setPublicLoading] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+  const [menuAnchorRect, setMenuAnchorRect] = useState<DOMRect | null>(null)
   const parrotInitialized = useRef(false)
   const [parrotMsg, setParrotMsg] = useState<string | undefined>(undefined)
   const [showParrot, setShowParrot] = useState(true)
   const { pickJoke, loading: jokesLoading } = usePirateJokes()
 
   const userId = user?.uid ?? ''
+
+  const closeMenu = useCallback(() => {
+    setMenuBoardId(null)
+    setMenuAnchorRect(null)
+  }, [])
 
   useEffect(() => {
     if (parrotInitialized.current || loading || jokesLoading || !userId) return
@@ -71,13 +78,15 @@ export function BoardListPage() {
   useEffect(() => {
     if (!menuBoardId) return
     const close = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuBoardId(null)
-      }
+      const target = e.target as Node
+      if (menuRef.current?.contains(target)) return
+      const anchor = document.querySelector('[data-board-kebab-anchor]')
+      if (anchor?.contains(target)) return
+      closeMenu()
     }
     document.addEventListener('click', close)
     return () => document.removeEventListener('click', close)
-  }, [menuBoardId])
+  }, [menuBoardId, closeMenu])
 
   const loadPublicBoards = useCallback(async () => {
     setPublicLoading(true)
@@ -99,7 +108,7 @@ export function BoardListPage() {
 
   const handleTogglePublic = async (e: React.MouseEvent, board: BoardMeta) => {
     e.stopPropagation()
-    setMenuBoardId(null)
+    closeMenu()
     const next = !board.isPublic
     try {
       await updateBoardVisibility(board.id, next)
@@ -144,7 +153,7 @@ export function BoardListPage() {
 
   const handleCopyLink = (e: React.MouseEvent, boardId: string) => {
     e.stopPropagation()
-    setMenuBoardId(null)
+    closeMenu()
     const url = getShareUrl(boardId)
     void navigator.clipboard.writeText(url).then(() => {
       setCopiedId(boardId)
@@ -154,7 +163,7 @@ export function BoardListPage() {
 
   const handleRenameClick = (e: React.MouseEvent, board: BoardMeta) => {
     e.stopPropagation()
-    setMenuBoardId(null)
+    closeMenu()
     setRenameBoardId(board.id)
     setRenameValue(board.title)
   }
@@ -172,7 +181,7 @@ export function BoardListPage() {
 
   const handleDeleteClick = (e: React.MouseEvent, boardId: string) => {
     e.stopPropagation()
-    setMenuBoardId(null)
+    closeMenu()
     setDeleteConfirmId(boardId)
   }
 
@@ -386,55 +395,27 @@ export function BoardListPage() {
                         <span style={styles.boardTitle}>{board.title}</span>
                       )}
                     </div>
-                    <div style={styles.actionsWrap} ref={menuBoardId === board.id ? menuRef : undefined}>
+                    <div style={styles.actionsWrap}>
                       <button
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation()
-                          setMenuBoardId(menuBoardId === board.id ? null : board.id)
+                          const btn = e.currentTarget as HTMLButtonElement
+                          if (menuBoardId === board.id) {
+                            setMenuBoardId(null)
+                            setMenuAnchorRect(null)
+                          } else {
+                            setMenuBoardId(board.id)
+                            setMenuAnchorRect(btn.getBoundingClientRect())
+                          }
                         }}
                         style={styles.kebabBtn}
                         aria-label="Board actions"
                         aria-expanded={menuBoardId === board.id}
+                        data-board-kebab-anchor={menuBoardId === board.id ? '' : undefined}
                       >
                         ⋮
                       </button>
-                      {menuBoardId === board.id && (
-                        <div style={styles.menu}>
-                          <button
-                            type="button"
-                            style={styles.menuItem}
-                            onClick={(e) => handleCopyLink(e, board.id)}
-                          >
-                            {copiedId === board.id ? 'Copied!' : 'Copy share link'}
-                          </button>
-                          {board.ownerId === userId && (
-                            <>
-                              <button
-                                type="button"
-                                style={styles.menuItem}
-                                onClick={(e) => handleRenameClick(e, board)}
-                              >
-                                Rename
-                              </button>
-                              <button
-                                type="button"
-                                style={styles.menuItem}
-                                onClick={(e) => void handleTogglePublic(e, board)}
-                              >
-                                {board.isPublic ? '🔒 Make private' : '🌐 Make public'}
-                              </button>
-                            </>
-                          )}
-                          <button
-                            type="button"
-                            style={{ ...styles.menuItem, ...styles.menuItemDanger }}
-                            onClick={(e) => handleDeleteClick(e, board.id)}
-                          >
-                            {board.ownerId === userId ? 'Delete' : 'Leave board'}
-                          </button>
-                        </div>
-                      )}
                     </div>
                   </div>
                   <div style={styles.boardMeta}>
@@ -481,6 +462,63 @@ export function BoardListPage() {
           </div>
         )}
       </main>
+
+      {menuBoardId && menuAnchorRect && (() => {
+        const board = [...boards, ...publicBoards].find((b) => b.id === menuBoardId)
+        if (!board) return null
+        return createPortal(
+          <div
+            ref={menuRef}
+            style={{
+              position: 'fixed',
+              top: menuAnchorRect.top - 4,
+              right: typeof window !== 'undefined' ? window.innerWidth - menuAnchorRect.right : menuAnchorRect.right,
+              transform: 'translateY(-100%)',
+              minWidth: 160,
+              padding: 4,
+              background: '#fff',
+              border: '1px solid #e5e7eb',
+              borderRadius: 8,
+              boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+              zIndex: Z_INDEX.DROPDOWN,
+            }}
+          >
+            <button
+              type="button"
+              style={styles.menuItem}
+              onClick={(e) => handleCopyLink(e, board.id)}
+            >
+              {copiedId === board.id ? 'Copied!' : 'Copy share link'}
+            </button>
+            {board.ownerId === userId && (
+              <>
+                <button
+                  type="button"
+                  style={styles.menuItem}
+                  onClick={(e) => handleRenameClick(e, board)}
+                >
+                  Rename
+                </button>
+                <button
+                  type="button"
+                  style={styles.menuItem}
+                  onClick={(e) => void handleTogglePublic(e, board)}
+                >
+                  {board.isPublic ? '🔒 Make private' : '🌐 Make public'}
+                </button>
+              </>
+            )}
+            <button
+              type="button"
+              style={{ ...styles.menuItem, ...styles.menuItemDanger }}
+              onClick={(e) => handleDeleteClick(e, board.id)}
+            >
+              {board.ownerId === userId ? 'Delete' : 'Leave board'}
+            </button>
+          </div>,
+          document.body
+        )
+      })()}
 
       {deleteConfirmId && (() => {
         const target = [...boards, ...publicBoards].find((b) => b.id === deleteConfirmId)
