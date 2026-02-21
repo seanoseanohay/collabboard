@@ -345,6 +345,7 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
         onStickerKindChange={setSelectedStickerKind}
         zoom={viewportTransform?.[0] ?? 1}
         onZoomToFit={() => canvasZoomRef.current?.zoomToFit()}
+        onZoomToSelection={() => canvasZoomRef.current?.zoomToSelection()}
         onResetView={() => canvasZoomRef.current?.resetView()}
         onZoomSet={(z) => canvasZoomRef.current?.setZoom(z)}
         selectionStroke={selectionStroke}
@@ -465,6 +466,7 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
           onStickerKindChange={setSelectedStickerKind}
           zoom={viewportTransform?.[0] ?? 1}
           onZoomToFit={() => canvasZoomRef.current?.zoomToFit()}
+          onZoomToSelection={() => canvasZoomRef.current?.zoomToSelection()}
           onResetView={() => canvasZoomRef.current?.resetView()}
           onZoomSet={(z) => canvasZoomRef.current?.setZoom(z)}
           selectionStroke={selectionStroke}

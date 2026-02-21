@@ -85,23 +85,30 @@ Draw a freeform path to select objects inside/intersecting the path. Alternative
 
 ---
 
-## 4. Multi-Scale Map Vision (Pirate Map) — PLANNED (Explorer Canvas)
+## 4. Multi-Scale Map Vision (Pirate Map) — IN PROGRESS (MeBoard 1.0 ✅ / 2.0 Planned)
 
 ### Status
-Comprehensive implementation plan written: `docs/plans/2026-02-21-explorer-canvas.md` (14 tasks, ~48 hrs).
+**MeBoard 1.0 complete (2026-02-21):** Board mode infrastructure, enhanced drawing tools, and new shapes are shipped. These work in ALL board modes.
 
-### Scope (from plan)
-- **Board mode:** `board_mode` column (`'standard' | 'explorer'`). Creation picker: "New Board" vs "New Expedition".
-- **Enhanced drawing:** Brush slider 1–512px (log scale), 4 brush types (PencilBrush/CircleBrush/SprayBrush/PatternBrush), opacity, eraser. All modes.
-- **New shapes:** Ellipse, regular polygon (3–12 sides), star, freeform polygon (click-to-place vertices), arrow. All modes.
-- **Zoom-dependent visibility (LOD):** `minZoom`/`maxZoom` in object `data`. 5 scale bands: Ocean (🌊 <5%), Voyage (⛵ 5–25%), Harbor (⚓ 25–100%), Deck (🏴‍☠️ 100–400%), Spyglass (🔭 >400%). Explorer only.
-- **Procedural + AI map generation:** Auto-generates ~40–80 canvas objects on new expedition boards. Seeded PRNG; optional AI enrichment for names. Explorer only.
-- **Ports of Call:** Named viewport bookmarks. localStorage per board. Explorer only.
-- **Mini-map navigator:** 200×140px overview with viewport indicator. Explorer only.
-- **Hex grid + snap:** Hex grid rendering (default in explorer), snap-to-grid toggle.
-- **Fog of War:** Optional dark overlay with circular reveals. Explorer only.
-- **Laser pointer + follow mode:** Temporary broadcast trail; viewport mirroring. All modes.
-- **Animated zoom transitions:** Smooth ease-out for navigation.
+**MeBoard 2.0 planned:** Explorer-exclusive features (LOD, scale bands, map generation, fog of war, etc.) per `docs/plans/2026-02-21-explorer-canvas.md` (14 tasks, ~48 hrs).
+
+### What's Done (MeBoard 1.0)
+- ✅ **Board mode infrastructure** — `board_mode` column (`'standard' | 'explorer'`). Creation picker: "New Board" vs "New Expedition". `BoardMeta.boardMode` threaded through component tree.
+- ✅ **Enhanced drawing** — DrawBrushControl rewritten: 4 brush types (PencilBrush/CircleBrush/SprayBrush/PatternBrush), eraser (`globalCompositeOperation: 'destination-out'`), log-scale size slider (1–512px), opacity slider (0–100%).
+- ✅ **New shapes** — Ellipse, Polygon (3–12 sides, default hexagon), Star mode. Contextual toolbar: sides spinner + star checkbox.
+
+### What's Left (MeBoard 2.0 — Explorer Canvas)
+- Freeform polygon tool (click-to-place vertices)
+- Zoom-dependent visibility (LOD) with `minZoom`/`maxZoom` per object
+- 5 scale bands: Ocean (🌊 <5%), Voyage (⛵ 5–25%), Harbor (⚓ 25–100%), Deck (🏴‍☠️ 100–400%), Spyglass (🔭 >400%)
+- Procedural + AI map generation (~40–80 objects on new expedition boards)
+- Ports of Call bookmarks (named viewport positions, localStorage)
+- Mini-map navigator (200×140px overview)
+- Hex grid + snap-to-grid
+- Fog of War (optional dark overlay with circular reveals)
+- Laser pointer + follow mode
+- Animated zoom transitions
+- Arrow shape, bezier curves
 
 ### Implementation Notes
 - All Fabric.js classes verified available: `Polygon`, `Ellipse`, `CircleBrush`, `SprayBrush`, `PatternBrush` (no `EraserBrush` — use `globalCompositeOperation: 'destination-out'`)

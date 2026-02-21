@@ -2,6 +2,14 @@
 
 ## Current Focus (for next agent)
 
+**MeBoard 1.0 COMPLETE (2026-02-21).** Three implementation tasks shipped:
+
+1. **Board mode infrastructure** — `board_mode TEXT NOT NULL DEFAULT 'standard'` column added via migration (with DROP FUNCTION + CREATE FUNCTION pattern for RPC return type changes). `BoardMeta.boardMode` threaded through BoardPage → WorkspacePage → WorkspaceToolbar → FabricCanvas. Creation picker dropdown: "⚓ New Board" / "🗺️ New Expedition". `🗺️ Expedition` badge on board cards. Empty-state button also uses dropdown.
+2. **Enhanced drawing tools** — `DrawBrushControl.tsx` fully rewritten: 4 brush types (PencilBrush/CircleBrush/SprayBrush/PatternBrush) with SVG icon buttons, eraser toggle (`globalCompositeOperation: 'destination-out'` applied to paths in `handleObjectAdded`), logarithmic brush size slider (1–512px via `brushToSlider`/`sliderToBrush`), opacity slider (0–100%). New imperative handles on FabricCanvas: `setDrawBrushType`, `setDrawBrushOpacity`, `setDrawEraserMode`.
+3. **New shapes** — Ellipse and Polygon (3–12 sides, star mode) added to `ToolType`, `SHAPE_TOOLS`, `shapeFactory.ts`, `WorkspaceToolbar` insert menu + icons. Polygon tool shows contextual controls (sides spinner + star checkbox). `createShape` options extended with `polygonSides` and `starMode`. Props threaded through WorkspacePage → FabricCanvas.
+
+---
+
 **Frame/table title scaling fix + boards page dropdown fix (2026-02-21).** Two UI bugs resolved:
 
 1. **Frame/table title expands when resizing/moving** — Root cause: Fabric's group scaling multiplied IText children's scale in addition to the group's own scale, causing titles to visually grow when the group was resized. Also, `updateStickyTextFontSize` (designed for sticky notes) was incorrectly applied to frame/table groups. Three-part fix:
@@ -97,7 +105,7 @@ Parallel execution: Tasks 2/3/4 (tools+shapes) run in parallel; Tasks 5/6/7 (exp
 6. **Canvas features** — ~~Free draw~~ ✅, ~~Ungroup bug~~ ✅, ~~Lasso selection~~ ✅. See docs/PLANNED_CANVAS_FEATURES.md.
 7. **Connector Phase 2** — port hover glow, double-click segment for waypoint, right-click context menu (Reset route, Reverse direction), auto-route.
 8. ~~**Frame Phase 2**~~ ✅ — (a) Send-to-back auto-capture ✅, (b) Frame title zoom fix ✅, (c) Frame forms ✅. See Recent Changes above.
-9. **Explorer Canvas** — Board mode infrastructure, enhanced drawing, new shapes, LOD, map generation, Ports of Call, mini-map, hex grid, fog of war, laser pointer, follow mode. See `docs/plans/2026-02-21-explorer-canvas.md`.
+9. **Explorer Canvas (MeBoard 2.0)** — Board mode infrastructure ✅ (Task 1). Enhanced drawing ✅ (Task 2). New shapes ✅ (Task 3). Remaining: LOD visibility, scale bands, Ports of Call, mini-map, hex grid, fog of war, procedural map generation, laser pointer, follow mode, animated zoom. See `docs/plans/2026-02-21-explorer-canvas.md`.
 
 **Parrot mascot layout pattern:**
 - `ParrotMascot` is `position: fixed, right: 20, top: 58`. Flex column, parrot on top, bubble below.
@@ -201,7 +209,7 @@ Frames are **visual containers** (Fabric Group: bg Rect + title IText) whose ass
 4. ~~**Shape tool vs selection**~~ ✅ — With shape tool active, pointer-down always starts drawing (discardActiveObject + draw); never selects.
 5. ~~**Board loading performance**~~ ✅ — Paginated fetch in documentsApi (50 per batch, order by object_id).
 6. ~~**Stroke width (border thickness)**~~ ✅ — PRD §4. strokeUtils (getStrokeWidthFromObject, setStrokeWidthOnObject), StrokeControl in toolbar when selection has stroke (1/2/4/8px). Sync uses Fabric strokeWidth in payload. FabricCanvas: onSelectionChange, setActiveObjectStrokeWidth on ref.
-17. **Explorer Canvas** — 14-task plan at `docs/plans/2026-02-21-explorer-canvas.md`. Board modes, enhanced brushes, new shapes, LOD, procedural map generation, hex grid, fog of war, collaboration extras.
+17. **Explorer Canvas (MeBoard 2.0)** — Tasks 1-3 done (board mode, brushes, shapes). Next: Tasks 4+ (LOD, scale bands, map gen, Ports of Call, mini-map, hex grid, fog of war, collab extras). See `docs/plans/2026-02-21-explorer-canvas.md`.
 
 ## Recent Changes (2026-02-19 — Board list features + drawing fixes)
 

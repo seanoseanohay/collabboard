@@ -1,6 +1,6 @@
 # START HERE - Next Agent Context
 
-**Date:** 2026-02-20
+**Date:** 2026-02-21
 
 ## Explorer Canvas Plan (2026-02-21)
 
@@ -18,6 +18,16 @@
 - AI enrichment: background call to `ai-interpret` Edge Function for creative names (optional, ~2s)
 
 **Execution order:** Task 1 (infrastructure) first → Tasks 2/3/4 (tools) parallel → Tasks 5/6/7 (explorer features) parallel → Tasks 8/9 (grid+minimap) parallel → Task 10 (map gen) → Tasks 11/12/13 (fog+collab) parallel → Task 14 (polish).
+
+## MeBoard 1.0 COMPLETE (2026-02-21)
+
+Tasks 1-3 of the Explorer Canvas plan are done. These are the "all-modes" features that constitute MeBoard 1.0:
+
+1. **Board mode infrastructure** ✅ — `board_mode` column on `boards` table. `BoardMeta.boardMode` threaded through full component tree. Creation picker: "⚓ New Board" / "🗺️ New Expedition". Expedition badge on board cards. Migration: `20260221000000_board_mode.sql` (applied to remote).
+2. **Enhanced DrawBrushControl** ✅ — Full rewrite with 4 brush types (pencil/circle/spray/pattern), eraser toggle (`globalCompositeOperation: 'destination-out'`), log-scale size slider (1–512px), opacity slider, color picker. New FabricCanvas imperative handles: `setDrawBrushType`, `setDrawBrushOpacity`, `setDrawEraserMode`.
+3. **New shapes** ✅ — Ellipse + Polygon (3–12 sides, star mode). Added to `ToolType`, `SHAPE_TOOLS`, `shapeFactory.ts`, insert menu. Contextual toolbar: sides spinner + star checkbox. 4 new tests passing.
+
+**Also fixed:** vitest `globals: true` in `vite.config.ts`. Migration DROP FUNCTION pattern for RPC return type changes.
 
 ## Current State
 
@@ -98,8 +108,14 @@ Connector endpoints now update in real-time when connected objects are **rotated
 
 ## Next Items (suggested)
 
-**Next up:**
-- **Explorer Canvas** — See `docs/plans/2026-02-21-explorer-canvas.md`. Start with Task 1 (board mode infrastructure), then run Tasks 2/3/4 in parallel.
+**Next up (MeBoard 2.0 — Explorer Canvas):**
+- Tasks 1-3 DONE (board mode, brushes, shapes).
+- **Start with Task 4:** Freeform polygon tool (click-to-place vertices).
+- **Then Tasks 5-7 in parallel:** LOD visibility + scale band HUD, Ports of Call, hex grid + snap.
+- **Then Tasks 8-9:** Mini-map, procedural + AI map generation.
+- **Then Tasks 10-12:** Fog of War, laser pointer, follow mode.
+- **Last:** Task 13 (animated zoom transitions) + Task 14 (polish).
+- See `docs/plans/2026-02-21-explorer-canvas.md` for full details.
 
 **Done this session:**
 - **AI Client API** ✅ — createObject, updateObject, deleteObjects, queryObjects; getDocument/fetchDocuments in documentsApi; exported from @/features/workspace.

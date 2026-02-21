@@ -103,6 +103,7 @@ export interface SelectionStrokeInfo {
 export interface FabricCanvasZoomHandle {
   setZoom: (zoom: number) => void
   zoomToFit: () => void
+  zoomToSelection: () => void
   getActiveObject: () => FabricObject | null
   setActiveObjectStrokeWidth: (strokeWidth: number) => void
   setActiveObjectFill: (fill: string) => void
@@ -222,7 +223,7 @@ const FabricCanvasInner = (
   const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<Canvas | null>(null)
   const [connectorDropMenuState, setConnectorDropMenuState] = useState<ConnectorDropState | null>(null)
-  const zoomApiRef = useRef<Pick<FabricCanvasZoomHandle, 'setZoom' | 'zoomToFit'> | null>(null)
+  const zoomApiRef = useRef<Pick<FabricCanvasZoomHandle, 'setZoom' | 'zoomToFit' | 'zoomToSelection'> | null>(null)
   const toolRef = useRef(selectedTool)
   toolRef.current = selectedTool
   const stickerKindRef = useRef(selectedStickerKind)
@@ -285,6 +286,7 @@ const FabricCanvasInner = (
     const api: FabricCanvasZoomHandle = {
     setZoom: (z) => zoomApiRef.current?.setZoom(z),
     zoomToFit: () => zoomApiRef.current?.zoomToFit(),
+    zoomToSelection: () => zoomApiRef.current?.zoomToSelection(),
     getActiveObject: () => canvasRef.current?.getActiveObject() ?? null,
     setActiveObjectStrokeWidth: (strokeWidth: number) => {
       const canvas = canvasRef.current
@@ -946,7 +948,7 @@ const FabricCanvasInner = (
       updateTableTitleVisibility(fabricCanvas)
     }
 
-    const { applyZoom, zoomToFit, handleWheel } = createZoomHandlers(fabricCanvas, width, height, notifyViewport)
+    const { applyZoom, zoomToFit, zoomToSelection, handleWheel } = createZoomHandlers(fabricCanvas, width, height, notifyViewport)
 
     // Restore saved viewport for this board, then always notify so overlays have a transform from the start
     if (boardId) {
@@ -1747,6 +1749,9 @@ const FabricCanvasInner = (
       } else if (e.key === '1' && !e.shiftKey) {
         e.preventDefault()
         applyZoom(1)
+      } else if (e.key === '2' && e.shiftKey) {
+        e.preventDefault()
+        zoomToSelection()
       }
     }
     const handleKeyUp = (e: KeyboardEvent) => {
@@ -1766,7 +1771,7 @@ const FabricCanvasInner = (
     document.addEventListener('keydown', handleKeyDown)
     document.addEventListener('keyup', handleKeyUp)
 
-    zoomApiRef.current = { setZoom: applyZoom, zoomToFit }
+    zoomApiRef.current = { setZoom: applyZoom, zoomToFit, zoomToSelection }
 
     // Document sync only - never torn down when auth changes; pass getCurrentUserId so move-delta broadcast ignores our own messages
     const connectorCacheRefForSync = { current: connectorCacheSet }

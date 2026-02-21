@@ -13,6 +13,7 @@ export const ZOOM_STEP = 1.25
 export interface ZoomHandlers {
   applyZoom: (newZoom: number) => void
   zoomToFit: () => void
+  zoomToSelection: () => void
   handleWheel: (opt: { e: WheelEvent }) => void
 }
 
@@ -74,6 +75,40 @@ export function createZoomHandlers(
     notifyViewport()
   }
 
+  const zoomToSelection = () => {
+    const active = canvas.getActiveObject()
+    if (!active) return
+    const objs = active.type === 'activeselection'
+      ? (active as unknown as { getObjects: () => FabricObject[] }).getObjects()
+      : [active]
+    if (objs.length === 0) return
+    const bounds = objs.reduce(
+      (acc, obj) => {
+        const b = (obj as FabricObject & { getBoundingRect: (absolute?: boolean) => { left: number; top: number; width: number; height: number } }).getBoundingRect(true)
+        return {
+          minX: Math.min(acc.minX, b.left),
+          minY: Math.min(acc.minY, b.top),
+          maxX: Math.max(acc.maxX, b.left + b.width),
+          maxY: Math.max(acc.maxY, b.top + b.height),
+        }
+      },
+      { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity }
+    )
+    const padding = 60
+    const contentW = bounds.maxX - bounds.minX + padding * 2
+    const contentH = bounds.maxY - bounds.minY + padding * 2
+    const fitZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Math.min(canvasWidth / contentW, canvasHeight / contentH)))
+    const cx = (bounds.minX + bounds.maxX) / 2
+    const cy = (bounds.minY + bounds.maxY) / 2
+    const vpt = canvas.viewportTransform ?? [1, 0, 0, 1, 0, 0]
+    vpt[0] = fitZoom
+    vpt[3] = fitZoom
+    vpt[4] = canvasWidth / 2 - cx * fitZoom
+    vpt[5] = canvasHeight / 2 - cy * fitZoom
+    canvas.requestRenderAll()
+    notifyViewport()
+  }
+
   const handleWheel = (opt: { e: WheelEvent }) => {
     const e = opt.e
     e.preventDefault()
@@ -89,5 +124,5 @@ export function createZoomHandlers(
     notifyViewport()
   }
 
-  return { applyZoom, zoomToFit, handleWheel }
+  return { applyZoom, zoomToFit, zoomToSelection, handleWheel }
 }

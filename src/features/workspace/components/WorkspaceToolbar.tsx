@@ -18,6 +18,7 @@ interface WorkspaceToolbarProps {
   onStickerKindChange?: (kind: StickerKind) => void
   zoom?: number
   onZoomToFit?: () => void
+  onZoomToSelection?: () => void
   onResetView?: () => void
   onZoomSet?: (zoom: number) => void
   selectionStroke?: SelectionStrokeInfo | null
@@ -190,6 +191,7 @@ export function WorkspaceToolbar({
   onStickerKindChange,
   zoom = 1,
   onZoomToFit,
+  onZoomToSelection,
   onResetView,
   onZoomSet,
   selectionStroke,
@@ -520,6 +522,18 @@ export function WorkspaceToolbar({
                       }}
                     >
                       Fit
+                    </button>
+                  )}
+                  {onZoomToSelection && (
+                    <button
+                      type="button"
+                      style={styles.zoomItem}
+                      onClick={() => {
+                        onZoomToSelection()
+                        setZoomOpen(false)
+                      }}
+                    >
+                      Zoom to selection ⇧2
                     </button>
                   )}
                   {onResetView && (
