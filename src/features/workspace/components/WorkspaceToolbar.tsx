@@ -330,7 +330,7 @@ export function WorkspaceToolbar({
                 <div style={styles.insertSection}>
                   <div style={styles.insertHeader}>Shapes</div>
                   <div style={styles.insertGrid}>
-                    {(['rect', 'circle', 'triangle', 'line', 'draw'] as const).map((id) => (
+                    {(['rect', 'circle', 'triangle', 'ellipse', 'polygon', 'line', 'draw'] as const).map((id) => (
                       <button
                         key={id}
                         type="button"
