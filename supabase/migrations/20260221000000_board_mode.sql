@@ -1,8 +1,10 @@
 -- Add board_mode to boards table (standard whiteboard vs explorer map)
 ALTER TABLE boards ADD COLUMN IF NOT EXISTS board_mode TEXT NOT NULL DEFAULT 'standard';
 
--- Update get_user_boards_with_counts RPC to include board_mode
-CREATE OR REPLACE FUNCTION get_user_boards_with_counts(p_user_id UUID)
+-- Must DROP first because return type is changing (adding board_mode column)
+DROP FUNCTION IF EXISTS get_user_boards_with_counts(UUID);
+
+CREATE FUNCTION get_user_boards_with_counts(p_user_id UUID)
 RETURNS TABLE(
   board_id UUID,
   title TEXT,
