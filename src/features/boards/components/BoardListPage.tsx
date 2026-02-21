@@ -471,9 +471,8 @@ export function BoardListPage() {
             ref={menuRef}
             style={{
               position: 'fixed',
-              top: menuAnchorRect.top - 4,
-              right: typeof window !== 'undefined' ? window.innerWidth - menuAnchorRect.right : menuAnchorRect.right,
-              transform: 'translateY(-100%)',
+              bottom: window.innerHeight - menuAnchorRect.top + 4,
+              right: window.innerWidth - menuAnchorRect.right,
               minWidth: 160,
               padding: 4,
               background: '#fff',
