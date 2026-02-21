@@ -1,6 +1,25 @@
 # Active Context
 
 ## Current Focus (for next agent)
+
+**Explorer Canvas plan written (2026-02-21).** Comprehensive implementation plan at `docs/plans/2026-02-21-explorer-canvas.md` covering 14 tasks across 7 parallel groups (~48 hrs total). Key features:
+
+1. **Board mode infrastructure** — `board_mode` column (`'standard' | 'explorer'`), creation picker ("New Board" vs "New Expedition"), mode threaded through component tree.
+2. **Enhanced drawing tools** (all modes) — Brush size slider (1–512px log scale), 4 brush types (pencil/circle/spray/pattern), opacity slider, eraser mode, cursor size preview.
+3. **New shapes** (all modes) — Ellipse, regular polygon (3–12 sides, hexagon default), star mode, freeform polygon (click-to-place vertices), arrow shape.
+4. **Zoom-dependent visibility / LOD** (explorer only) — Objects have `minZoom`/`maxZoom` in data. 5 scale bands: Ocean/Voyage/Harbor/Deck/Spyglass. HUD indicator.
+5. **Ports of Call bookmarks** (explorer only) — Save/recall named viewport positions. localStorage per board.
+6. **Procedural + AI map generation** (explorer only) — Auto-generates ~40–80 multi-scale objects on new expedition boards. Seeded PRNG for layout; optional AI enrichment for creative names.
+7. **Mini-map navigator** (explorer only) — 200×140px overview in corner with viewport indicator.
+8. **Hex grid + snap-to-grid** — Hex grid rendering option (default in explorer). Magnet snap toggle.
+9. **Fog of War** (explorer only, optional toggle) — Dark overlay with circular reveals. localStorage persistence.
+10. **Laser pointer + Follow mode** (all modes) — Temporary broadcast trail; click presence icon to mirror another user's viewport.
+11. **Animated zoom transitions** — Smooth ease-out pan/zoom for port navigation and zoom presets.
+
+Parallel execution: Tasks 2/3/4 (tools+shapes) run in parallel; Tasks 5/6/7 (explorer features) run in parallel; Tasks 8/9 (grid+minimap) run in parallel; Tasks 11/12/13 (fog+collab) run in parallel. Task 1 (infrastructure) runs first. Task 10 (map gen) depends on tools+shapes+LOD.
+
+---
+
 **Template + DataTable bug fixes complete (2026-02-20).** Four separate issues resolved after the Table Polish + Template Redesign task:
 
 1. **SWOT frame overflow** — `TABLE_MIN_WIDTH = 280` silently expanded the 240px-wide tables, pushing the right column 20px past the 560px frame. Fixed: `frameWidth` → 620, right-column `relLeft` → 320, all table widths → 280.
@@ -64,6 +83,7 @@
 6. **Canvas features** — ~~Free draw~~ ✅, ~~Ungroup bug~~ ✅, ~~Lasso selection~~ ✅. See docs/PLANNED_CANVAS_FEATURES.md.
 7. **Connector Phase 2** — port hover glow, double-click segment for waypoint, right-click context menu (Reset route, Reverse direction), auto-route.
 8. ~~**Frame Phase 2**~~ ✅ — (a) Send-to-back auto-capture ✅, (b) Frame title zoom fix ✅, (c) Frame forms ✅. See Recent Changes above.
+9. **Explorer Canvas** — Board mode infrastructure, enhanced drawing, new shapes, LOD, map generation, Ports of Call, mini-map, hex grid, fog of war, laser pointer, follow mode. See `docs/plans/2026-02-21-explorer-canvas.md`.
 
 **Parrot mascot layout pattern:**
 - `ParrotMascot` is `position: fixed, right: 20, top: 58`. Flex column, parrot on top, bubble below.
@@ -167,6 +187,7 @@ Frames are **visual containers** (Fabric Group: bg Rect + title IText) whose ass
 4. ~~**Shape tool vs selection**~~ ✅ — With shape tool active, pointer-down always starts drawing (discardActiveObject + draw); never selects.
 5. ~~**Board loading performance**~~ ✅ — Paginated fetch in documentsApi (50 per batch, order by object_id).
 6. ~~**Stroke width (border thickness)**~~ ✅ — PRD §4. strokeUtils (getStrokeWidthFromObject, setStrokeWidthOnObject), StrokeControl in toolbar when selection has stroke (1/2/4/8px). Sync uses Fabric strokeWidth in payload. FabricCanvas: onSelectionChange, setActiveObjectStrokeWidth on ref.
+17. **Explorer Canvas** — 14-task plan at `docs/plans/2026-02-21-explorer-canvas.md`. Board modes, enhanced brushes, new shapes, LOD, procedural map generation, hex grid, fog of war, collaboration extras.
 
 ## Recent Changes (2026-02-19 — Board list features + drawing fixes)
 

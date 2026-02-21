@@ -11,7 +11,7 @@ import type { ToolType } from '../types/tools'
 import { isShapeTool } from '../types/tools'
 import { createShape } from '../lib/shapeFactory'
 import { createFrameShape } from '../lib/frameFactory'
-import { setFrameChildIds, updateFrameTitleVisibility } from '../lib/frameUtils'
+import { setFrameChildIds, updateFrameTitleVisibility, bakeFrameOrTableGroupScale } from '../lib/frameUtils'
 import { createDataTableShape } from '../lib/dataTableFactory'
 import { isDataTable, updateTableTitleVisibility, getTableData, setTableFormSchema } from '../lib/dataTableUtils'
 import type { FormFrameSceneInfo, FormSchema } from '../lib/frameFormTypes'
@@ -1899,10 +1899,14 @@ const FabricCanvasInner = (
       const target = e.target
       if (target) {
         normalizeScaleFlips(target)
+        bakeFrameOrTableGroupScale(target)
         if (target.type === 'group' && 'getObjects' in target) {
           const groupData = target.get('data') as { subtype?: string } | undefined
-          if (groupData?.subtype !== 'container') updateStickyTextFontSize(target)
-          if (groupData?.subtype === 'table') notifyFormFrames()
+          const subtype = groupData?.subtype
+          if (subtype !== 'container' && subtype !== 'frame' && subtype !== 'table') {
+            updateStickyTextFontSize(target)
+          }
+          if (subtype === 'table') notifyFormFrames()
         }
       }
     }

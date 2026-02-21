@@ -2,8 +2,8 @@
 
 > Pirate-themed rebrand of CollabBoard. CollabBoard → MeBoard with treasure map / nautical aesthetic.
 
-**Status:** Phase 1–3 (login, nav, footer, map border, pirate cursors, Pirate Plunder, parrot mascot) + Phase 4 (WelcomeToast, NavBar/Footer on BoardListPage, EmptyCanvasX easter egg). Features/Pricing pages: TODO very much later.  
-**Last updated:** 2026-02-19
+**Status:** Phase 1–3 (login, nav, footer, map border, pirate cursors, Pirate Plunder, parrot mascot) + Phase 4 (WelcomeToast, NavBar/Footer on BoardListPage, EmptyCanvasX easter egg). Features/Pricing pages out of scope (add later if needed).  
+**Last updated:** 2026-02-21
 
 ---
 
@@ -106,7 +106,7 @@
 ## 7. Navigation, Footer & Final Touches
 
 ### Top nav — ✅ IMPLEMENTED
-- **Structure:** Logo | Log In / Sign out — Features | Pricing removed; **TODO very much later** (placeholder routes)
+- **Structure:** Logo | Log In / Sign out — Features | Pricing out of scope (add later if needed)
 - **Placement:** NavBar on LoginPage, BoardListPage
 - **Files:** `NavBar.tsx`, `Footer.tsx`
 
@@ -203,7 +203,7 @@ Add "Pirate Plunder" section in toolbar with draggable/stampable pirate-themed s
 11. ~~Easter eggs (empty-canvas X)~~ ✅ — EmptyCanvasX.tsx; landing wave TODO
 12. ~~AI joke generation for parrot~~ ✅ — usePirateJokes + pirate-jokes Edge Function
 13. Demo board (if guest access allowed)
-14. Features/Pricing pages — TODO very much later (removed from NavBar for now)
+14. Features/Pricing pages — out of scope (add later if needed)
 
 ---
 

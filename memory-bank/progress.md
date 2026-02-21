@@ -71,7 +71,6 @@
   - ✅ **GitHub OAuth replaces Google** — Google OAuth removed (provider scrapped). GitHub button promoted as sole OAuth option with dark polished styling (`btn-github` hover class, drop shadow, 700 weight). `signInWithGoogle` removed from authApi.ts.
   - ✅ **Hero illustration** — `HeroIllustration.tsx` significantly enhanced: 18 gold stars, crescent moon (top-right), faint compass rose lines, 4 crew avatars (🦜🧭⚓☠️) with pulse rings (was 3), rim grip notches on wheel, ocean gradient fill + 2 wave paths, distant ship silhouette with gold sail. ViewBox expanded 420→460.
   - **Remaining branding items** — captain cursor icon. Done: WelcomeToast, NavBar/Footer on BoardListPage, EmptyCanvasX easter egg.
-  - **Features/Pricing pages** — TODO very much later. Placeholder routes for marketing; deferred.
 - **Planned canvas features** — docs/PLANNED_CANVAS_FEATURES.md: Object grouping, Free draw, ~~Lasso selection~~ ✅, Multi-scale map vision. **Finished-product:** Connectors (Miro-style, required) ✅, Frames ✅, Duplicate ✅, Copy & Paste ✅, Marquee mode (box-select when starting on large objects). See doc for implementation notes and effort estimates.
 - ~~Rotation (Task G)~~ ✅ — object:rotating hooked to emitModifyThrottled in boardSync.ts; rotation syncs live
 - ~~**Per-object stroke width (border thickness)**~~ ✅ — StrokeControl in toolbar when selection has stroke (1/2/4/8px); strokeUtils + FabricCanvas ref; sync via existing object:modified.
@@ -97,6 +96,7 @@
 ## Current Status
 **Phase:** MVP + post-MVP complete. DataTable polish ✅ (2026-02-20): accent colors, optional title bar, view/edit mode, frame containment, persistence. Template redesign ✅ (2026-02-20): SWOT/Retro/UserJourney now use DataTable objects with colored headers. `createGrid` AI command ✅. All 6 required AI layout/template commands working. Frame/Table no-rotate enforced.
 **Next:** Connector Phase 2, remaining branding (hero illustration).
+Explorer Canvas plan written (2026-02-21) — 14 tasks, ~48 hrs, at `docs/plans/2026-02-21-explorer-canvas.md`.
 
 ## Recently Added (2026-02-20 — Template/DataTable bug fixes)
 - ✅ **SWOT frame overflow fix** — `TABLE_MIN_WIDTH = 280` silently inflated 240px-wide tables past the 560px frame. Fixed: `frameWidth` 560 → 620, right-column `relLeft` 300 → 320, all table widths 240 → 280. Tables now fit exactly inside the frame.

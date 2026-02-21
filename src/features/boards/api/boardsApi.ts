@@ -64,6 +64,16 @@ export async function deleteBoard(boardId: string): Promise<void> {
   if (error) throw new Error(error.message)
 }
 
+export async function leaveBoard(boardId: string, userId: string): Promise<void> {
+  const supabase = getSupabaseClient()
+  const { error } = await supabase
+    .from('user_boards')
+    .delete()
+    .eq('board_id', boardId)
+    .eq('user_id', userId)
+  if (error) throw new Error(error.message)
+}
+
 export async function joinBoard(
   boardId: string,
   userId: string

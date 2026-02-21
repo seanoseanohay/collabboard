@@ -85,25 +85,29 @@ Draw a freeform path to select objects inside/intersecting the path. Alternative
 
 ---
 
-## 4. Multi-Scale Map Vision (Pirate Map)
+## 4. Multi-Scale Map Vision (Pirate Map) — PLANNED (Explorer Canvas)
 
-### Goal
-Canvas inside a treasure map border. Zoom out → see "continents"/islands. Zoom in → see city blocks, detail. Free draw for coastlines, roads. Single infinite canvas, objects at different scales.
+### Status
+Comprehensive implementation plan written: `docs/plans/2026-02-21-explorer-canvas.md` (14 tasks, ~48 hrs).
 
-### Elements
-| Element | Implementation |
-|--------|----------------|
-| Map border | MeBoard spec §3 — parchment frame around canvas |
-| Zoom in/out | Already have 0.001%–10000% |
-| "Continents" | Large shapes/polygons or free-drawn regions |
-| "City blocks" | Smaller rects at higher zoom |
-| Free draw | §2 above — coastlines, paths |
-| Multi-scale | One coordinate space; zoom level = what you see |
+### Scope (from plan)
+- **Board mode:** `board_mode` column (`'standard' | 'explorer'`). Creation picker: "New Board" vs "New Expedition".
+- **Enhanced drawing:** Brush slider 1–512px (log scale), 4 brush types (PencilBrush/CircleBrush/SprayBrush/PatternBrush), opacity, eraser. All modes.
+- **New shapes:** Ellipse, regular polygon (3–12 sides), star, freeform polygon (click-to-place vertices), arrow. All modes.
+- **Zoom-dependent visibility (LOD):** `minZoom`/`maxZoom` in object `data`. 5 scale bands: Ocean (🌊 <5%), Voyage (⛵ 5–25%), Harbor (⚓ 25–100%), Deck (🏴‍☠️ 100–400%), Spyglass (🔭 >400%). Explorer only.
+- **Procedural + AI map generation:** Auto-generates ~40–80 canvas objects on new expedition boards. Seeded PRNG; optional AI enrichment for names. Explorer only.
+- **Ports of Call:** Named viewport bookmarks. localStorage per board. Explorer only.
+- **Mini-map navigator:** 200×140px overview with viewport indicator. Explorer only.
+- **Hex grid + snap:** Hex grid rendering (default in explorer), snap-to-grid toggle.
+- **Fog of War:** Optional dark overlay with circular reveals. Explorer only.
+- **Laser pointer + follow mode:** Temporary broadcast trail; viewport mirroring. All modes.
+- **Animated zoom transitions:** Smooth ease-out for navigation.
 
-### Notes
-- All in one Fabric canvas; zoom only changes viewport
-- No layer switching — objects at different sizes/positions
-- Complements MeBoard branding (docs/MeBoard_BRANDING_SPEC.md)
+### Implementation Notes
+- All Fabric.js classes verified available: `Polygon`, `Ellipse`, `CircleBrush`, `SprayBrush`, `PatternBrush` (no `EraserBrush` — use `globalCompositeOperation: 'destination-out'`)
+- Procedural generator uses mulberry32 seeded PRNG for reproducible maps
+- LOD visibility check runs in existing `notifyViewport` callback
+- No new Supabase tables needed for MVP (localStorage for ports + fog; `board_mode` column on existing `boards` table)
 
 ---
 

@@ -79,7 +79,7 @@ import {
   type LockEntry,
 } from '../api/locksApi'
 import { updateStickyTextFontSize, updateStickyPlaceholderVisibility } from './shapeFactory'
-import { isFrame, getFrameChildIds, setFrameChildIds } from './frameUtils'
+import { isFrame, getFrameChildIds, setFrameChildIds, counterScaleFrameOrTableTitle } from './frameUtils'
 import { isDataTable } from './dataTableUtils'
 import {
   updateConnectorEndpoints,
@@ -908,6 +908,7 @@ export function setupDocumentSync(
 
   canvas.on('object:scaling', (e) => {
     if (e.target) {
+      counterScaleFrameOrTableTitle(e.target)
       const ids = getTransformIds(e.target)
       if (ids.size > 0) updateConnectorsForObjects(ids)
       emitModifyThrottled(e.target)

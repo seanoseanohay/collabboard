@@ -2,6 +2,23 @@
 
 **Date:** 2026-02-20
 
+## Explorer Canvas Plan (2026-02-21)
+
+**Plan doc:** `docs/plans/2026-02-21-explorer-canvas.md` — 14 tasks, ~48 hrs, 7 parallel groups.
+
+**Summary:** New "Expedition" board mode with enhanced drawing (brush slider 1–512px log scale, 4 brush types, opacity, eraser), new shapes (ellipse, polygon/hexagon/star, freeform polygon, arrow), zoom-dependent visibility (LOD: 5 scale bands — Ocean/Voyage/Harbor/Deck/Spyglass), procedural + AI map generation, Ports of Call bookmarks, mini-map navigator, hex grid + snap, optional Fog of War, laser pointer, follow mode, animated zoom transitions.
+
+**Key architecture:**
+- `board_mode` column on `boards` table (`'standard' | 'explorer'`)
+- `BoardMeta.boardMode` flows through `BoardPage` → `WorkspacePage` → `WorkspaceToolbar` → `FabricCanvas`
+- Explorer-exclusive features gated by `isExplorer = board.boardMode === 'explorer'`
+- Enhanced drawing tools + new shapes available in ALL board modes
+- LOD uses `data.minZoom` / `data.maxZoom` on canvas objects
+- Procedural map: `expeditionMapGenerator.ts` (seeded PRNG, ~50ms), ~40–80 objects across scale bands
+- AI enrichment: background call to `ai-interpret` Edge Function for creative names (optional, ~2s)
+
+**Execution order:** Task 1 (infrastructure) first → Tasks 2/3/4 (tools) parallel → Tasks 5/6/7 (explorer features) parallel → Tasks 8/9 (grid+minimap) parallel → Task 10 (map gen) → Tasks 11/12/13 (fog+collab) parallel → Task 14 (polish).
+
 ## Current State
 
 **Template + DataTable bug fixes complete (2026-02-20).** Four issues fixed on top of the Table Polish + Template Redesign task. TypeScript: 0 errors (pre-existing `auth/index.ts` export error unrelated).
@@ -81,6 +98,9 @@ Connector endpoints now update in real-time when connected objects are **rotated
 
 ## Next Items (suggested)
 
+**Next up:**
+- **Explorer Canvas** — See `docs/plans/2026-02-21-explorer-canvas.md`. Start with Task 1 (board mode infrastructure), then run Tasks 2/3/4 in parallel.
+
 **Done this session:**
 - **AI Client API** ✅ — createObject, updateObject, deleteObjects, queryObjects; getDocument/fetchDocuments in documentsApi; exported from @/features/workspace.
 - **AI Client API docs (Task B)** ✅ — docs/AI_CLIENT_API.md updated: marked "Implemented (client + Edge Function)", import examples, usage examples. Edge Function (supabase/functions/ai-canvas-ops) + frontend wrapper (aiCanvasOpsEdgeApi.ts) + barrel export all verified.
@@ -104,7 +124,7 @@ Connector endpoints now update in real-time when connected objects are **rotated
 
 **Done this session (MeBoard branding — safe parallel items):**
 - **LoginPage rebrand** ✅ — Full pirate theme: "MeBoard" hero, "Ahoy Captain" copy, parchment card, gold Google button ("Join the Crew with Google"), "Enter the Ship" submit, "New to the crew? Sign up free ⚓" toggle, "Why MeBoard?" feature section, testimonial, CTA.
-- **NavBar + Footer** ✅ — `src/shared/components/NavBar.tsx` (fixed top, MeBoard logo, Log In/Sign out) + `src/shared/components/Footer.tsx`. Used in LoginPage and BoardListPage. Features/Pricing links removed — TODO very much later.
+- **NavBar + Footer** ✅ — `src/shared/components/NavBar.tsx` (fixed top, MeBoard logo, Log In/Sign out) + `src/shared/components/Footer.tsx`. Used in LoginPage and BoardListPage. Features/Pricing pages out of scope (add later if needed).
 - **index.html** ✅ — Title: "MeBoard – Pirate-Themed Collaborative Whiteboard"; meta description; OG tags; anchor emoji favicon (SVG data URI).
 - **App.tsx loading** ✅ — "Hoisting the sails…" with ⚓ anchor icon on navy gradient.
 - **Pirate cursor icons** ✅ — `CursorOverlay.tsx`: dot replaced with emoji icon (⚓🦜🧭☠️🔱) assigned deterministically via `hash(userId) % 5`. Color dot removed — icon only.
@@ -122,7 +142,7 @@ Connector endpoints now update in real-time when connected objects are **rotated
 - ~~**Viewport persistence**~~ ✅ — viewportPersistence.ts; debounced 400ms save; restore on mount; Reset view in zoom dropdown.
 - ~~**WelcomeToast**~~ ✅ — "Welcome aboard!" on first BoardListPage visit per session.
 - ~~**EmptyCanvasX**~~ ✅ — Faint central "✕" on empty zoomed-out boards; EmptyCanvasX.tsx; onObjectCountChange.
-- ~~**NavBar/Footer on BoardListPage**~~ ✅ — Features/Pricing removed (TODO very much later).
+- ~~**NavBar/Footer on BoardListPage**~~ ✅ — Features/Pricing out of scope (add later if needed).
 
 **Planned (documented in PRD + memory bank):**
 - **Canvas features** — docs/PLANNED_CANVAS_FEATURES.md: Object grouping (Group ✅, Ungroup ⚠️ **bug: objects move + unselectable — being fixed**), Free draw (pencil), Lasso selection, Multi-scale map vision.

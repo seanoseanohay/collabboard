@@ -7,6 +7,7 @@ import {
   createBoard,
   joinBoard,
   deleteBoard,
+  leaveBoard,
   updateBoardTitle,
   fetchPublicBoards,
   updateBoardVisibility,
@@ -175,10 +176,15 @@ export function BoardListPage() {
   }
 
   const handleDeleteConfirm = async () => {
-    if (!deleteConfirmId) return
+    if (!deleteConfirmId || !userId) return
     setDeleting(true)
     try {
-      await deleteBoard(deleteConfirmId)
+      const board = [...boards, ...publicBoards].find((b) => b.id === deleteConfirmId)
+      if (board?.ownerId === userId) {
+        await deleteBoard(deleteConfirmId)
+      } else {
+        await leaveBoard(deleteConfirmId, userId)
+      }
       setDeleteConfirmId(null)
     } finally {
       setDeleting(false)
@@ -417,15 +423,15 @@ export function BoardListPage() {
                               >
                                 {board.isPublic ? '🔒 Make private' : '🌐 Make public'}
                               </button>
-                              <button
-                                type="button"
-                                style={{ ...styles.menuItem, ...styles.menuItemDanger }}
-                                onClick={(e) => handleDeleteClick(e, board.id)}
-                              >
-                                Delete
-                              </button>
                             </>
                           )}
+                          <button
+                            type="button"
+                            style={{ ...styles.menuItem, ...styles.menuItemDanger }}
+                            onClick={(e) => handleDeleteClick(e, board.id)}
+                          >
+                            {board.ownerId === userId ? 'Delete' : 'Leave board'}
+                          </button>
                         </div>
                       )}
                     </div>
@@ -475,35 +481,41 @@ export function BoardListPage() {
         )}
       </main>
 
-      {deleteConfirmId && (
-        <div style={styles.modalBackdrop} role="dialog" aria-modal="true" aria-labelledby="delete-title">
-          <div style={styles.modal}>
-            <h2 id="delete-title" style={styles.modalTitle}>
-              Delete this board?
-            </h2>
-            <p style={styles.modalBody}>
-              This can&apos;t be undone.
-            </p>
-            <div style={styles.modalActions}>
-              <button
-                type="button"
-                onClick={() => setDeleteConfirmId(null)}
-                style={styles.cancelBtn}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleDeleteConfirm}
-                disabled={deleting}
-                style={styles.deleteBtn}
-              >
-                {deleting ? 'Deleting…' : 'Delete'}
-              </button>
+      {deleteConfirmId && (() => {
+        const target = [...boards, ...publicBoards].find((b) => b.id === deleteConfirmId)
+        const isOwner = target?.ownerId === userId
+        return (
+          <div style={styles.modalBackdrop} role="dialog" aria-modal="true" aria-labelledby="delete-title">
+            <div style={styles.modal}>
+              <h2 id="delete-title" style={styles.modalTitle}>
+                {isOwner ? 'Delete this board?' : 'Leave this board?'}
+              </h2>
+              <p style={styles.modalBody}>
+                {isOwner
+                  ? "This can\u2019t be undone."
+                  : 'This board will be removed from your list. You can rejoin later with the share link.'}
+              </p>
+              <div style={styles.modalActions}>
+                <button
+                  type="button"
+                  onClick={() => setDeleteConfirmId(null)}
+                  style={styles.cancelBtn}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteConfirm}
+                  disabled={deleting}
+                  style={styles.deleteBtn}
+                >
+                  {deleting ? (isOwner ? 'Deleting\u2026' : 'Leaving\u2026') : (isOwner ? 'Delete' : 'Leave')}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
       {showParrot && (
         <ParrotMascot
           message={parrotMsg}
