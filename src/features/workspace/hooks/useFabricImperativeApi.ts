@@ -7,6 +7,8 @@ import {
   IText,
   Ellipse,
   Rect,
+  Polygon,
+  Polyline,
   util,
   PencilBrush,
   CircleBrush,
@@ -704,6 +706,23 @@ export function useFabricImperativeApi({
                 originX: 'left',
                 originY: 'top',
               })
+            } else if (spec.type === 'polygon' && spec.points) {
+              obj = new Polygon(spec.points, {
+                fill: spec.fill ?? '#e5e7eb',
+                stroke: spec.stroke ?? '#374151',
+                strokeWidth: spec.strokeWidth ?? 1,
+                originX: 'left',
+                originY: 'top',
+              })
+            } else if (spec.type === 'polyline' && spec.points) {
+              obj = new Polyline(spec.points, {
+                fill: 'transparent',
+                stroke: spec.stroke ?? '#374151',
+                strokeWidth: spec.strokeWidth ?? 1,
+                strokeDashArray: spec.strokeDashArray,
+                originX: 'left',
+                originY: 'top',
+              })
             }
 
             if (!obj) continue
@@ -714,6 +733,7 @@ export function useFabricImperativeApi({
             const lodData: Record<string, unknown> = {}
             if (spec.minZoom != null) lodData.minZoom = spec.minZoom
             if (spec.maxZoom != null && isFinite(spec.maxZoom)) lodData.maxZoom = spec.maxZoom
+            if (spec.mapRole != null) lodData.mapRole = spec.mapRole
             if (Object.keys(lodData).length > 0) obj.set('data', { ...(obj.get('data') as Record<string, unknown> ?? {}), ...lodData })
 
             canvas.add(obj)

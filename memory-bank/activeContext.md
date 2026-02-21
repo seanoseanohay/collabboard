@@ -2,6 +2,12 @@
 
 ## Current Focus (for next agent)
 
+**Expedition Map v2 complete (2026-02-21).** Rich multi-scale map generation with procedural coastlines, treasure markers, harbor town layouts, sea routes, sea creatures, and coastal outposts. ~120–160 objects per map with content at every zoom band.
+
+**Explorer Canvas Group F complete (2026-02-21).** Tasks 11, 12, 13 shipped — Fog of War, Laser pointer, Follow mode. Fog polish: persistence, reveal slider, zoom scaling, expedition maps start with fog.
+
+---
+
 **Explorer Canvas Group B complete (2026-02-21).** All three Group B tasks shipped (Tasks 2, 3, 4):
 
 1. **Board mode infrastructure** — `board_mode TEXT NOT NULL DEFAULT 'standard'` column added via migration (with DROP FUNCTION + CREATE FUNCTION pattern for RPC return type changes). `BoardMeta.boardMode` threaded through BoardPage → WorkspacePage → WorkspaceToolbar → FabricCanvas. Creation picker dropdown: "⚓ New Board" / "🗺️ New Expedition". `🗺️ Expedition` badge on board cards. Empty-state button also uses dropdown.
@@ -35,8 +41,8 @@
 6. **Procedural + AI map generation** (explorer only) — Auto-generates ~40–80 multi-scale objects on new expedition boards. Seeded PRNG for layout; optional AI enrichment for creative names.
 7. **Mini-map navigator** (explorer only) — 200×140px overview in corner with viewport indicator.
 8. **Hex grid + snap-to-grid** — Hex grid rendering option (default in explorer). Magnet snap toggle.
-9. **Fog of War** (explorer only, optional toggle) — Dark overlay with circular reveals. localStorage persistence.
-10. **Laser pointer + Follow mode** (all modes) — Temporary broadcast trail; click presence icon to mirror another user's viewport.
+9. **Fog of War** (explorer only) ✅ — Dark overlay with circular reveals. `fogOfWarStorage.ts`: loadFogReveals/saveFogReveals (meboard:fog:{boardId}), loadFogEnabled/saveFogEnabled (meboard:fog-enabled:{boardId}). ⛅ toggle; 🔦 reveal tool when fog on. Reveal slider (20–300px) in contextual bar when reveal tool active. Zoom scaling: sceneRadius = revealRadius/zoom (like free-draw — same screen size at any zoom). New expedition maps auto-enable fog and save state.
+10. **Laser pointer + Follow mode** (all modes) ✅ — Laser: `laser` tool, trail buffer (max 100 pts, 1.5s fade), broadcast via cursor payload. CursorOverlay renders local + remote trails. Follow: click presence icon → mirror viewport; `viewportTransform` in cursor broadcast; setViewportTransform on FabricCanvasZoomHandle; "Following [name]" banner; Escape or click anywhere to stop.
 11. **Animated zoom transitions** — Smooth ease-out pan/zoom for port navigation and zoom presets.
 
 Parallel execution: Tasks 2/3/4 (tools+shapes) run in parallel; Tasks 5/6/7 (explorer features) run in parallel; Tasks 8/9 (grid+minimap) run in parallel; Tasks 11/12/13 (fog+collab) run in parallel. Task 1 (infrastructure) runs first. Task 10 (map gen) depends on tools+shapes+LOD.
@@ -114,7 +120,7 @@ Parallel execution: Tasks 2/3/4 (tools+shapes) run in parallel; Tasks 5/6/7 (exp
 6. **Canvas features** — ~~Free draw~~ ✅, ~~Ungroup bug~~ ✅, ~~Lasso selection~~ ✅. See docs/PLANNED_CANVAS_FEATURES.md.
 7. **Connector Phase 2** — port hover glow, double-click segment for waypoint, right-click context menu (Reset route, Reverse direction), auto-route.
 8. ~~**Frame Phase 2**~~ ✅ — (a) Send-to-back auto-capture ✅, (b) Frame title zoom fix ✅, (c) Frame forms ✅. See Recent Changes above.
-9. **Explorer Canvas (MeBoard 2.0)** — Board mode infrastructure ✅ (Task 1). Enhanced drawing ✅ (Task 2). New shapes ✅ (Task 3). Remaining: LOD visibility, scale bands, Ports of Call, mini-map, hex grid, fog of war, procedural map generation, laser pointer, follow mode, animated zoom. See `docs/plans/2026-02-21-explorer-canvas.md`.
+9. **Explorer Canvas (MeBoard 2.0)** — Tasks 1–13 done. Remaining: Task 14 (animated zoom + arrow shape). Groups A–F complete: board mode, enhanced drawing, new shapes, freeform polygon, LOD, Ports of Call, mini-map, hex grid, fog of war, laser pointer, follow mode. See `docs/plans/2026-02-21-explorer-canvas.md`.
 
 **Parrot mascot layout pattern:**
 - `ParrotMascot` is `position: fixed, right: 20, top: 58`. Flex column, parrot on top, bubble below.
@@ -125,6 +131,21 @@ Parallel execution: Tasks 2/3/4 (tools+shapes) run in parallel; Tasks 5/6/7 (exp
 **MeBoard branding** ✅ — Phase 1 + Phase 2 + Parrot mascot done. Login, nav, footer, index.html, App loading, pirate cursor icons, map border overlay + toggle, Pirate Plunder stickers, Parrot mascot. Spec: docs/MeBoard_BRANDING_SPEC.md.
 
 **Planned canvas features** — See docs/PLANNED_CANVAS_FEATURES.md: Object grouping (Group ✅, Ungroup ✅), ~~Free draw~~ ✅, ~~Lasso selection~~ ✅, Multi-scale map vision. **Finished-product:** Connectors ✅, Frames ✅, Duplicate ✅, Copy & Paste ✅, ~~Marquee mode~~ ✅ (Alt+drag).
+
+## Recent Changes (2026-02-21 — Explorer Canvas Group F)
+
+### Fog of War (Task 11)
+- **FogOfWarOverlay.tsx** — SVG overlay with dark mask and circular cutouts. `fogOfWarStorage.ts`: loadFogReveals/saveFogReveals (meboard:fog:{boardId}), loadFogEnabled/saveFogEnabled (meboard:fog-enabled:{boardId}).
+- **Persistence** — Fog enabled/disabled survives navigation. Initialized from storage on mount; saved on toggle.
+- **Reveal tool** — 🔦 when fog on; click to reveal circles. **Reveal slider:** 20–300px in contextual bar when reveal tool active (separate from draw brush width). **Zoom scaling:** sceneRadius = revealRadius / zoom (like free-draw — same screen size at any zoom). **Expedition maps:** Auto-enable fog and save after populateExpeditionMap.
+
+### Laser pointer (Task 12)
+- `laser` tool in ToolType and toolbar. Trail buffer (max 100 pts, 1.5s fade). Broadcast via cursor payload `laserTrail`. CursorOverlay renders local + remote trails.
+
+### Follow mode (Task 13)
+- Click presence icon → mirror viewport. `viewportTransform` in presence payload; `setViewportTransform` on FabricCanvasZoomHandle. "Following [name]" banner; Escape or click anywhere to stop. All modes.
+
+---
 
 ## Recent Changes (2026-02-19 — AI Template Redesign)
 
@@ -218,7 +239,7 @@ Frames are **visual containers** (Fabric Group: bg Rect + title IText) whose ass
 4. ~~**Shape tool vs selection**~~ ✅ — With shape tool active, pointer-down always starts drawing (discardActiveObject + draw); never selects.
 5. ~~**Board loading performance**~~ ✅ — Paginated fetch in documentsApi (50 per batch, order by object_id).
 6. ~~**Stroke width (border thickness)**~~ ✅ — PRD §4. strokeUtils (getStrokeWidthFromObject, setStrokeWidthOnObject), StrokeControl in toolbar when selection has stroke (1/2/4/8px). Sync uses Fabric strokeWidth in payload. FabricCanvas: onSelectionChange, setActiveObjectStrokeWidth on ref.
-17. **Explorer Canvas (MeBoard 2.0)** — Tasks 1-9 done. Groups A/B/C/D complete. Next: Task 10 (procedural map gen), then Tasks 11/12/13 (Fog of War, laser, follow mode), then Task 14 (animated zoom + arrow shape). See `docs/plans/2026-02-21-explorer-canvas.md`.
+17. **Explorer Canvas (MeBoard 2.0)** — Tasks 1–13 done. Groups A–F complete. Next: Task 14 (animated zoom + arrow shape). See `docs/plans/2026-02-21-explorer-canvas.md`.
 
 ## Recent Changes (2026-02-19 — Board list features + drawing fixes)
 

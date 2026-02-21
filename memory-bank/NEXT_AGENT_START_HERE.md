@@ -127,28 +127,34 @@ Task 10 of the Explorer Canvas plan is done:
 
 ## Next Items (suggested)
 
-### PRIORITY: Expedition Map v2 (rich multi-scale map)
-**Plan doc:** `docs/plans/2026-02-21-expedition-map-v2.md` — 7 tasks, ~17 hrs, 4 parallel groups.
+### Expedition Map v2 COMPLETE (2026-02-21)
 
-**Summary:** Transform expedition maps from simple ellipses into immersive pirate worlds:
-1. Re-center coords to ±10M + extend MapObjectSpec for polygon/polyline
-2. Procedural coastlines via noise-based polygon generation (replace ellipses with craggy landmasses)
-3. Treasure markers (red ✕ + gold parchment + dashed trails)
-4. Rich harbor-scale towns (buildings, docks, paths between towns, compass rose)
-5. Rich voyage-scale detail (sea routes, sea creatures, fortress outposts)
-6. AI name enrichment — background call to ai-interpret Edge Function replaces procedural names
-7. Polish + theme extension + visibility range tuning
+**Plan doc:** `docs/plans/2026-02-21-expedition-map-v2.md` — complete.
 
-**Execution order:** Tasks 1+2 parallel (foundation) → Tasks 3/4/5 sequential (content, all modify generator) → Task 6 parallel with B (AI enrichment) → Task 7 (polish).
+**What was built:**
+- **Re-centered coordinates:** Map world now ±10M centered at (0,0); `viewportCenter: {x:0,y:0}`.
+- **Procedural coastlines:** `noiseCoastline.ts` — FBM-based radial distortion, 80 vertices for continents, 50 for islands. Each landmass has unique craggy shape (bays, peninsulas).
+- **Extended MapObjectSpec:** `'polygon'` and `'polyline'` types with `points[]` and `strokeDashArray`. `populateExpeditionMap` in `useFabricImperativeApi.ts` now creates `Fabric.Polygon` and `Fabric.Polyline`.
+- **Treasure markers (Deck scale 0.005+):** Per-continent gold parchment rects + red ✕ + name label + dashed polyline trail from nearest town.
+- **Rich harbor towns (Harbor scale 0.0008–0.012):** Town boundary wall + 3–5 buildings + dock + dock label. Dashed paths between adjacent towns per continent.
+- **Compass rose:** 🧭 at Harbor scale.
+- **Sea routes (Voyage scale 0.00005–0.001):** Dashed blue polylines connecting adjacent continents.
+- **Sea creatures (Voyage scale 0.00008–0.0005):** 5 emoji markers (🐙🦑🐋🦈🐉) scattered in ocean.
+- **Coastal outposts (~30% of islands, Voyage scale 0.0002–0.001):** Small fortress rects + 🏰 Outpost labels.
+- **`treasureNames` on all 3 themes** in `expeditionThemes.ts`.
+- **`mapRole` on text objects** (`continent-name | island-name | ocean-name | town-name | landmark-name | treasure-name`) stored in Fabric `data` for future AI name enrichment.
 
-**Target:** ~120–190 objects per map (up from ~40–80), content at every zoom level from 0.002% to 10%+.
+**Total ~120–160 objects per map.** Content at every zoom level from 0.002% through Harbor.
 
-### Remaining Explorer Canvas tasks
-- **Tasks 11/12/13 (Group F — can run in parallel):**
-  - Task 11: Fog of War — SVG dark overlay with circular reveals, localStorage persistence, explorer only
-  - Task 12: Laser pointer — broadcast trail that fades after 1.5s, all modes
-  - Task 13: Follow mode — click presence icon to mirror another user's viewport, all modes
-- **Last:** Task 14 — Animated zoom transitions + arrow shape.
+### Explorer Canvas Group F COMPLETE (2026-02-21)
+
+Tasks 11, 12, 13 done:
+- **Task 11: Fog of War** ✅ — FogOfWarOverlay, fogOfWarStorage. Persistence (fog enabled survives navigation). Reveal slider (20–300px). Zoom scaling (sceneRadius = revealRadius/zoom). Expedition maps auto-enable fog.
+- **Task 12: Laser pointer** ✅ — Trail buffer, broadcast, 1.5s fade. All modes.
+- **Task 13: Follow mode** ✅ — Click presence icon to mirror viewport. All modes.
+
+### Remaining Explorer Canvas task
+- **Task 14** — Animated zoom transitions + arrow shape.
 - See `docs/plans/2026-02-21-explorer-canvas.md` for full details.
 
 **Done this session:**

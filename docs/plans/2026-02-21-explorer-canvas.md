@@ -40,13 +40,13 @@ Tasks are organized into parallel groups. Tasks within a group can run simultane
 
 | Group | Tasks | Notes |
 |-------|-------|-------|
-| **A** (infrastructure) | 1 | DB migration + BoardMeta + createBoard + creation UI. Foundation for everything. |
-| **B** (all-boards tools) | 2, 3, 4 | Brush slider, new shapes, freeform polygon. Independent files. Run in parallel. |
-| **C** (explorer-exclusive) | 5, 6, 7 | LOD visibility, scale band HUD, Ports of Call. Depend on board_mode from Group A. Run in parallel with each other. |
-| **D** (explorer-exclusive) | 8, 9 | Mini-map, hex grid + snap. Depend on Group A. Run in parallel with each other. |
-| **E** (map generation) | 10 | Procedural + AI map seeding. Depends on Groups A + B (needs new shapes) + C (needs LOD). |
-| **F** (optional/collab) | 11, 12, 13 | Fog of War, laser pointer, follow mode. Independent of each other. Run in parallel. |
-| **G** (polish) | 14 | Animated zoom transitions, advanced shapes (arrow, bezier). Run last. |
+| **A** (infrastructure) | 1 | ✅ DB migration + BoardMeta + createBoard + creation UI. Foundation for everything. |
+| **B** (all-boards tools) | 2, 3, 4 | ✅ Brush slider, new shapes, freeform polygon. Independent files. Run in parallel. |
+| **C** (explorer-exclusive) | 5, 6, 7 | ✅ LOD visibility, scale band HUD, Ports of Call. Depend on board_mode from Group A. Run in parallel with each other. |
+| **D** (explorer-exclusive) | 8, 9 | ✅ Mini-map, hex grid + snap. Depend on Group A. Run in parallel with each other. |
+| **E** (map generation) | 10 | ✅ Procedural + AI map seeding. Depends on Groups A + B (needs new shapes) + C (needs LOD). |
+| **F** (optional/collab) | 11, 12, 13 | ✅ 2026-02-21 — Fog of War, laser pointer, follow mode. Independent of each other. Run in parallel. |
+| **G** (polish) | 14 | Pending — Animated zoom transitions, advanced shapes (arrow, bezier). Run last. |
 
 ---
 

@@ -10,6 +10,7 @@ export interface ExpeditionTheme {
   townNames: string[]
   oceanNames: string[]
   landmarks: string[]
+  treasureNames: string[]
 }
 
 export const EXPEDITION_THEMES: ExpeditionTheme[] = [
@@ -25,6 +26,7 @@ export const EXPEDITION_THEMES: ExpeditionTheme[] = [
     townNames: ['Port Raven', 'Rusty Anchor', "The Crow's Nest", 'Blackwater Harbor', "Smuggler's Den", "Quartermaster's Rest"],
     oceanNames: ['The Sargasso Deep', 'Calm Waters', 'Northern Passage', "The Devil's Strait", 'Whispering Tides'],
     landmarks: ['Here Be Dragons', 'The Maelstrom', 'Treasure of the Ancients', 'The Sunken Cathedral', 'Ghost Ship Graveyard'],
+    treasureNames: ["Blackbeard's Bounty", 'The Lost Doubloons', "Captain Kidd's Cache", 'Chest of the Damned', "The Siren's Gold", 'Pieces of Eight Hoard', "The Phantom's Fortune", "Dead Man's Stash"],
   },
   {
     id: 'frozen-north',
@@ -38,6 +40,7 @@ export const EXPEDITION_THEMES: ExpeditionTheme[] = [
     townNames: ['Frostholm', 'Icebreaker Bay', 'The Frozen Anchor', 'Glacierport', 'Coldwater Cove', 'Snowhaven'],
     oceanNames: ['The Arctic Deep', 'Frozen Passage', 'Northern Drift', 'Ice Strait', 'Polar Currents'],
     landmarks: ['The Ice Citadel', 'Frozen Titan', 'The Frost Vaults', 'Ancient Ice Cave', 'The Eternal Storm'],
+    treasureNames: ['The Glacial Hoard', "Frostborn King's Gold", 'Vault of the Ice Witch', 'The Frozen Armory', 'Tundra Burial Cache', 'Crystal Relics of the North', 'The Permafrost Chest', 'Aurora Jewels'],
   },
   {
     id: 'volcanic-chain',
@@ -51,5 +54,6 @@ export const EXPEDITION_THEMES: ExpeditionTheme[] = [
     townNames: ['Ironport', 'Ashfall Harbor', 'The Forge', 'Ember Town', 'Cinder Cove', 'Lavawatch'],
     oceanNames: ['The Boiling Sea', 'Ash Waters', 'Sulfur Strait', 'The Scorching Deep', 'Flame Currents'],
     landmarks: ['The Great Eruption', 'Lava God Temple', 'The Eternal Forge', 'Obsidian Cathedral', 'Fire Drake Lair'],
+    treasureNames: ['The Molten Vault', "Cinder King's Hoard", 'The Obsidian Cache', 'Fire Drake Plunder', 'Ash Burial Chest', 'The Forge Relics', 'Lava God Offerings', 'Ember Crown Jewels'],
   },
 ]

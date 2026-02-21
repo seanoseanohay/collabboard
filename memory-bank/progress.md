@@ -100,7 +100,14 @@
 **Explorer Canvas Group B complete (2026-02-21):** Freeform polygon tool (`polygon-draw`) — click-to-place vertices, dashed rubber-band preview, double-click or click-near-start to close, Escape cancels, fills white with dark stroke. TypeScript: 0 errors.
 **Explorer Canvas Groups C + D complete (2026-02-21):** LOD visibility (Tasks 5+6) + Ports of Call (Task 7) + Mini-map navigator (Task 8) + Hex grid + snap (Task 9). See "Recently Added" below.
 **FabricCanvas major refactor complete (2026-02-21):** `FabricCanvas.tsx` was 2637 LOC — split into 5 files all under 1000 LOC. TypeScript build: 0 errors.
-**Next:** Explorer Canvas Tasks 11/12/13 — Fog of War, laser pointer, follow mode (can run in parallel). Then Task 14 (animated zoom + arrow shape). See `docs/plans/2026-02-21-explorer-canvas.md`.
+**Explorer Canvas Group F complete (2026-02-21):** Fog of War ✅, Laser pointer ✅, Follow mode ✅. Fog polish: persistence (loadFogEnabled/saveFogEnabled), reveal slider (20–300px), zoom scaling (sceneRadius = revealRadius/zoom), expedition maps start with fog.
+**Expedition Map v2 complete (2026-02-21):** Procedural coastlines (noiseCoastline.ts FBM noise), polygon/polyline MapObjectSpec types, treasure markers with dashed trails, rich harbor towns (buildings + docks + inter-town paths), sea routes, sea creature emoji markers, coastal outposts. `mapRole` tags on text objects. `treasureNames` on all 3 themes. ~120–160 objects per map.
+**Next:** Task 14 (animated zoom + arrow shape). See `docs/plans/2026-02-21-explorer-canvas.md`.
+
+## Recently Added (2026-02-21 — Explorer Canvas Group F)
+- ✅ **Fog of War** — FogOfWarOverlay, fogOfWarStorage. Persistence (fog enabled state survives navigation). Reveal slider (20–300px) in contextual bar. Zoom scaling (like free-draw). Expedition maps start with fog on.
+- ✅ **Laser pointer** — Temporary trail, broadcast, 1.5s fade. All modes.
+- ✅ **Follow mode** — Click presence icon to mirror viewport. All modes.
 
 ## Recently Fixed (2026-02-21 — FabricCanvas Major Refactor)
 
