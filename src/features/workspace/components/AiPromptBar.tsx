@@ -211,7 +211,6 @@ export function AiPromptBar({ boardId, getSelectedObjectIds, createFrame, setFra
                   : '✦ AI generated'}
               </p>
             )}
-            <p style={styles.hint}>Deploy ai-interpret if you see &quot;Not authorized&quot;</p>
           </div>
         </div>
       )}
@@ -372,11 +371,6 @@ const styles: Record<string, React.CSSProperties> = {
     border: '1px solid #6ee7b7',
     borderRadius: 6,
     padding: '6px 10px',
-  },
-  hint: {
-    margin: '8px 0 0',
-    fontSize: 12,
-    color: '#9ca3af',
   },
   selectionHint: {
     margin: '-4px 0 6px',
