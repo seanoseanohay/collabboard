@@ -119,12 +119,20 @@ Tasks 8 and 9 of the Explorer Canvas plan are done:
 8. **Mini-map navigator** ✅ — `MiniMapNavigator.tsx` (200×140px parchment-styled overlay, bottom-left, explorer only). `getMiniMapData()` on `FabricCanvasZoomHandle`: saves viewport, zoom-to-fit, JPEG capture, restore. Blue viewport rectangle overlay. Click-to-pan via `panToScene`. Updates every 2s + on object count change. `getBoundingRect(true)` for grouped objects. Refresh race protection via version counter.
 9. **Hex grid + snap** ✅ — `drawHexGrid(canvas)` in `drawCanvasGrid.ts` (flat-top hexagons, HEX_SIZE=20, low-zoom guard `hexH < 4`). `gridType: 'square' | 'hex' | 'none'` prop on FabricCanvas; explorer boards default `'hex'`, standard boards `'square'`. `GridOverlay` (CSS) only rendered when `gridType === 'square'`. 3-button pill in toolbar (□/⬡/✕). `snapToGrid: boolean` prop; snap rounds to nearest 20px grid on `object:modified` (before `setupDocumentSync`). 🧲 toggle in toolbar.
 
+## Explorer Canvas Group E COMPLETE (2026-02-21)
+
+Task 10 of the Explorer Canvas plan is done:
+
+10. **Procedural expedition map generator** ✅ — `expeditionThemes.ts` (3 themes: Pirate Seas/Frozen North/Volcanic Chain). `expeditionMapGenerator.ts` (Mulberry32 seeded PRNG, generates 41–91 objects across 5 LOD scale bands). `populateExpeditionMap()` on `FabricCanvasZoomHandle` creates Fabric objects (Ellipse/Rect/IText) directly on canvas — boardSync `object:added` handles Supabase sync. `WorkspacePage` triggers on first load of empty expedition board (`isExplorer && objectCount === 0 && boardReady`). `mapGeneratedRef` guards re-trigger; resets on `board.id` change. Initial viewport: 3% zoom centered on map.
+
 ## Next Items (suggested)
 
 **Next up (MeBoard 2.0 — Explorer Canvas):**
-- Tasks 1-9 DONE (Groups A + B + C + D complete).
-- **Task 10:** Procedural + AI map generation (`expeditionMapGenerator.ts`). New expedition boards auto-generate a full pirate map (~40–80 objects across LOD bands).
-- **Then Tasks 11-12-13 (Groups E/F):** Fog of War, laser pointer + follow mode. Can run in parallel.
+- Tasks 1-10 DONE (Groups A + B + C + D + E complete).
+- **Tasks 11/12/13 (Group F — can run in parallel):**
+  - Task 11: Fog of War — SVG dark overlay with circular reveals, localStorage persistence, explorer only
+  - Task 12: Laser pointer — broadcast trail that fades after 1.5s, all modes
+  - Task 13: Follow mode — click presence icon to mirror another user's viewport, all modes
 - **Last:** Task 14 — Animated zoom transitions + arrow shape.
 - See `docs/plans/2026-02-21-explorer-canvas.md` for full details.
 
