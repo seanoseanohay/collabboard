@@ -2,11 +2,12 @@
 
 ## Current Focus (for next agent)
 
-**MeBoard 1.0 COMPLETE (2026-02-21).** Three implementation tasks shipped:
+**Explorer Canvas Group B complete (2026-02-21).** All three Group B tasks shipped (Tasks 2, 3, 4):
 
 1. **Board mode infrastructure** — `board_mode TEXT NOT NULL DEFAULT 'standard'` column added via migration (with DROP FUNCTION + CREATE FUNCTION pattern for RPC return type changes). `BoardMeta.boardMode` threaded through BoardPage → WorkspacePage → WorkspaceToolbar → FabricCanvas. Creation picker dropdown: "⚓ New Board" / "🗺️ New Expedition". `🗺️ Expedition` badge on board cards. Empty-state button also uses dropdown.
 2. **Enhanced drawing tools** — `DrawBrushControl.tsx` fully rewritten: 4 brush types (PencilBrush/CircleBrush/SprayBrush/PatternBrush) with SVG icon buttons, eraser toggle (`globalCompositeOperation: 'destination-out'` applied to paths in `handleObjectAdded`), logarithmic brush size slider (1–512px via `brushToSlider`/`sliderToBrush`), opacity slider (0–100%). New imperative handles on FabricCanvas: `setDrawBrushType`, `setDrawBrushOpacity`, `setDrawEraserMode`.
 3. **New shapes** — Ellipse and Polygon (3–12 sides, star mode) added to `ToolType`, `SHAPE_TOOLS`, `shapeFactory.ts`, `WorkspaceToolbar` insert menu + icons. Polygon tool shows contextual controls (sides spinner + star checkbox). `createShape` options extended with `polygonSides` and `starMode`. Props threaded through WorkspacePage → FabricCanvas.
+4. **Freeform polygon tool** ✅ — `'polygon-draw'` added to `ToolType`. Click-to-place vertices with dashed `Polyline` rubber-band preview. Double-click OR click within 10px of first vertex (≥3 points) closes the polygon and creates a filled `Fabric.Polygon`. Escape cancels. Returns to Select on completion. `Polygon` imported in `FabricCanvas.tsx`. `onPolygonDrawMouseMove` (DOM mousemove) handles rubber-banding. `closePolygonDraw()` helper creates the final shape. `handleDblClick` pops the duplicate vertex from the second mousedown before closing. Crosshair cursor when active. Icon in `WorkspaceToolbar` (dashed outline + vertex dots). TypeScript: 0 errors.
 
 ---
 
@@ -209,7 +210,7 @@ Frames are **visual containers** (Fabric Group: bg Rect + title IText) whose ass
 4. ~~**Shape tool vs selection**~~ ✅ — With shape tool active, pointer-down always starts drawing (discardActiveObject + draw); never selects.
 5. ~~**Board loading performance**~~ ✅ — Paginated fetch in documentsApi (50 per batch, order by object_id).
 6. ~~**Stroke width (border thickness)**~~ ✅ — PRD §4. strokeUtils (getStrokeWidthFromObject, setStrokeWidthOnObject), StrokeControl in toolbar when selection has stroke (1/2/4/8px). Sync uses Fabric strokeWidth in payload. FabricCanvas: onSelectionChange, setActiveObjectStrokeWidth on ref.
-17. **Explorer Canvas (MeBoard 2.0)** — Tasks 1-3 done (board mode, brushes, shapes). Next: Tasks 4+ (LOD, scale bands, map gen, Ports of Call, mini-map, hex grid, fog of war, collab extras). See `docs/plans/2026-02-21-explorer-canvas.md`.
+17. **Explorer Canvas (MeBoard 2.0)** — Tasks 1-4 done (board mode, brushes, shapes, freeform polygon). Group B complete. Next: Group C Tasks 5-7 in parallel (LOD visibility + scale band HUD, Ports of Call, hex grid + snap), then Group D Tasks 8-9 (mini-map, procedural map gen). See `docs/plans/2026-02-21-explorer-canvas.md`.
 
 ## Recent Changes (2026-02-19 — Board list features + drawing fixes)
 

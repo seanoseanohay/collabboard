@@ -235,6 +235,7 @@ const FabricCanvasInner = (
   const starModeRef = useRef(starMode)
   starModeRef.current = starMode
   const brushOpacityRef = useRef(1)
+  const brushWidthRef = useRef(2)
   const eraserActiveRef = useRef(false)
   const onPointerMoveRef = useRef(onPointerMove)
   onPointerMoveRef.current = onPointerMove
@@ -799,8 +800,11 @@ const FabricCanvasInner = (
     setDrawBrushWidth: (width: number) => {
       const canvas = canvasRef.current
       if (!canvas) return
+      brushWidthRef.current = width
       if (!canvas.freeDrawingBrush) canvas.freeDrawingBrush = new PencilBrush(canvas)
-      canvas.freeDrawingBrush.width = width
+      // Sqrt zoom compensation: brush appears consistent on screen at any zoom level
+      // without creating absurdly large scene-space strokes at extreme zoom-out.
+      canvas.freeDrawingBrush.width = width / Math.sqrt(canvas.getZoom())
     },
     setDrawBrushType: (type: 'pencil' | 'circle' | 'spray' | 'pattern') => {
       const canvas = canvasRef.current
@@ -948,6 +952,10 @@ const FabricCanvasInner = (
       if (vpt && onViewportChangeRef.current) onViewportChangeRef.current([...vpt])
       updateFrameTitleVisibility(fabricCanvas)
       updateTableTitleVisibility(fabricCanvas)
+      // Recompute brush width with sqrt zoom compensation so strokes stay visible at any zoom level
+      if (fabricCanvas.isDrawingMode && fabricCanvas.freeDrawingBrush) {
+        fabricCanvas.freeDrawingBrush.width = brushWidthRef.current / Math.sqrt(fabricCanvas.getZoom())
+      }
     }
 
     const { applyZoom, zoomToFit, zoomToSelection, handleWheel } = createZoomHandlers(fabricCanvas, width, height, notifyViewport)
@@ -2329,7 +2337,8 @@ const FabricCanvasInner = (
       }
       const brush = canvas.freeDrawingBrush
       brush.color = '#1e293b'
-      brush.width = 2
+      // Restore stored width with sqrt zoom compensation (keeps stroke visible at any zoom level)
+      brush.width = brushWidthRef.current / Math.sqrt(canvas.getZoom())
       canvas.isDrawingMode = true
     } else {
       canvas.isDrawingMode = false
