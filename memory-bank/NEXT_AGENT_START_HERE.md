@@ -127,8 +127,23 @@ Task 10 of the Explorer Canvas plan is done:
 
 ## Next Items (suggested)
 
-**Next up (MeBoard 2.0 — Explorer Canvas):**
-- Tasks 1-10 DONE (Groups A + B + C + D + E complete).
+### PRIORITY: Expedition Map v2 (rich multi-scale map)
+**Plan doc:** `docs/plans/2026-02-21-expedition-map-v2.md` — 7 tasks, ~17 hrs, 4 parallel groups.
+
+**Summary:** Transform expedition maps from simple ellipses into immersive pirate worlds:
+1. Re-center coords to ±10M + extend MapObjectSpec for polygon/polyline
+2. Procedural coastlines via noise-based polygon generation (replace ellipses with craggy landmasses)
+3. Treasure markers (red ✕ + gold parchment + dashed trails)
+4. Rich harbor-scale towns (buildings, docks, paths between towns, compass rose)
+5. Rich voyage-scale detail (sea routes, sea creatures, fortress outposts)
+6. AI name enrichment — background call to ai-interpret Edge Function replaces procedural names
+7. Polish + theme extension + visibility range tuning
+
+**Execution order:** Tasks 1+2 parallel (foundation) → Tasks 3/4/5 sequential (content, all modify generator) → Task 6 parallel with B (AI enrichment) → Task 7 (polish).
+
+**Target:** ~120–190 objects per map (up from ~40–80), content at every zoom level from 0.002% to 10%+.
+
+### Remaining Explorer Canvas tasks
 - **Tasks 11/12/13 (Group F — can run in parallel):**
   - Task 11: Fog of War — SVG dark overlay with circular reveals, localStorage persistence, explorer only
   - Task 12: Laser pointer — broadcast trail that fades after 1.5s, all modes
