@@ -10,6 +10,16 @@ import { getSupabaseClient } from '@/shared/lib/supabase/config'
 
 const FUNCTION_NAME = 'ai-interpret'
 
+// Parrot spiral: "create parrot spiral", "draw parrot spiral", "zoom spiral", etc.
+const PARROT_SPIRAL_PATTERN = /parrot\s+spiral|zoom\s+spiral|create\s+parrot\s+spiral|draw\s+parrot\s+spiral/i
+
+function detectZoomSpiral(prompt: string): AiInterpretResponse | null {
+  if (PARROT_SPIRAL_PATTERN.test(prompt.trim())) {
+    return { commands: [{ action: 'createZoomSpiral' }], source: 'local' }
+  }
+  return null
+}
+
 // Mirrors the template trigger phrases in the Edge Function system prompt.
 const TEMPLATE_PATTERNS: Array<{ pattern: RegExp; templateId: string }> = [
   { pattern: /pros.{0,5}cons|pros\s+and\s+cons/i, templateId: 'pros-cons' },
@@ -128,6 +138,7 @@ export type AiCommand =
   | { action: 'groupCreated' }
   | { action: 'applyTemplate'; templateId: string }
   | { action: 'createGrid'; rows: number; cols: number; fill?: string; width?: number; height?: number }
+  | { action: 'createZoomSpiral'; count?: number }
 
 export interface AiInterpretOptions {
   selectedObjectIds?: string[]
@@ -141,6 +152,9 @@ export async function invokeAiInterpret(
 ): Promise<AiInterpretResponse> {
   const local = detectTemplateLocally(prompt)
   if (local) return local
+
+  const spiral = detectZoomSpiral(prompt)
+  if (spiral) return spiral
 
   const simple = detectSimpleShape(prompt)
   if (simple) return simple

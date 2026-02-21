@@ -13,6 +13,7 @@ const TEMPLATE_EXAMPLES = [
   { label: 'SWOT analysis', prompt: 'Create a SWOT analysis template for 4 quadrants' },
   { label: 'User journey map (5 stages)', prompt: 'Build a user journey map with 5 stages' },
   { label: 'Retrospective board', prompt: "Set up a retrospective board of what went well, what didn't, and action items columns" },
+  { label: 'Parrot spiral (zoom showcase)', prompt: 'Create parrot spiral' },
 ]
 
 const SELECTION_EXAMPLES = [
@@ -30,6 +31,7 @@ interface AiPromptBarProps {
     title: string; showTitle: boolean; accentColor?: string
     formSchema: import('../lib/frameFormTypes').FormSchema | null
   }) => string
+  createZoomSpiral?: (options?: { count?: number }) => void
   /** @deprecated Use createFrame instead. Kept for backward compatibility. */
   groupObjectIds?: (ids: string[]) => Promise<void>
   getViewportCenter?: () => { x: number; y: number }
@@ -40,7 +42,7 @@ interface LastResult {
   usage?: AiUsage
 }
 
-export function AiPromptBar({ boardId, getSelectedObjectIds, createFrame, setFrameChildren, createTable, groupObjectIds, getViewportCenter }: AiPromptBarProps) {
+export function AiPromptBar({ boardId, getSelectedObjectIds, createFrame, setFrameChildren, createTable, createZoomSpiral, groupObjectIds, getViewportCenter }: AiPromptBarProps) {
   const [open, setOpen] = useState(false)
   const [prompt, setPrompt] = useState('')
   const [loading, setLoading] = useState(false)
@@ -64,6 +66,7 @@ export function AiPromptBar({ boardId, getSelectedObjectIds, createFrame, setFra
           createFrame: createFrame ?? undefined,
           setFrameChildren: setFrameChildren ?? undefined,
           createTable: createTable ?? undefined,
+          createZoomSpiral: createZoomSpiral ?? undefined,
           getViewportCenter,
         })
         if (!result.ok) {
@@ -82,7 +85,7 @@ export function AiPromptBar({ boardId, getSelectedObjectIds, createFrame, setFra
         setLoading(false)
       }
     },
-    [boardId, loading, createFrame, setFrameChildren, createTable, groupObjectIds, getViewportCenter]
+    [boardId, loading, createFrame, setFrameChildren, createTable, createZoomSpiral, groupObjectIds, getViewportCenter]
   )
 
   const handleExampleClick = useCallback(

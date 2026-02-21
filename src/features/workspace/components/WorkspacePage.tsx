@@ -15,6 +15,7 @@ import { CursorOverlay, getPirateIcon } from './CursorOverlay'
 import { CursorPositionReadout } from './CursorPositionReadout'
 import { GridOverlay } from './GridOverlay'
 import { MapBorderOverlay } from './MapBorderOverlay'
+import { TreasureMapFrame } from './TreasureMapFrame'
 import { EmptyCanvasX } from './EmptyCanvasX'
 import { EmptyCanvasPrompt } from './EmptyCanvasPrompt'
 import { DebugConsole } from './DebugConsole'
@@ -255,6 +256,7 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
           createFrame={(params) => canvasZoomRef.current?.createFrame(params) ?? ''}
           setFrameChildren={(frameId, childIds) => canvasZoomRef.current?.setFrameChildren(frameId, childIds)}
           createTable={(params) => canvasZoomRef.current?.createTable(params) ?? ''}
+          createZoomSpiral={() => canvasZoomRef.current?.createZoomSpiral()}
           getViewportCenter={() => canvasZoomRef.current?.getViewportCenter() ?? { x: 400, y: 300 }}
         />
         <button
@@ -326,6 +328,7 @@ export function WorkspacePage({ board, onBack, onBoardTitleChange }: WorkspacePa
           onCreateZoomSpiral={() => canvasZoomRef.current?.createZoomSpiral()}
         />
         <MapBorderOverlay zoom={viewportTransform?.[0] ?? 1} visible={showMapBorder} />
+        <TreasureMapFrame zoom={viewportTransform?.[0] ?? 1} visible={showMapBorder} />
         <FabricCanvas
           ref={canvasZoomRef}
           selectedTool={selectedTool}

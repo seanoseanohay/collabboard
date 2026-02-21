@@ -184,6 +184,8 @@ export interface ExecuteAiOptions {
   }) => string
   /** Returns the current viewport center in scene coordinates. */
   getViewportCenter?: () => { x: number; y: number }
+  /** Creates the parrot spiral zoom showcase. */
+  createZoomSpiral?: (options?: { count?: number }) => void
 }
 
 const FRAME_PADDING = 28
@@ -338,6 +340,8 @@ export async function executeAiCommands(
             options.setFrameChildren(templateFrameId, templateChildIds)
           }
         }
+      } else if (cmd.action === 'createZoomSpiral') {
+        options?.createZoomSpiral?.({ count: cmd.count })
       } else if (cmd.action === 'createGrid') {
         const rows = typeof cmd.rows === 'number' ? Math.max(1, cmd.rows) : 2
         const cols = typeof cmd.cols === 'number' ? Math.max(1, cmd.cols) : 3
