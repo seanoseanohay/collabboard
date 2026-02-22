@@ -29,6 +29,7 @@ import {
   type StrokeDash,
 } from '../lib/connectorFactory'
 import { getObjectId, setObjectId, setObjectZIndex } from '../lib/boardSync'
+import { isVisibleAtZoom } from '../lib/scaleBands'
 import { bringToFront, sendToBack, bringForward, sendBackward } from '../lib/fabricCanvasZOrder'
 import { createFrameShape } from '../lib/frameFactory'
 import { setFrameChildIds } from '../lib/frameUtils'
@@ -739,9 +740,20 @@ export function useFabricImperativeApi({
             canvas.add(obj)
           }
 
+          // Apply initial LOD visibility before first render so objects outside the
+          // starting zoom band are hidden from the start (not hidden lazily on first pan/zoom).
+          const zoom = map.initialZoom
+          for (const obj of canvas.getObjects()) {
+            const data = obj.get('data') as { minZoom?: number; maxZoom?: number } | undefined
+            if (data?.minZoom != null || data?.maxZoom != null) {
+              const shouldShow = isVisibleAtZoom(data, zoom)
+              obj.visible = shouldShow
+              obj.evented = shouldShow
+            }
+          }
+
           canvas.requestRenderAll()
 
-          const zoom = map.initialZoom
           const cx = map.viewportCenter.x
           const cy = map.viewportCenter.y
           const w = canvas.width ?? 800
