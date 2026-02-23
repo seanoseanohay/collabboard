@@ -1,5 +1,131 @@
 # AI Client API (Implemented)
 
+## Named Board API
+
+High-level named functions for programmatic board manipulation.
+Import from `@/features/workspace`. Every function takes `boardId` as its first argument.
+Writes go to Supabase; all canvas clients see the change via Realtime within ~50 ms.
+
+### createStickyNote(boardId, text, x, y, color?)
+
+```ts
+import { createStickyNote } from '@/features/workspace'
+const id = await createStickyNote(boardId, 'Hello world', 100, 200, '#fef08a')
+```
+
+| Param | Type | Default |
+|-------|------|---------|
+| boardId | string | required |
+| text | string | required |
+| x, y | number | required — scene coordinates |
+| color | string | `'#fef08a'` (yellow) |
+
+Returns: `objectId` (UUID)
+
+---
+
+### createShape(boardId, type, x, y, width, height, color?)
+
+```ts
+import { createShape } from '@/features/workspace'
+const id = await createShape(boardId, 'rect', 50, 80, 200, 120, '#3b82f6')
+```
+
+| Param | Type | Notes |
+|-------|------|-------|
+| type | `'rect' \| 'circle' \| 'triangle' \| 'line' \| 'text'` | |
+| x, y | number | top-left corner in scene coords |
+| width, height | number | |
+| color | string | `'#ffffff'` default |
+
+Returns: `objectId` (UUID)
+
+---
+
+### createFrame(boardId, title, x, y, width, height)
+
+Creates a labelled frame container. Frame is placed at z-index 1 (always behind its children).
+
+```ts
+import { createFrame } from '@/features/workspace'
+const id = await createFrame(boardId, 'Sprint 1', 0, 0, 800, 600)
+```
+
+Returns: `objectId` (UUID)
+
+---
+
+### createConnector(boardId, fromId, toId, style?)
+
+Creates an arrow/line between two existing objects.
+Fetches both objects' current positions to compute endpoints; the canvas snaps endpoints to ports once rendered.
+
+```ts
+import { createConnector } from '@/features/workspace'
+const id = await createConnector(boardId, rectId, circleId, {
+  arrowMode: 'end',      // 'none' | 'end' | 'both'
+  strokeDash: 'dashed',  // 'solid' | 'dashed' | 'dotted'
+  sourcePort: 'mb',      // 'mt' | 'mr' | 'mb' | 'ml'
+  targetPort: 'mt',
+})
+```
+
+Returns: `objectId` (UUID)
+
+---
+
+### moveObject(boardId, objectId, x, y)
+
+```ts
+import { moveObject } from '@/features/workspace'
+await moveObject(boardId, id, 300, 400)
+```
+
+---
+
+### resizeObject(boardId, objectId, width, height)
+
+```ts
+import { resizeObject } from '@/features/workspace'
+await resizeObject(boardId, id, 400, 300)
+```
+
+---
+
+### updateText(boardId, objectId, newText)
+
+Works on sticky notes, text objects, and labelled shapes.
+
+```ts
+import { updateText } from '@/features/workspace'
+await updateText(boardId, id, 'Updated label')
+```
+
+---
+
+### changeColor(boardId, objectId, color)
+
+Sets the fill color. Accepts any CSS color string.
+
+```ts
+import { changeColor } from '@/features/workspace'
+await changeColor(boardId, id, '#ef4444')
+```
+
+---
+
+### getBoardState(boardId)
+
+Returns all objects on the board as a flat array. Useful as AI context.
+
+```ts
+import { getBoardState, type BoardObject } from '@/features/workspace'
+const objects: BoardObject[] = await getBoardState(boardId)
+// objects[0] = { objectId, type, left, top, width, height, fill, text, data }
+```
+
+---
+
 ## Overview
 
 All CollabBoard actions should be executable via a documented client-side API. This allows:

@@ -396,37 +396,7 @@ export function BoardListPage() {
             {activeTab === 'public' ? (
               <p style={boardListStyles.empty}>No public boards yet.</p>
             ) : (
-              <>
-                <p style={boardListStyles.empty}>No boards yet. Create one to get started.</p>
-                <div style={{ position: 'relative', display: 'inline-block' }}>
-                  <button
-                    type="button"
-                    onClick={() => setCreateMenuOpen((v) => !v)}
-                    disabled={creating}
-                    style={boardListStyles.emptyCreateBtn}
-                  >
-                    {creating ? 'Creating…' : '+ New Board ▾'}
-                  </button>
-                  {createMenuOpen && (
-                    <div ref={createMenuRef} style={boardListStyles.createMenu}>
-                      <button
-                        type="button"
-                        style={boardListStyles.createMenuItem}
-                        onClick={() => void handleCreate('standard')}
-                      >
-                        ⚓ New Board
-                      </button>
-                      <button
-                        type="button"
-                        style={boardListStyles.createMenuItem}
-                        onClick={() => void handleCreate('explorer')}
-                      >
-                        🗺️ New Expedition
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </>
+              <p style={boardListStyles.empty}>No boards yet. Use the + New Board button above to get started.</p>
             )}
           </div>
         ) : visibleBoards.length === 0 ? (

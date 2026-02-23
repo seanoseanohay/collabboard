@@ -28,3 +28,19 @@ export {
 
 /** AI interpret — natural language to canvas commands. */
 export { invokeAiInterpret, type AiInterpretResponse, type AiCommand, type AiInterpretOptions } from './api/aiInterpretApi'
+
+/** Named Board API — high-level verbs for programmatic board manipulation. */
+export {
+  createStickyNote,
+  createShape,
+  createFrame,
+  createConnector,
+  moveObject,
+  resizeObject,
+  updateText,
+  changeColor,
+  getBoardState,
+  type ShapeType,
+  type ConnectorStyle,
+  type BoardObject,
+} from './api/boardApi'
